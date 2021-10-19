@@ -50,7 +50,7 @@ endif()
 
 include_directories(/usr/local/include  /usr/local/opt/openssl/include src include/kafka /usr/local/opt/mysql-client/include)
 
-add_executable(owprov
+add_executable(owsub
         build
         src/Daemon.cpp src/Daemon.h
         src/Dashboard.h src/Dashboard.cpp
@@ -75,7 +75,7 @@ add_executable(owprov
         src/storage_setup.cpp
         src/CountryCodes.h)
 
-target_link_libraries(owprov PUBLIC
+target_link_libraries(owsub PUBLIC
         ${Poco_LIBRARIES} ${MySQL_LIBRARIES}
         ${Boost_LIBRARIES}
         ${ZLIB_LIBRARIES} ${AWSSDK_LINK_LIBRARIES}
