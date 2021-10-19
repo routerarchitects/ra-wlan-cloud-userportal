@@ -1,0 +1,22 @@
+[Unit]
+Description=OpenWiFi Subscriber Portal Service
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+Environment="OWSUB_ROOT=/home/admin/dev/wlan-cloud-sub"
+ExecStart=/home/admin/dev/wlan-cloud-sub/cmake-build/owsub
+WorkingDirectory=/home/admin/dev/wlan-cloud-sub
+# ExecReload=/bin/kill -s HUP $MAINPID
+User=admin
+# TimeoutSec=0
+RestartSec=2
+Restart=always
+StartLimitBurst=3
+# KillMode=process
+LimitNOFILE=500000
+LimitNPROC=500000
+
+[Install]
+WantedBy=multi-user.target
