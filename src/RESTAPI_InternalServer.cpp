@@ -11,9 +11,6 @@
 #include "Poco/URI.h"
 
 #include "RESTAPI_system_command.h"
-#include "RESTAPI_inventory_handler.h"
-#include "RESTAPI_configurations_list_handler.h"
-#include "RESTAPI_configurations_handler.h"
 #include "Utils.h"
 
 namespace OpenWifi {
@@ -66,10 +63,7 @@ namespace OpenWifi {
         RESTAPIHandler::BindingMap Bindings;
 
         return RESTAPI_Router_I<
-                RESTAPI_system_command ,
-                RESTAPI_inventory_handler,
-                RESTAPI_configurations_handler,
-                RESTAPI_configurations_list_handler
+                RESTAPI_system_command
             >(Path, Bindings, Logger_, Server_);
     }
 }

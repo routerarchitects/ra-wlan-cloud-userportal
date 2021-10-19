@@ -9,7 +9,7 @@
 #include "StorageService.h"
 
 namespace OpenWifi {
-	void TopoDashboard::Create() {
+    void SubDashboard::Create() {
 		uint64_t Now = std::time(nullptr);
 		if(LastRun_==0 || (Now-LastRun_)>120) {
 			DB_.reset();

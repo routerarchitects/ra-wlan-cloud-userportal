@@ -34,7 +34,7 @@ namespace OpenWifi {
 	static const char * vDAEMON_PROPERTIES_FILENAME = "owsub.properties";
 	static const char * vDAEMON_ROOT_ENV_VAR = "OWSUB_ROOT";
 	static const char * vDAEMON_CONFIG_ENV_VAR = "OWSUB_CONFIG";
-	static const char * vDAEMON_APP_NAME = uSERVICE_SUBCRIBERc_str() ;
+	static const char * vDAEMON_APP_NAME = uSERVICE_SUBCRIBER.c_str() ;
 	static const uint64_t vDAEMON_BUS_TIMER = 10000;
 
     class Daemon : public MicroService {
@@ -49,11 +49,11 @@ namespace OpenWifi {
 
 			void initialize(Poco::Util::Application &self);
 			static Daemon *instance();
-			inline OpenWifi::TopoDashboard & GetDashboard() { return DB_; }
+			inline OpenWifi::SubDashboard & GetDashboard() { return DB_; }
 			Poco::Logger & Log() { return Poco::Logger::get(AppName()); }
 	  	private:
 			static Daemon 				*instance_;
-			OpenWifi::TopoDashboard		DB_{};
+			OpenWifi::SubDashboard		DB_{};
 
     };
 
