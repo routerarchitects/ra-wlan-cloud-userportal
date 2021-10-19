@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.13)
-project(owprov VERSION 2.2.0)
+project(owsub VERSION 2.2.0)
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -71,27 +71,9 @@ add_executable(owprov
         src/StorageService.cpp src/StorageService.h
         src/SubSystemServer.cpp src/SubSystemServer.h
         src/RESTAPI_ProvObjects.cpp src/RESTAPI_ProvObjects.h
-        src/storage_entity.cpp src/storage_entity.h
-        src/storage_policies.cpp src/storage_policies.h
         src/OpenWifiTypes.h
-        src/storage_venue.cpp src/storage_venue.h
-        src/storage_location.cpp src/storage_location.h
-        src/storage_contact.cpp src/storage_contact.h
-        src/RESTAPI_entity_handler.cpp src/RESTAPI_entity_handler.h
-        src/storage_inventory.cpp src/storage_inventory.h
-        src/RESTAPI_contact_handler.cpp src/RESTAPI_contact_handler.h
-        src/RESTAPI_location_handler.cpp src/RESTAPI_location_handler.h
-        src/RESTAPI_venue_handler.cpp src/RESTAPI_venue_handler.h
-        src/RESTAPI_inventory_handler.cpp src/RESTAPI_inventory_handler.h
-        src/RESTAPI_managementPolicy_handler.cpp src/RESTAPI_managementPolicy_handler.h
-        src/RESTAPI_inventory_list_handler.cpp src/RESTAPI_inventory_list_handler.h
-        src/RESTAPI_entity_list_handler.cpp src/RESTAPI_entity_list_handler.h
-        src/storage_management_roles.cpp src/storage_management_roles.h
         src/storage_setup.cpp
-        src/storage_configurations.cpp src/storage_configurations.h
-        src/RESTAPI_configurations_handler.cpp src/RESTAPI_configurations_handler.h
-        src/RESTAPI_webSocketServer.h src/RESTAPI_webSocketServer.cpp src/RESTAPI_contact_list_handler.cpp src/RESTAPI_contact_list_handler.h src/RESTAPI_location_list_handler.cpp src/RESTAPI_location_list_handler.h src/RESTAPI_venue_list_handler.cpp src/RESTAPI_venue_list_handler.h src/RESTAPI_managementPolicy_list_handler.cpp src/RESTAPI_managementPolicy_list_handler.h src/RESTAPI_managementRole_handler.cpp src/RESTAPI_managementRole_handler.h src/RESTAPI_managementRole_list_handler.cpp src/RESTAPI_managementRole_list_handler.h src/RESTAPI_configurations_list_handler.cpp src/RESTAPI_configurations_list_handler.h src/SecurityDBProxy.cpp src/SecurityDBProxy.h src/APConfig.cpp src/APConfig.h src/RESTAPI_errors.h src/ConfigurationValidator.cpp src/ConfigurationValidator.h src/RESTAPI_GenericServer.cpp src/RESTAPI_GenericServer.h src/AutoDiscovery.cpp src/AutoDiscovery.h src/CIDRUtils.cpp src/CIDRUtils.h src/SDK_stubs.cpp src/SDK_stubs.h src/ConfigSanityChecker.cpp src/ConfigSanityChecker.h src/storage_tags.cpp src/storage_tags.h src/TagServer.cpp src/TagServer.h src/Storage.h
-        src/CountryCodes.h src/RESTAPI_db_helpers.cpp src/RESTAPI_db_helpers.h)
+        src/CountryCodes.h)
 
 target_link_libraries(owprov PUBLIC
         ${Poco_LIBRARIES} ${MySQL_LIBRARIES}
