@@ -13,7 +13,7 @@
 #include "Poco/DateTimeFormat.h"
 
 #include "Daemon.h"
-#include "RESTAPI_protocol.h"
+#include "framework/RESTAPI_protocol.h"
 #include "framework/RESTAPI_errors.h"
 #include <thread>
 #include <chrono>

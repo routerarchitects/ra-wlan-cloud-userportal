@@ -28,9 +28,9 @@
 
 #include "framework/ALBHealthCheckServer.h"
 #ifndef SMALL_BUILD
-#include "framework/KafkaManager.h"
+#include "KafkaManager.h"
 #endif
-#include "framework/Kafka_topics.h"
+#include "Kafka_topics.h"
 
 #include "MicroService.h"
 #include "Utils.h"
