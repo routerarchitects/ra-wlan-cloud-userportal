@@ -16,8 +16,8 @@
 #include "Poco/Net/HTTPServerRequest.h"
 #include "Poco/Net/NetException.h"
 
-#include "SubSystemServer.h"
-#include "RESTAPI_GenericServer.h"
+#include "framework/SubSystemServer.h"
+#include "framework/RESTAPI_GenericServer.h"
 
 namespace OpenWifi {
 

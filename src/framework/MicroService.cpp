@@ -26,17 +26,17 @@
 #include "Poco/JSON/Parser.h"
 #include "Poco/JSON/Stringifier.h"
 
-#include "ALBHealthCheckServer.h"
+#include "framework/ALBHealthCheckServer.h"
 #ifndef SMALL_BUILD
-#include "KafkaManager.h"
+#include "framework/KafkaManager.h"
 #endif
-#include "Kafka_topics.h"
+#include "framework/Kafka_topics.h"
 
 #include "MicroService.h"
 #include "Utils.h"
 
 #ifndef TIP_SECURITY_SERVICE
-#include "AuthClient.h"
+#include "framework/AuthClient.h"
 #endif
 
 namespace OpenWifi {

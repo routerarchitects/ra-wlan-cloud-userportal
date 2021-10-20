@@ -18,9 +18,9 @@
 #include "Poco/Data/PostgreSQL/Connector.h"
 #include "Poco/Data/MySQL/Connector.h"
 #include "Poco/URI.h"
-#include "SubSystemServer.h"
+#include "framework/SubSystemServer.h"
 
-#include "Storage.h"
+#include "framework/Storage.h"
 
 namespace OpenWifi {
 

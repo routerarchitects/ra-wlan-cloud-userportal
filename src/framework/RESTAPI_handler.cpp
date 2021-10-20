@@ -22,7 +22,7 @@
 #ifdef	TIP_SECURITY_SERVICE
 #include "AuthService.h"
 #else
-#include "AuthClient.h"
+#include "framework/AuthClient.h"
 #endif
 
 #include "RESTAPI_handler.h"

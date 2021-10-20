@@ -9,7 +9,7 @@
 #include <utility>
 
 #include "AuthClient.h"
-#include "RESTAPI_SecurityObjects.h"
+#include "RESTAPI/RESTAPI_SecurityObjects.h"
 #include "Daemon.h"
 #include "OpenAPIRequest.h"
 

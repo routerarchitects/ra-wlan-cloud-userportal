@@ -7,17 +7,19 @@
 //
 
 
-#include "RESTAPI_InternalServer.h"
 #include "Poco/URI.h"
 
-#include "RESTAPI_system_command.h"
-#include "Utils.h"
+#include "RESTAPI_server.h"
+#include "framework/Utils.h"
+#include "framework/RESTAPI_handler.h"
+
+#include "framework/RESTAPI_system_command.h"
 
 namespace OpenWifi {
 
-    class RESTAPI_InternalServer *RESTAPI_InternalServer::instance_ = nullptr;
+    class RESTAPI_server *RESTAPI_server::instance_ = nullptr;
 
-    int RESTAPI_InternalServer::Start() {
+    int RESTAPI_server::Start() {
         Logger_.information("Starting.");
         LogServer_.InitLogging();
 
@@ -30,40 +32,43 @@ namespace OpenWifi {
             Svr.LogCert(Logger_);
             if(!Svr.RootCA().empty())
                 Svr.LogCas(Logger_);
+
             auto Params = new Poco::Net::HTTPServerParams;
             Params->setMaxThreads(50);
             Params->setMaxQueued(200);
             Params->setKeepAlive(true);
 
-            auto NewServer = std::make_unique<Poco::Net::HTTPServer>(new InternalRequestHandlerFactory(LogServer_), Pool_, Sock, Params);
+            auto NewServer = std::make_unique<Poco::Net::HTTPServer>(new RequestHandlerFactory(LogServer_), Pool_, Sock, Params);
             NewServer->start();
             RESTServers_.push_back(std::move(NewServer));
         }
-
         return 0;
     }
 
-    void RESTAPI_InternalServer::Stop() {
+    Poco::Net::HTTPRequestHandler *RequestHandlerFactory::createRequestHandler(const Poco::Net::HTTPServerRequest & Request) {
+
+        Poco::URI uri(Request.getURI());
+        auto *Path = uri.getPath().c_str();
+        RESTAPIHandler::BindingMap Bindings;
+
+        return  RESTAPI_Router<
+                RESTAPI_system_command
+                >(Path,Bindings,Logger_, Server_);
+    }
+
+    void RESTAPI_server::Stop() {
         Logger_.information("Stopping ");
         for( const auto & svr : RESTServers_ )
             svr->stop();
         RESTServers_.clear();
     }
 
-    void RESTAPI_InternalServer::reinitialize(Poco::Util::Application &self) {
+    void RESTAPI_server::reinitialize(Poco::Util::Application &self) {
         Logger_.information("Reinitializing.");
         Daemon()->LoadConfigurationFile();
         Stop();
         Start();
     }
 
-    Poco::Net::HTTPRequestHandler *InternalRequestHandlerFactory::createRequestHandler(const Poco::Net::HTTPServerRequest & Request) {
-        Poco::URI uri(Request.getURI());
-        const auto &Path = uri.getPath();
-        RESTAPIHandler::BindingMap Bindings;
 
-        return RESTAPI_Router_I<
-                RESTAPI_system_command
-            >(Path, Bindings, Logger_, Server_);
-    }
-}
+}  // namespace

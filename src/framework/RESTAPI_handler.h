@@ -24,7 +24,7 @@
 #include "Poco/CountingStream.h"
 #include "Poco/NullStream.h"
 
-#include "RESTAPI_SecurityObjects.h"
+#include "RESTAPI/RESTAPI_SecurityObjects.h"
 #include "RESTAPI_utils.h"
 #include "RESTAPI_GenericServer.h"
 

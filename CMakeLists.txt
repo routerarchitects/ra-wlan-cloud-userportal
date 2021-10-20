@@ -54,26 +54,26 @@ add_executable(owsub
         build
         src/Daemon.cpp src/Daemon.h
         src/Dashboard.h src/Dashboard.cpp
-        src/MicroService.cpp src/MicroService.h
-        src/Utils.h src/Utils.cpp
-        src/RESTAPI_utils.cpp src/RESTAPI_utils.h
-        src/RESTAPI_SecurityObjects.h src/RESTAPI_SecurityObjects.h
-        src/ALBHealthCheckServer.h
-        src/AuthClient.cpp src/AuthClient.h
-        src/KafkaManager.cpp src/KafkaManager.h
-        src/Kafka_topics.h
-        src/OpenAPIRequest.cpp src/OpenAPIRequest.h
-        src/RESTAPI_SecurityObjects.h src/RESTAPI_SecurityObjects.cpp
-        src/RESTAPI_handler.cpp src/RESTAPI_handler.h
-        src/RESTAPI_server.h src/RESTAPI_server.cpp
-        src/RESTAPI_system_command.h src/RESTAPI_system_command.cpp
-        src/RESTAPI_InternalServer.h src/RESTAPI_InternalServer.cpp
+        src/framework/MicroService.cpp src/framework/MicroService.h
+        src/framework/Utils.h src/framework/Utils.cpp
+        src/framework/RESTAPI_utils.cpp src/framework/RESTAPI_utils.h
+        src/RESTAPI/RESTAPI_SecurityObjects.h src/RESTAPI/RESTAPI_SecurityObjects.h
+        src/framework/ALBHealthCheckServer.h
+        src/framework/AuthClient.cpp src/framework/AuthClient.h
+        src/framework/KafkaManager.cpp src/framework/KafkaManager.h
+        src/framework/Kafka_topics.h
+        src/framework/OpenAPIRequest.cpp src/framework/OpenAPIRequest.h
+        src/RESTAPI/RESTAPI_SecurityObjects.h src/RESTAPI/RESTAPI_SecurityObjects.cpp
+        src/framework/RESTAPI_handler.cpp src/framework/RESTAPI_handler.h
+        src/RESTAPI/RESTAPI_server.h src/RESTAPI/RESTAPI_server.cpp
+        src/framework/RESTAPI_system_command.h src/framework/RESTAPI_system_command.cpp
+        src/RESTAPI/RESTAPI_InternalServer.h src/RESTAPI/RESTAPI_InternalServer.cpp
         src/StorageService.cpp src/StorageService.h
-        src/SubSystemServer.cpp src/SubSystemServer.h
-        src/RESTAPI_ProvObjects.cpp src/RESTAPI_ProvObjects.h
-        src/OpenWifiTypes.h
-        src/storage_setup.cpp
-        src/CountryCodes.h)
+        src/framework/SubSystemServer.cpp src/framework/SubSystemServer.h
+        src/RESTAPI/RESTAPI_ProvObjects.cpp src/RESTAPI/RESTAPI_ProvObjects.h
+        src/framework/OpenWifiTypes.h
+        src/framework/storage_setup.cpp
+        src/framework/CountryCodes.h)
 
 target_link_libraries(owsub PUBLIC
         ${Poco_LIBRARIES} ${MySQL_LIBRARIES}
