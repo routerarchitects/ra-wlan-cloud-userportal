@@ -1841,7 +1841,7 @@ namespace OpenWifi {
 	    inline void ProducerThr();
 	    inline void ConsumerThr();
 
-	    inline void PostMessage(const std::string &topic, const std::string & key, const std::string &PayLoad, bool WrapMessage ) {
+	    inline void PostMessage(const std::string &topic, const std::string & key, const std::string &PayLoad, bool WrapMessage = true  ) {
 	        if(KafkaEnabled_) {
 	            std::lock_guard G(Mutex_);
 	            KMessage M{
