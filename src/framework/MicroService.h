@@ -3155,6 +3155,9 @@ namespace OpenWifi {
         LogBadTokens_[1] = (Poco::icompare(PrivateBadTokens,"true")==0);
     }
 
+#ifdef    TIP_SECURITY_SERVICE
+    [[nodiscard]] bool AuthServiceIsAuthorized(Poco::Net::HTTPServerRequest & Request,std::string &SessionToken, SecurityObjects::UserInfoAndPolicy & UInfo );
+#endif
     inline bool RESTAPIHandler::IsAuthorized() {
         if(Internal_) {
             auto Allowed = MicroService::instance().IsValidAPIKEY(*Request);
@@ -3185,31 +3188,30 @@ namespace OpenWifi {
                 }
             }
 #ifdef    TIP_SECURITY_SERVICE
-            if (AuthService()->IsAuthorized(*Request, SessionToken_, UserInfo_)) {
+            if (AuthServiceIsAuthorized(*Request, SessionToken_, UserInfo_)) {
 #else
-                if (AuthClient()->IsAuthorized(*Request, SessionToken_, UserInfo_)) {
+            if (AuthClient()->IsAuthorized(*Request, SessionToken_, UserInfo_)) {
 #endif
-                    if(Server_.LogIt(Request->getMethod(),true)) {
-                        Logger_.debug(Poco::format("X-REQ-ALLOWED(%s): User='%s@%s' Method='%s' Path='%s",
-                                                   UserInfo_.userinfo.email,
-                                                   Utils::FormatIPv6(Request->clientAddress().toString()),
-                                                   Request->clientAddress().toString(),
-                                                   Request->getMethod(),
-                                                   Request->getURI()));
-                    }
-                    return true;
-                } else {
-                    if(Server_.LogBadTokens(true)) {
-                        Logger_.debug(Poco::format("X-REQ-DENIED(%s): Method='%s' Path='%s",
-                                                   Utils::FormatIPv6(Request->clientAddress().toString()),
-                                                   Request->getMethod(), Request->getURI()));
-                    }
-                    UnAuthorized();
+                if(Server_.LogIt(Request->getMethod(),true)) {
+                    Logger_.debug(Poco::format("X-REQ-ALLOWED(%s): User='%s@%s' Method='%s' Path='%s",
+                                               UserInfo_.userinfo.email,
+                                               Utils::FormatIPv6(Request->clientAddress().toString()),
+                                               Request->clientAddress().toString(),
+                                               Request->getMethod(),
+                                               Request->getURI()));
                 }
-                return false;
+                return true;
+            } else {
+                if(Server_.LogBadTokens(true)) {
+                    Logger_.debug(Poco::format("X-REQ-DENIED(%s): Method='%s' Path='%s",
+                                               Utils::FormatIPv6(Request->clientAddress().toString()),
+                                               Request->getMethod(), Request->getURI()));
+                }
+                UnAuthorized();
             }
+            return false;
         }
-
+    }
 
 	inline MicroService * MicroService::instance_ = nullptr;
 }

@@ -60,8 +60,27 @@ namespace OpenWifi {
             return " LIMIT " + std::to_string(HowMany) + " OFFSET " + std::to_string(From-1) + " ";
         }
 
+        inline std::string ConvertParams(const std::string & S) const {
+            std::string R;
+            R.reserve(S.size()*2+1);
+            if(dbType_==pgsql) {
+                auto Idx=1;
+                for(auto const & i:S)
+                {
+                    if(i=='?') {
+                        R += '$';
+                        R.append(std::to_string(Idx++));
+                    } else {
+                        R += i;
+                    }
+                }
+            } else {
+                R = S;
+            }
+            return R;
+        }
+
     private:
-//        static StorageClass      							*instance_;
         inline int Setup_SQLite();
         inline int Setup_MySQL();
         inline int Setup_PostgreSQL();
