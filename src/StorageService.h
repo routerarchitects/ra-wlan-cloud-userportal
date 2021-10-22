@@ -14,17 +14,15 @@
 #include "Poco/Data/Session.h"
 #include "Poco/Data/SessionPool.h"
 #include "Poco/Data/SQLite/Connector.h"
-
 #include "Poco/Data/PostgreSQL/Connector.h"
 #include "Poco/Data/MySQL/Connector.h"
-#include "Poco/URI.h"
-#include "framework/SubSystemServer.h"
 
-#include "framework/Storage.h"
+#include "framework/MicroService.h"
+#include "framework/StorageClass.h"
 
 namespace OpenWifi {
 
-    class Storage : public SubSystemServer, Poco::Runnable {
+    class Storage : public StorageClass {
         public:
             static Storage *instance() {
                 if (instance_ == nullptr) {
@@ -33,10 +31,8 @@ namespace OpenWifi {
                 return instance_;
             }
 
-            int 	Start() override;
-            void 	Stop() override;
-
-            void run() final;
+            int Start() override;
+            void Stop() override;
 
           private:
             static Storage      								*instance_;
@@ -54,19 +50,9 @@ namespace OpenWifi {
             Poco::Thread                                        Updater_;
             std::set<std::string>                               DeviceTypes_;
             std::atomic_bool                                    Running_=false;
+    };
 
-            bool UpdateDeviceTypes();
-            Storage() noexcept:
-                SubSystemServer("Storage", "STORAGE-SVR", "storage")
-                {
-                }
-
-            int 	Setup_SQLite();
-            int 	Setup_MySQL();
-            int 	Setup_PostgreSQL();
-   };
-
-   inline Storage * Storage() { return Storage::instance(); }
+    inline class Storage * StorageService() { return Storage::instance(); }
 
 }  // namespace
 

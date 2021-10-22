@@ -6,8 +6,8 @@
 //	Arilia Wireless Inc.
 //
 
-#ifndef UCENTRAL_UCENTRAL_H
-#define UCENTRAL_UCENTRAL_H
+#ifndef OPENWIFI_DAEMON_H
+#define OPENWIFI_DAEMON_H
 
 #include <array>
 #include <iostream>
@@ -15,7 +15,7 @@
 #include <vector>
 #include <set>
 
-#include "Poco/Util/Application.h"
+/* #include "Poco/Util/Application.h"
 #include "Poco/Util/ServerApplication.h"
 #include "Poco/Util/Option.h"
 #include "Poco/Util/OptionSet.h"
@@ -24,10 +24,10 @@
 #include "Poco/Crypto/RSAKey.h"
 #include "Poco/Crypto/CipherFactory.h"
 #include "Poco/Crypto/Cipher.h"
+*/
 
-#include "Dashboard.h"
 #include "framework/MicroService.h"
-#include "framework/OpenWifiTypes.h"
+#include "Dashboard.h"
 
 namespace OpenWifi {
 
@@ -44,7 +44,7 @@ namespace OpenWifi {
 							const std::string & ConfigEnv,
 							const std::string & AppName,
 						  	uint64_t 	BusTimer,
-							const Types::SubSystemVec & SubSystems) :
+							const SubSystemVec & SubSystems) :
 				MicroService( PropFile, RootEnv, ConfigEnv, AppName, BusTimer, SubSystems) {};
 
 			void initialize(Poco::Util::Application &self);

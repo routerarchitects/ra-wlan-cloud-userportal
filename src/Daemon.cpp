@@ -6,16 +6,11 @@
 //	Arilia Wireless Inc.
 //
 
-#include <boost/algorithm/string.hpp>
-#include "Poco/Util/Application.h"
-#include "Poco/Util/Option.h"
-#include "Poco/Environment.h"
+#include "framework/MicroService.h"
 
 #include "Daemon.h"
 
 #include "StorageService.h"
-#include "framework/Utils.h"
-#include "framework/AuthClient.h"
 #include "RESTAPI/RESTAPI_server.h"
 #include "RESTAPI/RESTAPI_InternalServer.h"
 
@@ -29,8 +24,8 @@ namespace OpenWifi {
 								   vDAEMON_CONFIG_ENV_VAR,
 								   vDAEMON_APP_NAME,
 								   vDAEMON_BUS_TIMER,
-								   Types::SubSystemVec{
-									   OpenWifi::Storage(),
+								   SubSystemVec{
+									   StorageService(),
 									   AuthClient(),
 									   RESTAPI_server(),
 									   RESTAPI_InternalServer()
