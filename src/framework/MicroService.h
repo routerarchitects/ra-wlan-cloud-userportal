@@ -369,7 +369,7 @@ namespace OpenWifi::Utils {
         std::all_of(Serial.begin(),Serial.end(),[](auto i){return std::isxdigit(i);}));
     }
 
-    [[nodiscard]] inline std::vector<std::string> Split(const std::string &List, char Delimiter ) {
+    [[nodiscard]] inline std::vector<std::string> Split(const std::string &List, char Delimiter=',' ) {
         std::vector<std::string> ReturnList;
 
         unsigned long P=0;

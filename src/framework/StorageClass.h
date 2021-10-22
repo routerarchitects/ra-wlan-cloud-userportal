@@ -16,13 +16,13 @@ namespace OpenWifi {
 
     class StorageClass : public SubSystemServer {
     public:
-        static StorageClass *instance() {
+/*        static StorageClass *instance() {
             if (instance_ == nullptr) {
                 instance_ = new StorageClass;
             }
             return instance_;
         }
-
+*/
         StorageClass() noexcept:
             SubSystemServer("StorageClass", "STORAGE-SVR", "storage")
         {
@@ -49,29 +49,32 @@ namespace OpenWifi {
 
         }
 
+        [[nodiscard]] inline std::string ComputeRange(uint64_t From, uint64_t HowMany) {
+            if(dbType_==sqlite) {
+                return " LIMIT " + std::to_string(From-1) + ", " + std::to_string(HowMany) + " ";
+            } else if(dbType_==pgsql) {
+                return " LIMIT " + std::to_string(HowMany) + " OFFSET " + std::to_string(From-1) + " ";
+            } else if(dbType_==mysql) {
+                return " LIMIT " + std::to_string(HowMany) + " OFFSET " + std::to_string(From-1) + " ";
+            }
+            return " LIMIT " + std::to_string(HowMany) + " OFFSET " + std::to_string(From-1) + " ";
+        }
+
     private:
-        static StorageClass      							*instance_;
+//        static StorageClass      							*instance_;
+        inline int Setup_SQLite();
+        inline int Setup_MySQL();
+        inline int Setup_PostgreSQL();
+
+    protected:
         std::unique_ptr<Poco::Data::SessionPool>        	Pool_;
         std::unique_ptr<Poco::Data::SQLite::Connector>  	SQLiteConn_;
         std::unique_ptr<Poco::Data::PostgreSQL::Connector>  PostgresConn_;
         std::unique_ptr<Poco::Data::MySQL::Connector>       MySQLConn_;
         DBType                                              dbType_ = sqlite;
-
-        typedef std::function<bool(const char *FieldName, std::string &Value)>   exist_func;
-        typedef std::function<bool(const char *FieldName, std::string &Value, std::string &Name, std::string &Description)>   expand_func;
-        std::map<std::string, exist_func>                   ExistFunc_;
-        std::map<std::string, expand_func>                  ExpandFunc_;
-
-        Poco::Thread                                        Updater_;
-        std::set<std::string>                               DeviceTypes_;
-        std::atomic_bool                                    Running_=false;
-
-        inline int Setup_SQLite();
-        inline int Setup_MySQL();
-        inline int Setup_PostgreSQL();
     };
 
-    inline StorageClass * Storage() { return StorageClass::instance(); }
+//    inline StorageClass * Storage() { return StorageClass::instance(); }
 
 #ifdef	SMALL_BUILD
     int Service::Setup_MySQL() { Daemon()->exit(Poco::Util::Application::EXIT_CONFIG); return 0; }
