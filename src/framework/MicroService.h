@@ -2227,6 +2227,8 @@ namespace OpenWifi {
 
 	};
 
+	inline class RESTAPI_InternalServer* RESTAPI_InternalServer::instance_ = nullptr;
+
 	inline RESTAPI_InternalServer * RESTAPI_InternalServer() { return RESTAPI_InternalServer::instance(); };
 
 	class InternalRequestHandlerFactory : public Poco::Net::HTTPRequestHandlerFactory {
@@ -2270,7 +2272,6 @@ namespace OpenWifi {
 
 	    return 0;
 	}
-
 
 	struct MicroServiceMeta {
 		uint64_t 		Id=0;
@@ -2526,11 +2527,14 @@ namespace OpenWifi {
 	    MyHash_ = CreateHash(MyPublicEndPoint_);
 	}
 
+	void MicroServicePostInitialization();
+
 	inline void MicroService::initialize(Poco::Util::Application &self) {
 	    // add the default services
 	    SubSystems_.push_back(KafkaManager());
 	    SubSystems_.push_back(ALBHealthCheckServer());
 	    SubSystems_.push_back(RESTAPI_server());
+	    SubSystems_.push_back(RESTAPI_InternalServer());
 
 	    Poco::Net::initializeSSL();
 	    Poco::Net::HTTPStreamFactory::registerFactory();
@@ -2566,6 +2570,8 @@ namespace OpenWifi {
 
 	    Types::TopicNotifyFunction F = [this](std::string s1,std::string s2) { this->BusMessageReceived(s1,s2); };
 	    KafkaManager()->RegisterTopicWatcher(KafkaTopics::SERVICE_EVENTS, F);
+
+	    MicroServicePostInitialization();
 	}
 
 	inline void MicroService::uninitialize() {

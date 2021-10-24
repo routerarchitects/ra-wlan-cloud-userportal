@@ -31,6 +31,9 @@ namespace OpenWifi {
 	void Daemon::initialize(Poco::Util::Application &self) {
 		MicroService::initialize(*this);
     }
+
+    void MicroServicePostInitialization() {
+	}
 }
 
 int main(int argc, char **argv) {
