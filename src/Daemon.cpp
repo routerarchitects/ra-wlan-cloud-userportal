@@ -9,10 +9,7 @@
 #include "framework/MicroService.h"
 
 #include "Daemon.h"
-
 #include "StorageService.h"
-#include "RESTAPI/RESTAPI_server.h"
-#include "RESTAPI/RESTAPI_InternalServer.h"
 
 namespace OpenWifi {
 	class Daemon *Daemon::instance_ = nullptr;
@@ -25,10 +22,7 @@ namespace OpenWifi {
 								   vDAEMON_APP_NAME,
 								   vDAEMON_BUS_TIMER,
 								   SubSystemVec{
-									   StorageService(),
-									   AuthClient(),
-									   RESTAPI_server(),
-									   RESTAPI_InternalServer()
+									   StorageService()
 								   });
 		}
 		return instance_;

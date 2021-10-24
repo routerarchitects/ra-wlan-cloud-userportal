@@ -52,12 +52,11 @@ include_directories(/usr/local/include  /usr/local/opt/openssl/include src inclu
 
 add_executable(owsub
         build
+        src/APIServers.cpp
         src/Daemon.cpp src/Daemon.h
         src/Dashboard.h src/Dashboard.cpp
         src/framework/MicroService.h
         src/RESTObjects/RESTAPI_SecurityObjects.h src/RESTObjects/RESTAPI_SecurityObjects.cpp
-        src/RESTAPI/RESTAPI_server.h src/RESTAPI/RESTAPI_server.cpp
-        src/RESTAPI/RESTAPI_InternalServer.h src/RESTAPI/RESTAPI_InternalServer.cpp
         src/StorageService.cpp src/StorageService.h
         src/RESTObjects/RESTAPI_ProvObjects.cpp src/RESTObjects/RESTAPI_ProvObjects.h
         src/framework/OpenWifiTypes.h
