@@ -52,15 +52,23 @@ include_directories(/usr/local/include  /usr/local/opt/openssl/include src inclu
 
 add_executable(owsub
         build
+        src/framework/CountryCodes.h
+        src/framework/KafkaTopics.h
+        src/framework/MicroService.h
+        src/framework/OpenWifiTypes.h
+        src/framework/orm.h
+        src/framework/RESTAPI_errors.h
+        src/framework/RESTAPI_protocol.h
+        src/framework/StorageClass.h
+        src/framework/uCentral_Protocol.h
+        src/RESTObjects/RESTAPI_SecurityObjects.h src/RESTObjects/RESTAPI_SecurityObjects.cpp
+        src/RESTObjects/RESTAPI_ProvObjects.cpp src/RESTObjects/RESTAPI_ProvObjects.h
+        src/RESTObjects/RESTAPI_GWobjects.h src/RESTObjects/RESTAPI_GWobjects.cpp
+        src/RESTObjects/RESTAPI_FMSObjects.h src/RESTObjects/RESTAPI_FMSObjects.cpp
         src/APIServers.cpp
         src/Daemon.cpp src/Daemon.h
         src/Dashboard.h src/Dashboard.cpp
-        src/framework/MicroService.h
-        src/RESTObjects/RESTAPI_SecurityObjects.h src/RESTObjects/RESTAPI_SecurityObjects.cpp
-        src/StorageService.cpp src/StorageService.h
-        src/RESTObjects/RESTAPI_ProvObjects.cpp src/RESTObjects/RESTAPI_ProvObjects.h
-        src/framework/OpenWifiTypes.h
-        src/framework/CountryCodes.h)
+        src/StorageService.cpp src/StorageService.h)
 
 target_link_libraries(owsub PUBLIC
         ${Poco_LIBRARIES} ${MySQL_LIBRARIES}
