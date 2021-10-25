@@ -493,6 +493,11 @@ components:
               type: boolean
               default: true
 
+      InternalInterface:
+        type: object
+        properties:
+
+
     #########################################################################################
     ##
     ## These are endpoints that all services in the OPenWiFI stack must provide
@@ -738,7 +743,7 @@ paths:
             type: boolean
           required: false
       requestBody:
-        description: Information used to modify the new entity
+        description: Information used to modify the external interface
         content:
           application/json:
             schema:
@@ -746,6 +751,37 @@ paths:
       responses:
         200:
           $ref: '#/components/schemas/ExternalInterface'
+        400:
+          $ref: '#/components/responses/BadRequest'
+
+  /internalInterface:
+    get:
+      summary: Retrieve the internal interface definitions.
+      operationId: getInternalInterface
+      tags:
+        - interfaces
+      responses:
+        200: '#/components/schemas/InternalInterface'
+    put:
+      summary: Modify the current internal interface configuration.
+      operationId: modifyIntertnalInterface
+      tags:
+        - interfaces
+      parameters:
+        - in: query
+          name: default
+          schema:
+            type: boolean
+          required: false
+      requestBody:
+        description: Information used to modify the internal interface
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InternalInterface'
+      responses:
+        200:
+          $ref: '#/components/schemas/InternalInterface'
         400:
           $ref: '#/components/responses/BadRequest'
 
