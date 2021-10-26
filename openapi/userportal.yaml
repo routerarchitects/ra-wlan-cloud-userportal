@@ -1,0 +1,598 @@
+openapi: 3.0.1
+info:
+  title: OpenWiFi User Portal
+  description: API describing User Self Care interaction with OpenWifi.
+  version: 1.0.0
+  license:
+    name: BSD3
+    url: https://github.com/Telecominfraproject/wlan-cloud-ucentralgw/blob/master/LICENSE
+
+servers:
+  - url: 'https://localhost:16006/api/v1'
+
+security:
+  - bearerAuth: []
+  - ApiKeyAuth: []
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-KEY
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  responses:
+    NotFound:
+      description: The specified resource was not found.
+      content:
+        application/json:
+          schema:
+            properties:
+              ErrorCode:
+                type: integer
+              ErrorDetails:
+                type: string
+              ErrorDescription:
+                type: string
+
+    Unauthorized:
+      description: The requested does not have sufficient rights to perform the operation.
+      content:
+        application/json:
+          schema:
+            properties:
+              ErrorCode:
+                type: integer
+              ErrorDetails:
+                type: string
+              ErrorDescription:
+                type: string
+
+    Success:
+      description: The requested operation was performed.
+      content:
+        application/json:
+          schema:
+            properties:
+              Operation:
+                type: string
+              Details:
+                type: string
+              Code:
+                type: integer
+    BadRequest:
+      description: The requested operation was performed.
+      content:
+        application/json:
+          schema:
+            properties:
+              Operation:
+                type: string
+              Details:
+                type: string
+              Code:
+                type: integer
+
+  schemas:
+    HomeDeviceModeAutomatic:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - automatic
+        subnet:
+          type: string
+          format: ipv4
+        subnetMask:
+          type: string
+          format: ipv4
+        startIP:
+          type: string
+          format: ipv4
+        endIP:
+          type: string
+          format: ipv4
+
+    HomeDeviceModeManual:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - manual
+
+    HomeDeviceModeBridge:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - bridge
+
+    HomeDeviceMode:
+      type: object
+      properties:
+        type:
+          oneOf:
+            - $ref: '#/components/schemas/HomeDeviceModeAutomatic'
+            - $ref: '#/components/schemas/HomeDeviceModeManual'
+            - $ref: '#/components/schemas/HomeDeviceModeBridge'
+
+    IPReservation:
+      type: object
+      properties:
+        nickname:
+          type: string
+        ipAddress:
+          type: string
+          format: ipv4
+        macAddress:
+          type: string
+          format: mac-address
+
+    DnsConfiguration:
+      type: object
+      properties:
+        ISP:
+          type: boolean
+        custom:
+          type: boolean
+        customSettings:
+          type: object
+          properties:
+            primary:
+              type: string
+              format: ipv4
+            seconfary:
+              type: string
+              format: ipv4
+
+    InternetConnectionAutomatic:
+      type: object
+      properties:
+        connection:
+          type: string
+          enum:
+            - automatic
+
+    InternetConnectionPPPoE:
+      type: object
+      properties:
+        connection:
+          type: string
+          enum:
+            - pppoe
+        username:
+          type: string
+        password:
+          type: string
+
+    InternetConnectionManual:
+      type: object
+      properties:
+        connection:
+          type: string
+          enum:
+            - manual
+        ipAddress:
+          type: string
+          format: ipv4
+        subnetMask:
+          type: string
+          format: ipv4
+        defaultGateway:
+          type: string
+          format: ipv4
+        primaryDns:
+          type: string
+          format: ipv4
+        secondaryDns:
+          type: string
+          format: ipv4
+
+    InternetConnection:
+      type: object
+      properties:
+        type:
+          oneOf:
+            - $ref: '#/components/schemas/InternetConnectionAutomatic'
+            - $ref: '#/components/schemas/InternetConnectionPPPoE'
+            - $ref: '#/components/schemas/InternetConnectionManual'
+
+    WifiNetwork:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - main
+            - guest
+        name:
+          type: string
+        password:
+          type: string
+        encryption:
+          type: string
+        band:
+          type: array
+          items:
+            type: string
+            enum:
+              - 2G
+              - 5G
+              - 5GL
+              - 5GU
+
+    AccessTime:
+      type: object
+      properties:
+        day:
+          type: string
+        rangeList:
+          type: array
+          items:
+            type: string
+
+    AccessTimes:
+      type: object
+      properties:
+        schedule:
+          type: array
+          items:
+            $ref: '#/components/schemas/AccessTime'
+
+    SubscriberDevice:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        macAddress:
+          type: string
+        manufacturer:
+          type: string
+        firstContact:
+          type: integer
+          format: int64
+        lastContact:
+          type: integer
+          format: int64
+        group:
+          type: string
+        icon:
+          type: string
+          format: uuid
+        suspended:
+          type: boolean
+        ip:
+          type: string
+        schedule:
+          $ref: '#/components/schemas/AccessTimes'
+
+    SubscriberDeviceList:
+      type: object
+      properties:
+        devices:
+          type: array
+          items:
+            $ref: '#/components/schemas/SubscriberDevice'
+
+    Association:
+      type: object
+      properties:
+        name:
+          type: string
+        macAddress:
+          type: string
+        rssi:
+          type: integer
+        power:
+          type: integer
+        ipv4:
+          type: string
+        ipv6:
+          type: integer
+        tx:
+          type: integer
+        rx:
+          type: integer
+
+    AssociationList:
+      type: object
+      properties:
+        associations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Association'
+
+    Client:
+      type: object
+      properties:
+        macAddress:
+          type: string
+        speed:
+          type: string
+        mode:
+          type: string
+        ipv4:
+          type: string
+        ipv6:
+          type: integer
+        tx:
+          type: integer
+        rx:
+          type: integer
+
+    ClientList:
+      type: object
+      properties:
+        clients:
+          type: array
+          items:
+            $ref: '#/components/schemas/Client'
+
+
+paths:
+  /internetConnection:
+    get:
+      tags:
+        - Internet Connection
+      summary: Read the current internet connection settings
+      operationId: getInternetConnectionSettings
+      parameters:
+        - in: query
+          name: default
+          schema:
+            type: boolean
+            default: false
+          required: false
+      responses:
+        200:
+          $ref: '#/components/schemas/InternetConnection'
+
+    put:
+      summary: Modify the current internet connection settings
+      operationId: modifyInternetConnectionSettings
+      parameters:
+        - in: query
+          name: reset
+          schema:
+            type: boolean
+            default: false
+          required: false
+      requestBody:
+        description: Information used to modify the current internet connection settings
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InternetConnection'
+
+      responses:
+        200:
+          $ref: '#/components/schemas/InternetConnection'
+        400:
+          $ref: '#/components/responses/BadRequest'
+
+  /homeDeviceMode:
+    get:
+      tags:
+        - Device Mode
+      summary: Read the Home Device Mode
+      operationId: getHomeDeviceMode
+      parameters:
+        - in: query
+          name: default
+          schema:
+            type: boolean
+            default: false
+          required: false
+      responses:
+        200:
+          $ref: '#/components/schemas/HomeDeviceMode'
+    put:
+      summary: Modify the current device mode settings
+      operationId: modifyHomeDeviceMode
+      parameters:
+        - in: query
+          name: reset
+          schema:
+            type: boolean
+            default: false
+          required: false
+      requestBody:
+        description: Information used to modify the current device mode settings
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HomeDeviceMode'
+      responses:
+        200:
+          $ref: '#/components/schemas/HomeDeviceMode'
+        400:
+          $ref: '#/components/responses/BadRequest'
+
+  /ipReservations:
+    get:
+      tags:
+        - IP Reservations
+      summary: Retreive the list of IP Reservations
+      operationId: getIPReservationList
+      responses:
+        200:
+          description: Successfully retrieved list of IP Reservations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reservations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/IPReservation'
+    put:
+      tags:
+        - IP Reservations
+      summary: Add A new IP reservation
+      operationId: addIPReservation
+      parameters:
+        - in: query
+          name: replace
+          schema:
+            type: boolean
+            default: false
+          required: false
+      responses:
+        200:
+          description: Reservation added
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IPReservation'
+        400:
+          $ref: '#/components/responses/BadRequest'
+
+    delete:
+      tags:
+        - IP Reservations
+      summary: Delete an IP Reservation
+      operationId: deleteIPReservation
+      parameters:
+        - in: query
+          name: macAddress
+          schema:
+            type: string
+            format: mac-address
+          required: false
+        - in: query
+          name: name
+          schema:
+            type: string
+          required: false
+      responses:
+        200:
+          $ref: '#/components/responses/Success'
+        400:
+          $ref: '#/components/responses/BadRequest'
+
+  /wifiNetworks:
+    get:
+      tags:
+        - WiFi
+      summary: Get the list of defined WiFI networks
+      operationId: getWifiNetworks
+      parameters:
+        - in: query
+          name: default
+          schema:
+            type: boolean
+            default: false
+          required: false
+      responses:
+        200:
+          description: Succesfully get the list of WiFI networks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WifiNetwork'
+
+    put:
+      tags:
+        - WiFi
+      summary: Update the list of WiFi networks
+      operationId: modifyWiFiNetworks
+      parameters:
+        - in: query
+          name: reset
+          schema:
+            type: boolean
+            default: false
+          required: false
+      responses:
+        200:
+          description: Succesfully get the list of WiFI networks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WifiNetwork'
+        400:
+          $ref: '#/components/responses/BadRequest'
+
+  /wiredClients:
+    get:
+      tags:
+        - Clients
+      summary: Get the list of wired clients
+      operationId: getWiredClients
+      responses:
+        200:
+          description: Successfully retrieved client list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientList'
+
+  /wifiClients:
+    get:
+      tags:
+        - Clients
+      summary: Get the list of wired clients
+      operationId: getWifiClients
+      responses:
+        200:
+          description: Successfully retrieved client list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssociationList'
+
+
+  /subscriberDevices:
+    get:
+      tags:
+        - Subscriber Devices
+      summary: Get the list of subscriber devices
+      operationId: getSubscriberDevices
+      responses:
+        200:
+          description: Successfully retrieve subscriber devices
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriberDeviceList'
+    put:
+      tags:
+        - Subscriber Devices
+      summary: Update the list of subscriber devices
+      operationId: modifySubscriberDevices
+      parameters:
+        - in: query
+          name: reset
+          schema:
+            type: boolean
+            default: false
+          required: false
+      requestBody:
+        description: List of devices
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubscriberDeviceList'
+      responses:
+        200:
+          description: Successfully updated the list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriberDeviceList'
+        400:
+          $ref: '#/components/responses/BadRequest'
