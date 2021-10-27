@@ -117,6 +117,9 @@ components:
     HomeDeviceMode:
       type: object
       properties:
+        enableLEDS:
+          type: boolean
+          default: true
         type:
           oneOf:
             - $ref: '#/components/schemas/HomeDeviceModeAutomatic'
