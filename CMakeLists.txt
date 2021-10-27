@@ -68,7 +68,7 @@ add_executable(owsub
         src/APIServers.cpp
         src/Daemon.cpp src/Daemon.h
         src/Dashboard.h src/Dashboard.cpp
-        src/StorageService.cpp src/StorageService.h)
+        src/StorageService.cpp src/StorageService.h src/RESTAPI/RESTAPI_internetConnection_handler.cpp src/RESTAPI/RESTAPI_internetConnection_handler.h src/RESTAPI/RESTAPI_homeDeviceMode_handler.cpp src/RESTAPI/RESTAPI_homeDeviceMode_handler.h src/RESTAPI/RESTAPI_ipReservations_handler.cpp src/RESTAPI/RESTAPI_ipReservations_handler.h src/RESTAPI/RESTAPI_wifiNetworks_handler.cpp src/RESTAPI/RESTAPI_wifiNetworks_handler.h src/RESTAPI/RESTAPI_wiredClients_handler.cpp src/RESTAPI/RESTAPI_wiredClients_handler.h src/RESTAPI/RESTAPI_wifiClients_handler.cpp src/RESTAPI/RESTAPI_wifiClients_handler.h src/RESTAPI/RESTAPI_subscriberDevices_handler.cpp src/RESTAPI/RESTAPI_subscriberDevices_handler.h)
 
 target_link_libraries(owsub PUBLIC
         ${Poco_LIBRARIES} ${MySQL_LIBRARIES}
