@@ -204,6 +204,10 @@ namespace OpenWifi::RESTAPI_utils {
         Obj.set(Field, Arr);
     }
 
+    inline void field_to_json(Poco::JSON::Object &Obj, const char *Field, int Value) {
+        Obj.set(Field, Value);
+    }
+
     template<class T> void field_to_json(Poco::JSON::Object &Obj, const char *Field, const T &Value) {
         Poco::JSON::Object  Answer;
         Value.to_json(Answer);
@@ -219,6 +223,12 @@ namespace OpenWifi::RESTAPI_utils {
                 NewItem.from_json(InnerObj);
                 Value.push_back(NewItem);
             }
+        }
+    }
+
+    inline void field_from_json(const Poco::JSON::Object::Ptr &Obj, const char *Field, int &Value) {
+        if(Obj->isObject(Field)) {
+            Value = Obj->get(Field);
         }
     }
 
@@ -1262,6 +1272,10 @@ namespace OpenWifi {
 	    RESTAPIHandler(BindingMap map, Poco::Logger &l, std::vector<std::string> Methods, RESTAPI_GenericServer & Server, bool Internal=false, bool AlwaysAuthorize=true)
 	    : Bindings_(std::move(map)), Logger_(l), Methods_(std::move(Methods)), Server_(Server), Internal_(Internal), AlwaysAuthorize_(AlwaysAuthorize) {}
 
+	    inline bool RoleIsAuthorized(const std::string & Path, const std::string & Method, std::string & Reason) {
+	        return true;
+	    }
+
 	    inline void handleRequest(Poco::Net::HTTPServerRequest &RequestIn,
                                   Poco::Net::HTTPServerResponse &ResponseIn) final {
 	        try {
@@ -1271,8 +1285,15 @@ namespace OpenWifi {
 	            if (!ContinueProcessing())
 	                return;
 
-	            if (AlwaysAuthorize_ && !IsAuthorized())
+	            if (AlwaysAuthorize_ && !IsAuthorized()) {
 	                return;
+	            }
+
+	            std::string Reason;
+	            if(!RoleIsAuthorized(RequestIn.getURI(), Request->getMethod(), Reason)) {
+                    UnAuthorized(Reason);
+                    return;
+	            }
 
 	            ParseParameters();
 	            if (Request->getMethod() == Poco::Net::HTTPRequest::HTTP_GET)
@@ -3084,7 +3105,7 @@ namespace OpenWifi {
                                                   Internal) {}
                                                   static const std::list<const char *> PathName() { return std::list<const char *>{"/api/v1/system"};}
 
-                                                  inline void DoGet() {
+        inline void DoGet() {
 	        std::string Arg;
 	        if(HasParameter("command",Arg) && Arg=="info") {
 	            Poco::JSON::Object Answer;

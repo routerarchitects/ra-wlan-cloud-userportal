@@ -21,6 +21,14 @@ namespace OpenWifi {
 
             static const std::list<const char *> PathName() { return std::list<const char *>{"/api/v1/homeDeviceMode"}; };
 
+        inline bool RoleIsAuthorized(std::string & Reason) {
+            if(UserInfo_.userinfo.userRole != SecurityObjects::USER_ROLE::SUBSCRIBER) {
+                Reason = "User must be a subscriber";
+                return false;
+            }
+            return true;
+        }
+
         void DoGet() final;
         void DoPost() final {};
         void DoPut() final;

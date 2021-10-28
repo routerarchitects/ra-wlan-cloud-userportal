@@ -78,13 +78,19 @@ components:
                 type: integer
 
   schemas:
-    HomeDeviceModeAutomatic:
+    HomeDeviceMode:
       type: object
       properties:
         type:
           type: string
           enum:
+            - bridge
+            - manual
             - automatic
+          default: automatic
+        enableLEDS:
+          type: boolean
+          default: true
         subnet:
           type: string
           format: ipv4
@@ -97,34 +103,6 @@ components:
         endIP:
           type: string
           format: ipv4
-
-    HomeDeviceModeManual:
-      type: object
-      properties:
-        type:
-          type: string
-          enum:
-            - manual
-
-    HomeDeviceModeBridge:
-      type: object
-      properties:
-        type:
-          type: string
-          enum:
-            - bridge
-
-    HomeDeviceMode:
-      type: object
-      properties:
-        enableLEDS:
-          type: boolean
-          default: true
-        type:
-          oneOf:
-            - $ref: '#/components/schemas/HomeDeviceModeAutomatic'
-            - $ref: '#/components/schemas/HomeDeviceModeManual'
-            - $ref: '#/components/schemas/HomeDeviceModeBridge'
 
     IPReservation:
       type: object
@@ -145,43 +123,26 @@ components:
           type: boolean
         custom:
           type: boolean
-        customSettings:
-          type: object
-          properties:
-            primary:
-              type: string
-              format: ipv4
-            seconfary:
-              type: string
-              format: ipv4
+        primary:
+          type: string
+          format: ipv4
+        seconfary:
+          type: string
+          format: ipv4
 
-    InternetConnectionAutomatic:
+    InternetConnection:
       type: object
       properties:
-        connection:
+        type:
           type: string
           enum:
-            - automatic
-
-    InternetConnectionPPPoE:
-      type: object
-      properties:
-        connection:
-          type: string
-          enum:
+            - manual
             - pppoe
+            - automatic
         username:
           type: string
         password:
           type: string
-
-    InternetConnectionManual:
-      type: object
-      properties:
-        connection:
-          type: string
-          enum:
-            - manual
         ipAddress:
           type: string
           format: ipv4
@@ -198,15 +159,6 @@ components:
           type: string
           format: ipv4
 
-    InternetConnection:
-      type: object
-      properties:
-        type:
-          oneOf:
-            - $ref: '#/components/schemas/InternetConnectionAutomatic'
-            - $ref: '#/components/schemas/InternetConnectionPPPoE'
-            - $ref: '#/components/schemas/InternetConnectionManual'
-
     WifiNetwork:
       type: object
       properties:
@@ -221,7 +173,7 @@ components:
           type: string
         encryption:
           type: string
-        band:
+        bands:
           type: array
           items:
             type: string
