@@ -103,6 +103,12 @@ components:
         endIP:
           type: string
           format: ipv4
+        created:
+          type: integer
+          format: int64
+        modified:
+          type: integer
+          format: int64
 
     IPReservation:
       type: object
@@ -115,6 +121,21 @@ components:
         macAddress:
           type: string
           format: mac-address
+
+    IPReservationList:
+      type: object
+      properties:
+        created:
+          type: integer
+          format: int64
+        modified:
+          type: integer
+          format: int64
+        reservations:
+          type: array
+          items:
+            $ref: '#/components/schemas/IPReservation'
+
 
     DnsConfiguration:
       type: object
@@ -158,6 +179,12 @@ components:
         secondaryDns:
           type: string
           format: ipv4
+        created:
+          type: integer
+          format: int64
+        modified:
+          type: integer
+          format: int64
 
     WifiNetwork:
       type: object
@@ -182,10 +209,27 @@ components:
               - 5G
               - 5GL
               - 5GU
+              - 6G
+
+    WifiNetworkList:
+      type: object
+      properties:
+        created:
+          type: integer
+          format: int64
+        modified:
+          type: integer
+          format: int64
+        networks:
+          type: array
+          items:
+            $ref: '#/components/schemas/WifiNetwork'
 
     AccessTime:
       type: object
       properties:
+        description:
+          type: string
         day:
           type: string
         rangeList:
@@ -196,6 +240,14 @@ components:
     AccessTimes:
       type: object
       properties:
+        description:
+          type: string
+        created:
+          type: integer
+          format: int64
+        modified:
+          type: integer
+          format: int64
         schedule:
           type: array
           items:
@@ -227,12 +279,24 @@ components:
           type: boolean
         ip:
           type: string
+        created:
+          type: integer
+          format: int64
+        modified:
+          type: integer
+          format: int64
         schedule:
           $ref: '#/components/schemas/AccessTimes'
 
     SubscriberDeviceList:
       type: object
       properties:
+        created:
+          type: integer
+          format: int64
+        modified:
+          type: integer
+          format: int64
         devices:
           type: array
           items:
@@ -261,6 +325,12 @@ components:
     AssociationList:
       type: object
       properties:
+        created:
+          type: integer
+          format: int64
+        modified:
+          type: integer
+          format: int64
         associations:
           type: array
           items:
@@ -287,6 +357,12 @@ components:
     ClientList:
       type: object
       properties:
+        created:
+          type: integer
+          format: int64
+        modified:
+          type: integer
+          format: int64
         clients:
           type: array
           items:
@@ -384,12 +460,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  reservations:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/IPReservation'
+                $ref: '#/components/schemas/IPReservationList'
     put:
       tags:
         - IP Reservations
@@ -402,13 +473,19 @@ paths:
             type: boolean
             default: false
           required: false
+      requestBody:
+        description: List of IP reservations to maintain for this device.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IPReservationList'
       responses:
         200:
-          description: Reservation added
+          description: Reservations modified
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/IPReservation'
+                $ref: '#/components/schemas/IPReservationList'
         400:
           $ref: '#/components/responses/BadRequest'
 

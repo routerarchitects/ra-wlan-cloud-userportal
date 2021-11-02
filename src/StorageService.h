@@ -20,6 +20,8 @@
 #include "framework/MicroService.h"
 #include "framework/StorageClass.h"
 
+#include "storage/storage_reservations.h"
+
 namespace OpenWifi {
 
     class Storage : public StorageClass {
@@ -42,10 +44,7 @@ namespace OpenWifi {
             std::unique_ptr<Poco::Data::MySQL::Connector>       MySQLConn_;
             DBType                                              dbType_ = sqlite;
 
-            typedef std::function<bool(const char *FieldName, std::string &Value)>   exist_func;
-            typedef std::function<bool(const char *FieldName, std::string &Value, std::string &Name, std::string &Description)>   expand_func;
-            std::map<std::string, exist_func>                   ExistFunc_;
-            std::map<std::string, expand_func>                  ExpandFunc_;
+            std::unique_ptr<OpenWifi::ReservationsDB>           ReservationDB_;
 
             Poco::Thread                                        Updater_;
             std::set<std::string>                               DeviceTypes_;

@@ -17,6 +17,10 @@ namespace OpenWifi {
 		Logger_.notice("Starting.");
 
 		StorageClass::Start();
+
+		ReservationDB_ = std::make_unique<OpenWifi::ReservationsDB>(dbType_,*Pool_, Logger_);
+		ReservationDB_->Create();
+
         return 0;
     }
 

@@ -9,7 +9,7 @@ using OpenWifi::RESTAPI_utils::field_to_json;
 using OpenWifi::RESTAPI_utils::field_from_json;
 
 
-namespace OpenWifi {
+namespace OpenWifi::SubObjects {
 
     void HomeDeviceMode::to_json(Poco::JSON::Object &Obj) const {
         field_to_json(Obj, "enableLEDS", enableLEDS);
@@ -18,6 +18,8 @@ namespace OpenWifi {
         field_to_json(Obj, "subnetMask", subnetMask);
         field_to_json(Obj, "startIP", startIP);
         field_to_json(Obj, "endIP", endIP);
+        field_to_json(Obj, "created", created);
+        field_to_json(Obj, "modified", modified);
     }
 
     bool HomeDeviceMode::from_json(const Poco::JSON::Object::Ptr &Obj) {
@@ -28,6 +30,8 @@ namespace OpenWifi {
             field_from_json(Obj, "subnetMask", subnetMask);
             field_from_json(Obj, "startIP", startIP);
             field_from_json(Obj, "endIP", endIP);
+            field_from_json(Obj, "created", created);
+            field_from_json(Obj, "modified", modified);
             return true;
         } catch (...) {
         }
@@ -45,6 +49,25 @@ namespace OpenWifi {
             field_from_json(Obj, "nickname", nickname);
             field_from_json(Obj, "ipAddress", ipAddress);
             field_from_json(Obj, "macAddress", macAddress);
+            return true;
+        } catch (...) {
+        }
+        return false;
+    }
+
+    void IPReservationList::to_json(Poco::JSON::Object &Obj) const {
+        field_to_json(Obj, "id", id);
+        field_to_json(Obj, "reservations", reservations);
+        field_to_json(Obj, "created", created);
+        field_to_json(Obj, "modified", modified);
+    }
+
+    bool IPReservationList::from_json(const Poco::JSON::Object::Ptr &Obj) {
+        try {
+            field_from_json(Obj, "id", id);
+            field_from_json(Obj, "reservations", reservations);
+            field_from_json(Obj, "created", created);
+            field_from_json(Obj, "modified", modified);
             return true;
         } catch (...) {
         }
@@ -79,6 +102,8 @@ namespace OpenWifi {
         field_to_json(Obj, "defaultGateway", defaultGateway);
         field_to_json(Obj, "primaryDns", primaryDns);
         field_to_json(Obj, "secondaryDns", secondaryDns);
+        field_to_json(Obj, "created", created);
+        field_to_json(Obj, "modified", modified);
     }
 
     bool InternetConnection::from_json(const Poco::JSON::Object::Ptr &Obj) {
@@ -91,6 +116,8 @@ namespace OpenWifi {
             field_from_json(Obj, "defaultGateway", defaultGateway);
             field_from_json(Obj, "primaryDns", primaryDns);
             field_from_json(Obj, "secondaryDns", secondaryDns);
+            field_from_json(Obj, "created", created);
+            field_from_json(Obj, "modified", modified);
             return true;
         } catch (...) {
         }
@@ -120,11 +147,15 @@ namespace OpenWifi {
 
     void WifiNetworkList::to_json(Poco::JSON::Object &Obj) const {
         field_to_json(Obj, "wifiNetworks", wifiNetworks);
+        field_to_json(Obj, "created", created);
+        field_to_json(Obj, "modified", modified);
     }
 
     bool WifiNetworkList::from_json(const Poco::JSON::Object::Ptr &Obj) {
         try {
             field_from_json(Obj, "wifiNetworks", wifiNetworks);
+            field_from_json(Obj, "created", created);
+            field_from_json(Obj, "modified", modified);
             return true;
         } catch (...) {
         }
@@ -148,11 +179,15 @@ namespace OpenWifi {
 
     void AccessTimes::to_json(Poco::JSON::Object &Obj) const {
         field_to_json(Obj, "schedule", schedule);
+        field_to_json(Obj, "created", created);
+        field_to_json(Obj, "modified", modified);
     }
 
     bool AccessTimes::from_json(const Poco::JSON::Object::Ptr &Obj) {
         try {
             field_from_json(Obj, "schedule", schedule);
+            field_from_json(Obj, "created", created);
+            field_from_json(Obj, "modified", modified);
             return true;
         } catch (...) {
         }
@@ -194,11 +229,15 @@ namespace OpenWifi {
 
     void SubscriberDeviceList::to_json(Poco::JSON::Object &Obj) const {
         field_to_json(Obj, "devices", devices);
+        field_to_json(Obj, "created", created);
+        field_to_json(Obj, "modified", modified);
     }
 
     bool SubscriberDeviceList::from_json(const Poco::JSON::Object::Ptr &Obj) {
         try {
             field_from_json(Obj, "devices", devices);
+            field_from_json(Obj, "created", created);
+            field_from_json(Obj, "modified", modified);
             return true;
         } catch (...) {
         }
@@ -234,11 +273,15 @@ namespace OpenWifi {
 
     void AssociationList::to_json(Poco::JSON::Object &Obj) const {
         field_to_json(Obj, "associations", associations);
+        field_to_json(Obj, "created", created);
+        field_to_json(Obj, "modified", modified);
     }
 
     bool AssociationList::from_json(const Poco::JSON::Object::Ptr &Obj) {
         try {
             field_from_json(Obj, "associations", associations);
+            field_from_json(Obj, "created", created);
+            field_from_json(Obj, "modified", modified);
             return true;
         } catch (...) {
         }
@@ -272,11 +315,15 @@ namespace OpenWifi {
 
     void ClientList::to_json(Poco::JSON::Object &Obj) const {
         field_to_json(Obj, "clients", clients);
+        field_to_json(Obj, "created", created);
+        field_to_json(Obj, "modified", modified);
     }
 
     bool ClientList::from_json(const Poco::JSON::Object::Ptr &Obj) {
         try {
             field_from_json(Obj, "clients", clients);
+            field_from_json(Obj, "created", created);
+            field_from_json(Obj, "modified", modified);
             return true;
         } catch (...) {
         }
