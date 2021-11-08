@@ -38,11 +38,6 @@ namespace OpenWifi {
 
           private:
             static Storage      								*instance_;
-            std::unique_ptr<Poco::Data::SessionPool>        	Pool_;
-            std::unique_ptr<Poco::Data::SQLite::Connector>  	SQLiteConn_;
-            std::unique_ptr<Poco::Data::PostgreSQL::Connector>  PostgresConn_;
-            std::unique_ptr<Poco::Data::MySQL::Connector>       MySQLConn_;
-            DBType                                              dbType_ = sqlite;
 
             std::unique_ptr<OpenWifi::ReservationsDB>           ReservationDB_;
 

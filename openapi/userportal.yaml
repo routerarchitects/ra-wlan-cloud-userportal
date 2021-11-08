@@ -64,6 +64,18 @@ components:
                 type: string
               Code:
                 type: integer
+    Error:
+      description: The requested operation was performed.
+      content:
+        application/json:
+          schema:
+            properties:
+              Operation:
+                type: string
+              Details:
+                type: string
+              Code:
+                type: integer
     BadRequest:
       description: The requested operation was performed.
       content:
@@ -135,7 +147,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/IPReservation'
-
 
     DnsConfiguration:
       type: object
@@ -360,16 +371,165 @@ components:
         created:
           type: integer
           format: int64
+          readOnly: true
         modified:
           type: integer
           format: int64
+          readOnly: true
         clients:
           type: array
           items:
             $ref: '#/components/schemas/Client'
 
+    AccessPoint:
+      type: object
+      properties:
+        macAddress:
+          type: string
+        name:
+          type: string
+        id:
+          type: string
+          format: uuid
+
+    AccessPointList:
+      type: object
+      properties:
+        list:
+          type: array
+          items:
+            $ref: '#/components/schemas/AccessPoint'
+
+    Subscriber:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        userId:
+          type: string
+          format: uuid
+          readOnly: true
+        firstName:
+          type: string
+        initials:
+          type: string
+        lastName:
+          type: string
+        phoneNumber:
+          type: string
+        secondaryEmail:
+          type: string
+          format: email
+        devices:
+          readOnly: true
+          type: array
+          items:
+            $ref: '#/components/schemas/AccessPoint'
+
+    PasswordChange:
+      type: object
+      properties:
+        oldPassword:
+          type: string
+          format: password
+        newPassword:
+          type: string
+          format: password
+
+    PasswordCreation:
+      type: object
+      properties:
+        newPassword:
+          type: string
+          format: password
 
 paths:
+  /accessPoints:
+    get:
+      tags:
+        - Access Points
+      summary: Retrieve information about user devices
+      operationId: getSubscriberAccessPointList
+      responses:
+        200:
+          $ref: '#/components/schemas/AccessPointList'
+    post:
+      tags:
+        - Access Points
+      summary: Add/register a new device for a subscriber
+      operationId: addSubscriberAccessPoint
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccessPoint'
+      responses:
+        200:
+          $ref: '#/components/schemas/AccessPointList'
+        400:
+          $ref: '#/components/responses/BadRequest'
+    put:
+      tags:
+        - Access Points
+      summary: Modify an existing device for a subscriber
+      operationId: modifySubscriberAccessPoint
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccessPoint'
+      responses:
+        200:
+          $ref: '#/components/schemas/AccessPointList'
+        400:
+          $ref: '#/components/responses/BadRequest'
+    delete:
+      tags:
+        - Access Points
+      summary: Delete an access point that is no longer in use.
+      operationId: deleteSubscriberAccessPoint
+      parameters:
+        - in: query
+          name: deviceId
+          schema:
+            type: string
+            format: uuid
+          required: true
+      responses:
+        200:
+          $ref: '#/components/responses/Success'
+        400:
+          $ref: '#/components/responses/BadRequest'
+        404:
+          $ref: '#/components/responses/NotFound'
+
+  /subscriber:
+    get:
+      tags:
+        - Subscriber Information
+      summary: Get the information about the subscriber
+      operationId: getSubscriberInfo
+      responses:
+        200:
+          $ref: '#/components/schemas/Subscriber'
+    put:
+      tags:
+        - Subscriber Information
+      summary: Modify the information stored about the subscriber
+      operationId: modifySubscriberInfo
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Subscriber'
+      responses:
+        200:
+          $ref: '#/components/schemas/Subscriber'
+        400:
+          $ref: '#/components/responses/Error'
+
   /internetConnection:
     get:
       tags:
@@ -377,6 +537,12 @@ paths:
       summary: Read the current internet connection settings
       operationId: getInternetConnectionSettings
       parameters:
+        - in: query
+          name: deviceId
+          schema:
+            type: string
+            format: uuid
+          required: true
         - in: query
           name: default
           schema:
@@ -388,9 +554,17 @@ paths:
           $ref: '#/components/schemas/InternetConnection'
 
     put:
+      tags:
+        - Internet Connection
       summary: Modify the current internet connection settings
       operationId: modifyInternetConnectionSettings
       parameters:
+        - in: query
+          name: deviceId
+          schema:
+            type: string
+            format: uuid
+          required: true
         - in: query
           name: reset
           schema:
@@ -418,6 +592,12 @@ paths:
       operationId: getHomeDeviceMode
       parameters:
         - in: query
+          name: deviceId
+          schema:
+            type: string
+            format: uuid
+          required: true
+        - in: query
           name: default
           schema:
             type: boolean
@@ -427,9 +607,17 @@ paths:
         200:
           $ref: '#/components/schemas/HomeDeviceMode'
     put:
+      tags:
+        - Device Mode
       summary: Modify the current device mode settings
       operationId: modifyHomeDeviceMode
       parameters:
+        - in: query
+          name: deviceId
+          schema:
+            type: string
+            format: uuid
+          required: true
         - in: query
           name: reset
           schema:
@@ -454,6 +642,13 @@ paths:
         - IP Reservations
       summary: Retreive the list of IP Reservations
       operationId: getIPReservationList
+      parameters:
+        - in: query
+          name: deviceId
+          schema:
+            type: string
+            format: uuid
+          required: true
       responses:
         200:
           description: Successfully retrieved list of IP Reservations
@@ -467,6 +662,12 @@ paths:
       summary: Add A new IP reservation
       operationId: addIPReservation
       parameters:
+        - in: query
+          name: deviceId
+          schema:
+            type: string
+            format: uuid
+          required: true
         - in: query
           name: replace
           schema:
@@ -496,6 +697,12 @@ paths:
       operationId: deleteIPReservation
       parameters:
         - in: query
+          name: deviceId
+          schema:
+            type: string
+            format: uuid
+          required: true
+        - in: query
           name: macAddress
           schema:
             type: string
@@ -515,10 +722,16 @@ paths:
   /wifiNetworks:
     get:
       tags:
-        - WiFi
+        - WiFi Networks
       summary: Get the list of defined WiFI networks
       operationId: getWifiNetworks
       parameters:
+        - in: query
+          name: deviceId
+          schema:
+            type: string
+            format: uuid
+          required: true
         - in: query
           name: default
           schema:
@@ -537,10 +750,16 @@ paths:
 
     put:
       tags:
-        - WiFi
+        - WiFi Networks
       summary: Update the list of WiFi networks
       operationId: modifyWiFiNetworks
       parameters:
+        - in: query
+          name: deviceId
+          schema:
+            type: string
+            format: uuid
+          required: true
         - in: query
           name: reset
           schema:
@@ -565,6 +784,13 @@ paths:
         - Clients
       summary: Get the list of wired clients
       operationId: getWiredClients
+      parameters:
+        - in: query
+          name: deviceId
+          schema:
+            type: string
+            format: uuid
+          required: true
       responses:
         200:
           description: Successfully retrieved client list
@@ -576,9 +802,16 @@ paths:
   /wifiClients:
     get:
       tags:
-        - Clients
+        - WiFi Clients
       summary: Get the list of wired clients
       operationId: getWifiClients
+      parameters:
+        - in: query
+          name: deviceId
+          schema:
+            type: string
+            format: uuid
+          required: true
       responses:
         200:
           description: Successfully retrieved client list
@@ -587,13 +820,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/AssociationList'
 
-
   /subscriberDevices:
     get:
       tags:
         - Subscriber Devices
       summary: Get the list of subscriber devices
       operationId: getSubscriberDevices
+      parameters:
+        - in: query
+          name: deviceId
+          schema:
+            type: string
+            format: uuid
+          required: true
       responses:
         200:
           description: Successfully retrieve subscriber devices
@@ -607,6 +846,12 @@ paths:
       summary: Update the list of subscriber devices
       operationId: modifySubscriberDevices
       parameters:
+        - in: query
+          name: deviceId
+          schema:
+            type: string
+            format: uuid
+          required: true
         - in: query
           name: reset
           schema:
@@ -626,5 +871,60 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SubscriberDeviceList'
+        400:
+          $ref: '#/components/responses/BadRequest'
+
+  /signup:
+    post:
+      tags:
+        - Signup Process
+      summary: User is requesting a signup for a new user ID
+      operationId: userSignUp
+      parameters:
+        - in: query
+          name: action
+          required: true
+          schema:
+            type: string
+            enum:
+              - newUser
+              - verifyEmail
+              - forgotPassword
+              - setpassword
+        - in: query
+          name: email
+          required: true
+          schema:
+            type: string
+            format: email
+        - in: query
+          name: id
+          required: false
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/PasswordChange'
+                - $ref: '#/components/schemas/PasswordCreation'
+      responses:
+        200:
+          description: signup in progress
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  error:
+                    type: string
+                  errorCode:
+                    type: integer
         400:
           $ref: '#/components/responses/BadRequest'
