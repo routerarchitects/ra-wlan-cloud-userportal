@@ -178,6 +178,69 @@ namespace OpenWifi::SubObjects {
         bool from_json(const Poco::JSON::Object::Ptr &Obj);
     };
 
+    struct Location {
+        std::string                 buildingName;
+        std::vector<std::string>    addressLines;
+        std::string                 city;
+        std::string                 state;
+        std::string                 postal;
+        std::string                 country;
+        std::vector<std::string>    phones;
+        std::vector<std::string>    mobiles;
+
+        void to_json(Poco::JSON::Object &Obj) const;
+        bool from_json(const Poco::JSON::Object::Ptr &Obj);
+    };
+
+    struct AccessPoint {
+        std::string                 macAddress;
+        std::string                 name;
+        std::string                 id;
+        Location                    location;
+
+        void to_json(Poco::JSON::Object &Obj) const;
+        bool from_json(const Poco::JSON::Object::Ptr &Obj);
+    };
+
+    struct AccessPointList {
+        std::vector<AccessPoint>   list;
+
+        void to_json(Poco::JSON::Object &Obj) const;
+        bool from_json(const Poco::JSON::Object::Ptr &Obj);
+    };
+
+    struct SubscriberInfo {
+        std::string                 id;
+        std::string                 userId;
+        std::string                 firstName;
+        std::string                 initials;
+        std::string                 lastName;
+        std::string                 phoneNumber;
+        std::string                 secondaryEmail;
+        AccessPointList             accessPoints;
+        Location                    serviceAddress;
+        Location                    billingAddress;
+        uint64_t                    created;
+        uint64_t                    modified;
+
+        void to_json(Poco::JSON::Object &Obj) const;
+        bool from_json(const Poco::JSON::Object::Ptr &Obj);
+    };
+
+    struct PasswordChange {
+        std::string                 oldPassword;
+        std::string                 newPassword;
+
+        void to_json(Poco::JSON::Object &Obj) const;
+        bool from_json(const Poco::JSON::Object::Ptr &Obj);
+    };
+
+    struct PasswordCreation {
+        std::string                 newPassword;
+
+        void to_json(Poco::JSON::Object &Obj) const;
+        bool from_json(const Poco::JSON::Object::Ptr &Obj);
+    };
 }
 
 #endif //OWSUB_RESTAPI_SUBOBJECTS_H

@@ -330,4 +330,126 @@ namespace OpenWifi::SubObjects {
         return false;
     }
 
+    void Location::to_json(Poco::JSON::Object &Obj) const {
+        field_to_json(Obj, "buildingName", buildingName);
+        field_to_json(Obj, "addressLines", addressLines);
+        field_to_json(Obj, "city", city);
+        field_to_json(Obj, "state", state);
+        field_to_json(Obj, "postal", postal);
+        field_to_json(Obj, "country", country);
+        field_to_json(Obj, "phones", phones);
+        field_to_json(Obj, "mobiles", mobiles);
+    }
+
+    bool Location::from_json(const Poco::JSON::Object::Ptr &Obj) {
+        try {
+            field_from_json(Obj, "buildingName", buildingName);
+            field_from_json(Obj, "addressLines", addressLines);
+            field_from_json(Obj, "city", city);
+            field_from_json(Obj, "state", state);
+            field_from_json(Obj, "postal", postal);
+            field_from_json(Obj, "country", country);
+            field_from_json(Obj, "phones", phones);
+            field_from_json(Obj, "mobiles", mobiles);
+            return true;
+        } catch (...) {
+        }
+        return false;
+
+    }
+
+    void AccessPoint::to_json(Poco::JSON::Object &Obj) const {
+        field_to_json(Obj, "macAddress", macAddress);
+        field_to_json(Obj, "name", name);
+        field_to_json(Obj, "id", id);
+        field_to_json(Obj, "location", location);
+    }
+
+    bool AccessPoint::from_json(const Poco::JSON::Object::Ptr &Obj) {
+        try {
+            field_from_json(Obj, "macAddress", macAddress);
+            field_from_json(Obj, "name", name);
+            field_from_json(Obj, "id", id);
+            field_from_json(Obj, "location", location);
+            return true;
+        } catch (...) {
+        }
+        return false;
+    }
+
+    void AccessPointList::to_json(Poco::JSON::Object &Obj) const {
+        field_to_json(Obj, "list", list);
+    }
+
+    bool AccessPointList::from_json(const Poco::JSON::Object::Ptr &Obj) {
+        try {
+            field_from_json(Obj, "list", list);
+            return true;
+        } catch (...) {
+        }
+        return false;
+    }
+
+    void SubscriberInfo::to_json(Poco::JSON::Object &Obj) const {
+        field_to_json(Obj, "id", id);
+        field_to_json(Obj, "userId", userId);
+        field_to_json(Obj, "firstName", firstName);
+        field_to_json(Obj, "initials", initials);
+        field_to_json(Obj, "lastName", lastName);
+        field_to_json(Obj, "phoneNumber", phoneNumber);
+        field_to_json(Obj, "secondaryEmail", secondaryEmail);
+        field_to_json(Obj, "accessPoints", accessPoints);
+        field_to_json(Obj, "serviceAddress", serviceAddress);
+        field_to_json(Obj, "billingAddress", billingAddress);
+        field_to_json(Obj, "created", created);
+        field_to_json(Obj, "modified", modified);
+    }
+
+    bool SubscriberInfo::from_json(const Poco::JSON::Object::Ptr &Obj) {
+        try {
+            field_from_json(Obj, "id", id);
+            field_from_json(Obj, "userId", userId);
+            field_from_json(Obj, "firstName", firstName);
+            field_from_json(Obj, "initials", initials);
+            field_from_json(Obj, "lastName", lastName);
+            field_from_json(Obj, "phoneNumber", phoneNumber);
+            field_from_json(Obj, "secondaryEmail", secondaryEmail);
+            field_from_json(Obj, "accessPoints", accessPoints);
+            field_from_json(Obj, "serviceAddress", serviceAddress);
+            field_from_json(Obj, "billingAddress", billingAddress);
+            field_from_json(Obj, "created", created);
+            field_from_json(Obj, "modified", modified);
+            return true;
+        } catch (...) {
+        }
+        return false;
+    }
+
+    void PasswordChange::to_json(Poco::JSON::Object &Obj) const {
+        field_to_json(Obj, "oldPassword", oldPassword);
+        field_to_json(Obj, "newPassword", newPassword);
+    }
+
+    bool PasswordChange::from_json(const Poco::JSON::Object::Ptr &Obj) {
+        try {
+            field_from_json(Obj, "oldPassword", oldPassword);
+            field_from_json(Obj, "newPassword", newPassword);
+            return true;
+        } catch (...) {
+        }
+        return false;
+    }
+
+    void PasswordCreation::to_json(Poco::JSON::Object &Obj) const {
+        field_to_json(Obj, "newPassword", newPassword);
+    }
+
+    bool PasswordCreation::from_json(const Poco::JSON::Object::Ptr &Obj) {
+        try {
+            field_from_json(Obj, "newPassword", newPassword);
+            return true;
+        } catch (...) {
+        }
+        return false;
+    }
 }

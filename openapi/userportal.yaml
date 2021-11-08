@@ -365,6 +365,22 @@ components:
         rx:
           type: integer
 
+    ClientList:
+      type: object
+      properties:
+        created:
+          type: integer
+          format: int64
+          readOnly: true
+        modified:
+          type: integer
+          format: int64
+          readOnly: true
+        clients:
+          type: array
+          items:
+            $ref: '#/components/schemas/Client'
+
     Location:
       type: object
       properties:
@@ -391,22 +407,6 @@ components:
           items:
             type: string
 
-    ClientList:
-      type: object
-      properties:
-        created:
-          type: integer
-          format: int64
-          readOnly: true
-        modified:
-          type: integer
-          format: int64
-          readOnly: true
-        clients:
-          type: array
-          items:
-            $ref: '#/components/schemas/Client'
-
     AccessPoint:
       type: object
       properties:
@@ -428,7 +428,7 @@ components:
           items:
             $ref: '#/components/schemas/AccessPoint'
 
-    Subscriber:
+    SubscriberInfo:
       type: object
       properties:
         id:
@@ -450,15 +450,21 @@ components:
         secondaryEmail:
           type: string
           format: email
-        devices:
+        accessPoints:
           readOnly: true
-          type: array
-          items:
-            $ref: '#/components/schemas/AccessPoint'
+          $ref: '#/components/schemas/AccessPointList'
         serviceAddress:
           $ref: '#/components/schemas/Location'
         billingAddress:
           $ref: '#/components/schemas/Location'
+        created:
+          type: integer
+          format: int64
+          readOnly: true
+        modified:
+          type: integer
+          format: int64
+          readOnly: true
 
     PasswordChange:
       type: object
@@ -545,7 +551,7 @@ paths:
       operationId: getSubscriberInfo
       responses:
         200:
-          $ref: '#/components/schemas/Subscriber'
+          $ref: '#/components/schemas/SubscriberInfo'
     put:
       tags:
         - Subscriber Information
@@ -555,10 +561,10 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/Subscriber'
+              $ref: '#/components/schemas/SubscriberInfo'
       responses:
         200:
-          $ref: '#/components/schemas/Subscriber'
+          $ref: '#/components/schemas/SubscriberInfo'
         400:
           $ref: '#/components/responses/Error'
 
