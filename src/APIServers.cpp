@@ -10,6 +10,9 @@
 #include "RESTAPI/RESTAPI_wifiClients_handler.h"
 #include "RESTAPI/RESTAPI_wifiNetworks_handler.h"
 #include "RESTAPI//RESTAPI_wiredClients_handler.h"
+#include "RESTAPI/RESTAPI_accessPoints_handler.h"
+#include "RESTAPI/RESTAPI_subscriber_handler.h"
+#include "RESTAPI/RESTAPI_login_handler.h"
 
 namespace OpenWifi {
 
@@ -23,6 +26,9 @@ namespace OpenWifi {
                 RESTAPI_wifiClients_handler,
                 RESTAPI_wifiNetworks_handler,
                 RESTAPI_wiredClients_handler,
+                RESTAPI_accessPoints_handler,
+                RESTAPI_subscriber_handler,
+                RESTAPI_login_handler,
                 RESTAPI_system_command>(Path, Bindings, L, S);
     }
 
