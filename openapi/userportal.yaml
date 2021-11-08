@@ -365,6 +365,32 @@ components:
         rx:
           type: integer
 
+    Location:
+      type: object
+      properties:
+        buildingName:
+          type: string
+        addressLines:
+          type: array
+          items:
+            type: string
+        city:
+          type: string
+        state:
+          type: string
+        postal:
+          type: string
+        country:
+          type: string
+        phones:
+          type: array
+          items:
+            type: string
+        mobiles:
+          type: array
+          items:
+            type: string
+
     ClientList:
       type: object
       properties:
@@ -391,6 +417,8 @@ components:
         id:
           type: string
           format: uuid
+        address:
+          $ref: '#/components/schemas/Location'
 
     AccessPointList:
       type: object
@@ -427,6 +455,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/AccessPoint'
+        serviceAddress:
+          $ref: '#/components/schemas/Location'
+        billingAddress:
+          $ref: '#/components/schemas/Location'
 
     PasswordChange:
       type: object
@@ -874,10 +906,10 @@ paths:
         400:
           $ref: '#/components/responses/BadRequest'
 
-  /signup:
+  /login:
     post:
       tags:
-        - Signup Process
+        - Access Process
       summary: User is requesting a signup for a new user ID
       operationId: userSignUp
       parameters:
@@ -887,7 +919,7 @@ paths:
           schema:
             type: string
             enum:
-              - newUser
+              - signUp
               - verifyEmail
               - forgotPassword
               - setpassword
