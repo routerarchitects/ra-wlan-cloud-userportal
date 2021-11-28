@@ -424,32 +424,4 @@ namespace OpenWifi::SubObjects {
         }
         return false;
     }
-
-    void PasswordChange::to_json(Poco::JSON::Object &Obj) const {
-        field_to_json(Obj, "oldPassword", oldPassword);
-        field_to_json(Obj, "newPassword", newPassword);
-    }
-
-    bool PasswordChange::from_json(const Poco::JSON::Object::Ptr &Obj) {
-        try {
-            field_from_json(Obj, "oldPassword", oldPassword);
-            field_from_json(Obj, "newPassword", newPassword);
-            return true;
-        } catch (...) {
-        }
-        return false;
-    }
-
-    void PasswordCreation::to_json(Poco::JSON::Object &Obj) const {
-        field_to_json(Obj, "newPassword", newPassword);
-    }
-
-    bool PasswordCreation::from_json(const Poco::JSON::Object::Ptr &Obj) {
-        try {
-            field_from_json(Obj, "newPassword", newPassword);
-            return true;
-        } catch (...) {
-        }
-        return false;
-    }
 }

@@ -495,7 +495,184 @@ components:
           type: string
           format: password
 
+    MFAChallengeRequest:
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+        question:
+          type: string
+        created:
+          type: integer
+          format: integer64
+        method:
+          type: string
+
+    MFAChallengeResponse:
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+        answer:
+          type: string
+
+    WebTokenRequest:
+      description: User Id and password.
+      type: object
+      required:
+        - userId
+        - password
+      properties:
+        userId:
+          type: string
+          default: support@example.com
+        password:
+          type: string
+          default: support
+        newPassword:
+          type: string
+          default: support
+        refreshToken:
+          type: string
+      example:
+        userId: support@example.com
+        password: support
+
+    WebTokenResult:
+      description: Login and Refresh Tokens to be used in subsequent API calls.
+      type: object
+      properties:
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+        token_type:
+          type: string
+        expires_in:
+          type: integer
+          format: int32
+        idle_timeout:
+          type: integer
+          format: int32
+        username:
+          type: string
+        created:
+          type: integer
+          format: int64
+        userMustChangePassword:
+          type: boolean
+        errorCode:
+          type: integer     # 0 = no error, 1 = passwordAlreadyUsed, 2=invalidPassword
+        aclTemplate:
+          $ref: '#/components/schemas/WebTokenAclTemplate'
+
+    AclTemplate:
+      type: object
+      properties:
+        Read:
+          type: boolean
+        ReadWrite:
+          type: boolean
+        ReadWriteCreate:
+          type: boolean
+        Delete:
+          type: boolean
+        PortalLogin:
+          type: boolean
+
+    WebTokenAclTemplate:
+      type: object
+      properties:
+        aclTemplate:
+          $ref: '#/components/schemas/AclTemplate'
+
+
 paths:
+  /oauth2:
+    post:
+      tags:
+        - Authentication
+      summary: Get access token - to be used as Bearer token header for all other API requests.
+      operationId: getAccessToken
+      parameters:
+        - in: query
+          name: newPassword
+          description: used when a user is trying to change her password. This will be the new password.
+          schema:
+            type: string
+          required: false
+        - in: query
+          name: forgotPassword
+          description: A user forgot her password. She needs to present her e-mail address in the userId and set this to true
+          schema:
+            type: boolean
+          required: false
+        - in: query
+          name: requirements
+          description: A user forgot her password. She needs to present her e-mail address in the userId and set this to true
+          schema:
+            type: boolean
+          required: false
+        - in: query
+          name: resendMFACode
+          schema:
+            type: boolean
+          required: false
+        - in: query
+          name: completeMFAChallenge
+          schema:
+            type: boolean
+          required: false
+      requestBody:
+        description: User id and password
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/WebTokenRequest'
+                - $ref: '#/components/schemas/MFAChallengeResponse'
+      responses:
+        200:
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/WebTokenResult'
+                  - $ref: '#/components/schemas/MFAChallengeRequest'
+        403:
+          $ref: '#/components/responses/Unauthorized'
+        404:
+          $ref: '#/components/responses/NotFound'
+
+  /oauth2/{token}:
+    delete:
+      tags:
+        - Authentication
+      summary: Revoke a token.
+      operationId: removeAccessToken
+      parameters:
+        - in: path
+          name: token
+          schema:
+            type:
+              string
+          required: true
+      responses:
+        204:
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/responses/Success'
+        403:
+          $ref: '#/components/responses/Unauthorized'
+        404:
+          $ref: '#/components/responses/NotFound'
+
   /accessPoints:
     get:
       tags:

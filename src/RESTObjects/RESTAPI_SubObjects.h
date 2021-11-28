@@ -226,21 +226,6 @@ namespace OpenWifi::SubObjects {
         void to_json(Poco::JSON::Object &Obj) const;
         bool from_json(const Poco::JSON::Object::Ptr &Obj);
     };
-
-    struct PasswordChange {
-        std::string                 oldPassword;
-        std::string                 newPassword;
-
-        void to_json(Poco::JSON::Object &Obj) const;
-        bool from_json(const Poco::JSON::Object::Ptr &Obj);
-    };
-
-    struct PasswordCreation {
-        std::string                 newPassword;
-
-        void to_json(Poco::JSON::Object &Obj) const;
-        bool from_json(const Poco::JSON::Object::Ptr &Obj);
-    };
 }
 
 #endif //OWSUB_RESTAPI_SUBOBJECTS_H
