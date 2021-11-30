@@ -5,6 +5,7 @@
 #pragma once
 
 #include "framework/MicroService.h"
+#include "Poco/Json/Parser.h"
 
 namespace OpenWifi {
     void API_Proxy(Poco::Net::HTTPServerRequest *Request,
@@ -41,12 +42,13 @@ namespace OpenWifi {
             ProxyRequest.add("X-INTERNAL-NAME", MicroService::instance().PublicEndPoint());
             ProxyRequest.setContentType("application/json");
 
-            std::stringstream Payload;
-            Request->write(Payload);
+            Poco::JSON::Parser P;
+            auto Body = P.parse(Request->stream()).extract<Poco::JSON::Object::Ptr>();
 
-            std::cout << __FILE__ << " : " << __func__  << " : " << __LINE__ << " >>> " << Payload.str() << std::endl;
             std::ostream & os = Session.sendRequest(ProxyRequest);
-            ProxyRequest.read(Payload);
+
+            Poco::JSON::Stringifier::stringify(Body,os);
+
             std::cout << __FILE__ << " : " << __func__  << " : " << __LINE__ << std::endl;
 
             for(const auto &i:ProxyRequest) {
