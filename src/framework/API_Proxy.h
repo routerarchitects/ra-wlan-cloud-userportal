@@ -5,7 +5,7 @@
 #pragma once
 
 #include "framework/MicroService.h"
-#include "Poco/Json/Parser.h"
+#include "Poco/JSON/Parser.h"
 
 namespace OpenWifi {
     void API_Proxy(Poco::Net::HTTPServerRequest *Request,
