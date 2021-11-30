@@ -359,18 +359,30 @@ namespace OpenWifi::SubObjects {
     }
 
     void AccessPoint::to_json(Poco::JSON::Object &Obj) const {
+        field_to_json(Obj, "id", id);
         field_to_json(Obj, "macAddress", macAddress);
         field_to_json(Obj, "name", name);
-        field_to_json(Obj, "id", id);
-        field_to_json(Obj, "location", location);
+        field_to_json(Obj, "subscriberDevices", subscriberDevices);
+        field_to_json(Obj, "ipReservations", ipReservations);
+        field_to_json(Obj, "address", address);
+        field_to_json(Obj, "wifiNetworks", wifiNetworks);
+        field_to_json(Obj, "internetConnection", internetConnection);
+        field_to_json(Obj, "deviceMode", deviceMode);
+        field_to_json(Obj, "dnsConfiguration", dnsConfiguration);
     }
 
     bool AccessPoint::from_json(const Poco::JSON::Object::Ptr &Obj) {
         try {
+            field_from_json(Obj, "id", id);
             field_from_json(Obj, "macAddress", macAddress);
             field_from_json(Obj, "name", name);
-            field_from_json(Obj, "id", id);
-            field_from_json(Obj, "location", location);
+            field_from_json(Obj, "subscriberDevices", subscriberDevices);
+            field_from_json(Obj, "ipReservations", ipReservations);
+            field_from_json(Obj, "address", address);
+            field_from_json(Obj, "wifiNetworks", wifiNetworks);
+            field_from_json(Obj, "internetConnection", internetConnection);
+            field_from_json(Obj, "deviceMode", deviceMode);
+            field_from_json(Obj, "dnsConfiguration", dnsConfiguration);
             return true;
         } catch (...) {
         }

@@ -20,7 +20,7 @@
 #include "framework/MicroService.h"
 #include "framework/StorageClass.h"
 
-#include "storage/storage_reservations.h"
+#include "storage/storage_subscriber_info.h"
 
 namespace OpenWifi {
 
@@ -38,11 +38,8 @@ namespace OpenWifi {
 
           private:
             static Storage      								*instance_;
-
-            std::unique_ptr<OpenWifi::ReservationsDB>           ReservationDB_;
-
+            std::unique_ptr<OpenWifi::SubscriberInfoDB>         SubscriberDB_;
             Poco::Thread                                        Updater_;
-            std::set<std::string>                               DeviceTypes_;
             std::atomic_bool                                    Running_=false;
     };
 

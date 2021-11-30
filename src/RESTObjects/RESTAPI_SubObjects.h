@@ -193,10 +193,16 @@ namespace OpenWifi::SubObjects {
     };
 
     struct AccessPoint {
+        std::string                 id;
         std::string                 macAddress;
         std::string                 name;
-        std::string                 id;
-        Location                    location;
+        SubscriberDeviceList        subscriberDevices;
+        IPReservationList           ipReservations;
+        Location                    address;
+        WifiNetworkList             wifiNetworks;
+        InternetConnection          internetConnection;
+        HomeDeviceMode              deviceMode;
+        DnsConfiguration            dnsConfiguration;
 
         void to_json(Poco::JSON::Object &Obj) const;
         bool from_json(const Poco::JSON::Object::Ptr &Obj);

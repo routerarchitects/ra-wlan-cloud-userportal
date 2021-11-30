@@ -422,15 +422,28 @@ components:
     AccessPoint:
       type: object
       properties:
+        id:
+          type: string
+          format: uuid
         macAddress:
           type: string
         name:
           type: string
-        id:
-          type: string
-          format: uuid
+        subscriberDevices:
+          $ref: '#/components/schemas/SubscriberDeviceList'
+        ipReservations:
+          $ref: '#/components/schemas/IPReservationList'
         address:
           $ref: '#/components/schemas/Location'
+        wifiNetworks:
+          $ref: '#/components/schemas/WifiNetworkList'
+        internetConnection:
+          $ref: '#/components/schemas/InternetConnection'
+        deviceMode:
+          $ref: '#/components/schemas/HomeDeviceMode'
+        dnsConfiguration:
+          $ref: '#/components/schemas/DnsConfiguration'
+
 
     AccessPointList:
       type: object
@@ -588,7 +601,6 @@ components:
         aclTemplate:
           $ref: '#/components/schemas/AclTemplate'
 
-
 paths:
   /oauth2:
     post:
@@ -673,65 +685,6 @@ paths:
         404:
           $ref: '#/components/responses/NotFound'
 
-  /accessPoints:
-    get:
-      tags:
-        - Access Points
-      summary: Retrieve information about user devices
-      operationId: getSubscriberAccessPointList
-      responses:
-        200:
-          $ref: '#/components/schemas/AccessPointList'
-    post:
-      tags:
-        - Access Points
-      summary: Add/register a new device for a subscriber
-      operationId: addSubscriberAccessPoint
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AccessPoint'
-      responses:
-        200:
-          $ref: '#/components/schemas/AccessPointList'
-        400:
-          $ref: '#/components/responses/BadRequest'
-    put:
-      tags:
-        - Access Points
-      summary: Modify an existing device for a subscriber
-      operationId: modifySubscriberAccessPoint
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AccessPoint'
-      responses:
-        200:
-          $ref: '#/components/schemas/AccessPointList'
-        400:
-          $ref: '#/components/responses/BadRequest'
-    delete:
-      tags:
-        - Access Points
-      summary: Delete an access point that is no longer in use.
-      operationId: deleteSubscriberAccessPoint
-      parameters:
-        - in: query
-          name: deviceId
-          schema:
-            type: string
-            format: uuid
-          required: true
-      responses:
-        200:
-          $ref: '#/components/responses/Success'
-        400:
-          $ref: '#/components/responses/BadRequest'
-        404:
-          $ref: '#/components/responses/NotFound'
-
   /subscriber:
     get:
       tags:
@@ -756,254 +709,6 @@ paths:
           $ref: '#/components/schemas/SubscriberInfo'
         400:
           $ref: '#/components/responses/Error'
-
-  /internetConnection:
-    get:
-      tags:
-        - Internet Connection
-      summary: Read the current internet connection settings
-      operationId: getInternetConnectionSettings
-      parameters:
-        - in: query
-          name: deviceId
-          schema:
-            type: string
-            format: uuid
-          required: true
-        - in: query
-          name: default
-          schema:
-            type: boolean
-            default: false
-          required: false
-      responses:
-        200:
-          $ref: '#/components/schemas/InternetConnection'
-
-    put:
-      tags:
-        - Internet Connection
-      summary: Modify the current internet connection settings
-      operationId: modifyInternetConnectionSettings
-      parameters:
-        - in: query
-          name: deviceId
-          schema:
-            type: string
-            format: uuid
-          required: true
-        - in: query
-          name: reset
-          schema:
-            type: boolean
-            default: false
-          required: false
-      requestBody:
-        description: Information used to modify the current internet connection settings
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/InternetConnection'
-
-      responses:
-        200:
-          $ref: '#/components/schemas/InternetConnection'
-        400:
-          $ref: '#/components/responses/BadRequest'
-
-  /homeDeviceMode:
-    get:
-      tags:
-        - Device Mode
-      summary: Read the Home Device Mode
-      operationId: getHomeDeviceMode
-      parameters:
-        - in: query
-          name: deviceId
-          schema:
-            type: string
-            format: uuid
-          required: true
-        - in: query
-          name: default
-          schema:
-            type: boolean
-            default: false
-          required: false
-      responses:
-        200:
-          $ref: '#/components/schemas/HomeDeviceMode'
-    put:
-      tags:
-        - Device Mode
-      summary: Modify the current device mode settings
-      operationId: modifyHomeDeviceMode
-      parameters:
-        - in: query
-          name: deviceId
-          schema:
-            type: string
-            format: uuid
-          required: true
-        - in: query
-          name: reset
-          schema:
-            type: boolean
-            default: false
-          required: false
-      requestBody:
-        description: Information used to modify the current device mode settings
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/HomeDeviceMode'
-      responses:
-        200:
-          $ref: '#/components/schemas/HomeDeviceMode'
-        400:
-          $ref: '#/components/responses/BadRequest'
-
-  /ipReservations:
-    get:
-      tags:
-        - IP Reservations
-      summary: Retreive the list of IP Reservations
-      operationId: getIPReservationList
-      parameters:
-        - in: query
-          name: deviceId
-          schema:
-            type: string
-            format: uuid
-          required: true
-      responses:
-        200:
-          description: Successfully retrieved list of IP Reservations
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/IPReservationList'
-    put:
-      tags:
-        - IP Reservations
-      summary: Add A new IP reservation
-      operationId: addIPReservation
-      parameters:
-        - in: query
-          name: deviceId
-          schema:
-            type: string
-            format: uuid
-          required: true
-        - in: query
-          name: replace
-          schema:
-            type: boolean
-            default: false
-          required: false
-      requestBody:
-        description: List of IP reservations to maintain for this device.
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/IPReservationList'
-      responses:
-        200:
-          description: Reservations modified
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/IPReservationList'
-        400:
-          $ref: '#/components/responses/BadRequest'
-
-    delete:
-      tags:
-        - IP Reservations
-      summary: Delete an IP Reservation
-      operationId: deleteIPReservation
-      parameters:
-        - in: query
-          name: deviceId
-          schema:
-            type: string
-            format: uuid
-          required: true
-        - in: query
-          name: macAddress
-          schema:
-            type: string
-            format: mac-address
-          required: false
-        - in: query
-          name: name
-          schema:
-            type: string
-          required: false
-      responses:
-        200:
-          $ref: '#/components/responses/Success'
-        400:
-          $ref: '#/components/responses/BadRequest'
-
-  /wifiNetworks:
-    get:
-      tags:
-        - WiFi Networks
-      summary: Get the list of defined WiFI networks
-      operationId: getWifiNetworks
-      parameters:
-        - in: query
-          name: deviceId
-          schema:
-            type: string
-            format: uuid
-          required: true
-        - in: query
-          name: default
-          schema:
-            type: boolean
-            default: false
-          required: false
-      responses:
-        200:
-          description: Succesfully get the list of WiFI networks
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/WifiNetwork'
-
-    put:
-      tags:
-        - WiFi Networks
-      summary: Update the list of WiFi networks
-      operationId: modifyWiFiNetworks
-      parameters:
-        - in: query
-          name: deviceId
-          schema:
-            type: string
-            format: uuid
-          required: true
-        - in: query
-          name: reset
-          schema:
-            type: boolean
-            default: false
-          required: false
-      responses:
-        200:
-          description: Succesfully get the list of WiFI networks
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/WifiNetwork'
-        400:
-          $ref: '#/components/responses/BadRequest'
 
   /wiredClients:
     get:
@@ -1047,111 +752,3 @@ paths:
               schema:
                 $ref: '#/components/schemas/AssociationList'
 
-  /subscriberDevices:
-    get:
-      tags:
-        - Subscriber Devices
-      summary: Get the list of subscriber devices
-      operationId: getSubscriberDevices
-      parameters:
-        - in: query
-          name: deviceId
-          schema:
-            type: string
-            format: uuid
-          required: true
-      responses:
-        200:
-          description: Successfully retrieve subscriber devices
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SubscriberDeviceList'
-    put:
-      tags:
-        - Subscriber Devices
-      summary: Update the list of subscriber devices
-      operationId: modifySubscriberDevices
-      parameters:
-        - in: query
-          name: deviceId
-          schema:
-            type: string
-            format: uuid
-          required: true
-        - in: query
-          name: reset
-          schema:
-            type: boolean
-            default: false
-          required: false
-      requestBody:
-        description: List of devices
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SubscriberDeviceList'
-      responses:
-        200:
-          description: Successfully updated the list
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SubscriberDeviceList'
-        400:
-          $ref: '#/components/responses/BadRequest'
-
-  /login:
-    post:
-      tags:
-        - Access Process
-      summary: User is requesting a signup for a new user ID
-      operationId: userSignUp
-      parameters:
-        - in: query
-          name: action
-          required: true
-          schema:
-            type: string
-            enum:
-              - signUp
-              - verifyEmail
-              - forgotPassword
-              - setpassword
-        - in: query
-          name: email
-          required: true
-          schema:
-            type: string
-            format: email
-        - in: query
-          name: id
-          required: false
-          schema:
-            type: string
-            format: uuid
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              oneOf:
-                - $ref: '#/components/schemas/PasswordChange'
-                - $ref: '#/components/schemas/PasswordCreation'
-      responses:
-        200:
-          description: signup in progress
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  id:
-                    type: string
-                    format: uuid
-                  error:
-                    type: string
-                  errorCode:
-                    type: integer
-        400:
-          $ref: '#/components/responses/BadRequest'
