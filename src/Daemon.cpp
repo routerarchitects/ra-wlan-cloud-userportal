@@ -10,6 +10,7 @@
 
 #include "Daemon.h"
 #include "StorageService.h"
+#include "SubscriberCache.h"
 
 namespace OpenWifi {
 	class Daemon *Daemon::instance_ = nullptr;
@@ -22,7 +23,8 @@ namespace OpenWifi {
 								   vDAEMON_APP_NAME,
 								   vDAEMON_BUS_TIMER,
 								   SubSystemVec{
-									   StorageService()
+									   StorageService(),
+									   SubscriberCache()
 								   });
 		}
 		return instance_;

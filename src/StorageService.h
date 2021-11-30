@@ -27,9 +27,7 @@ namespace OpenWifi {
     class Storage : public StorageClass {
         public:
             static Storage *instance() {
-                if (instance_ == nullptr) {
-                    instance_ = new Storage;
-                }
+                static auto instance_ = new Storage;
                 return instance_;
             }
 
@@ -37,7 +35,6 @@ namespace OpenWifi {
             void Stop() override;
 
           private:
-            static Storage      								*instance_;
             std::unique_ptr<OpenWifi::SubscriberInfoDB>         SubscriberDB_;
             Poco::Thread                                        Updater_;
             std::atomic_bool                                    Running_=false;

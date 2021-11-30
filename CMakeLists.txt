@@ -69,6 +69,7 @@ add_executable(owsub
         src/Daemon.cpp src/Daemon.h
         src/Dashboard.h src/Dashboard.cpp
         src/StorageService.cpp src/StorageService.h
+        src/SubscriberCache.cpp src/SubscriberCache.h
         src/storage/storage_subscriber_info.cpp src/storage/storage_subscriber_info.h
         src/RESTAPI/RESTAPI_wiredClients_handler.cpp src/RESTAPI/RESTAPI_wiredClients_handler.h
         src/RESTAPI/RESTAPI_wifiClients_handler.cpp src/RESTAPI/RESTAPI_wifiClients_handler.h
