@@ -40,9 +40,13 @@ namespace OpenWifi {
             ProxyRequest.add("X-API-KEY", Svc.AccessKey);
             ProxyRequest.add("X-INTERNAL-NAME", MicroService::instance().PublicEndPoint());
             ProxyRequest.setContentType("application/json");
-            std::cout << __FILE__ << " : " << __func__  << " : " << __LINE__ << std::endl;
+
+            std::stringstream Payload;
+            Request->write(Payload);
+
+            std::cout << __FILE__ << " : " << __func__  << " : " << __LINE__ << " >>> " << Payload.str() << std::endl;
             std::ostream & os = Session.sendRequest(ProxyRequest);
-            ProxyRequest.read(Request->stream());
+            ProxyRequest.read(Payload);
             std::cout << __FILE__ << " : " << __func__  << " : " << __LINE__ << std::endl;
 
             for(const auto &i:ProxyRequest) {
