@@ -47,19 +47,17 @@ namespace OpenWifi {
                 }
 
                 Poco::Net::HTTPResponse ProxyResponse;
-                std::istream &is = Session.receiveResponse(ProxyResponse);
-                std::cout << __FILE__ << " : " << __func__  << " : " << __LINE__ << std::endl;
-
-                if(ProxyResponse.getStatus()==Poco::Net::HTTPResponse::HTTP_OK) {
-                    std::cout << __FILE__ << " : " << __func__  << " : " << __LINE__ << std::endl;
-                    std::stringstream   SS;
-                    ProxyResponse.write(SS);
-                    std::cout << __FILE__ << " : " << __func__  << " : " << __LINE__ << std::endl;
-                    Response->read(SS);
-                    Response->setStatus(Poco::Net::HTTPResponse::HTTP_OK);
-                    std::cout << __FILE__ << " : " << __func__  << " : " << __LINE__ << std::endl;
-                    return;
-                }
+                std::istream &ProxyResponseStream = Session.receiveResponse(ProxyResponse);
+                Poco::JSON::Parser  P2;
+                auto ProxyResponseBody = P2.parse(ProxyResponseStream).extract<Poco::JSON::Object::Ptr>();
+                std::stringstream SSR;
+                Poco::JSON::Stringifier::condense(ProxyResponseBody,SSR);
+                Response->setStatus(ProxyResponse.getStatus());
+                Response->setContentType("application/json");
+                Response->setContentLength(SSR.str().size());
+                Response->sendBuffer(SSR.str().c_str(),SSR.str().size());
+                Response->setStatus(Poco::Net::HTTPResponse::HTTP_OK);
+                std::cout << __FILE__ << " : " << __func__  << " : " << __LINE__ << " >>> " << SSR.str() << std::endl;
             }
         } catch (const Poco::Exception &E) {
             Logger.log(E);
