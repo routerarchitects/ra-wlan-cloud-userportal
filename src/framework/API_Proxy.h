@@ -15,31 +15,20 @@ namespace OpenWifi {
                     const char * PathRewrite,
                     uint64_t msTimeout_ = 10000 ) {
         try {
-            std::cout << __FILE__ << " : " << __func__  << " : " << __LINE__ << std::endl;
-
             auto Services = MicroService::instance().GetServices(ServiceType);
-            std::cout << __FILE__ << " : " << __func__  << " : " << __LINE__ << std::endl;
             for(auto const &Svc:Services) {
-                std::cout << __FILE__ << " : " << __func__  << " : " << __LINE__ << std::endl;
                 Poco::URI   SourceURI(Request->getURI());
                 Poco::URI	DestinationURI(Svc.PrivateEndPoint);
-                std::cout << __FILE__ << " : " << __func__  << " : " << __LINE__ << std::endl;
-
                 DestinationURI.setPath(PathRewrite);
                 DestinationURI.setQuery(SourceURI.getQuery());
-                std::cout << __FILE__ << " : " << __func__  << " : " << __LINE__ << DestinationURI.getHost() << ":" << DestinationURI.getPort() << std::endl;
-                std::cout << __FILE__ << " : " << __func__  << " : " << __LINE__ << DestinationURI.getPathAndQuery() << std::endl;
+                std::cout << DestinationURI.getHost() << ":" << DestinationURI.getPort() << "/" << DestinationURI.getPathAndQuery() << std::endl;
 
                 Poco::Net::HTTPSClientSession Session(DestinationURI.getHost(), DestinationURI.getPort());
-                std::cout << __FILE__ << " : " << __func__  << " : " << __LINE__ << std::endl;
 
                 Session.setTimeout(Poco::Timespan(msTimeout_/1000, msTimeout_ % 1000));
-                std::cout << __FILE__ << " : " << __func__  << " : " << __LINE__ << std::endl;
-
                 Poco::Net::HTTPRequest ProxyRequest(Request->getMethod(),
                                                     DestinationURI.getPathAndQuery(),
                                                     Poco::Net::HTTPMessage::HTTP_1_1);
-                std::cout << __FILE__ << " : " << __func__  << " : " << __LINE__ << std::endl;
                 ProxyRequest.add("X-API-KEY", Svc.AccessKey);
                 ProxyRequest.add("X-INTERNAL-NAME", MicroService::instance().PublicEndPoint());
                 ProxyRequest.setContentType("application/json");
@@ -49,12 +38,8 @@ namespace OpenWifi {
                 std::stringstream SS;
                 Poco::JSON::Stringifier::stringify(Body,SS);
 
-                std::cout << __FILE__ << " : " << __func__  << " : " << __LINE__ << " >>> " << SS.str() << std::endl;
-
                 std::ostream & os = Session.sendRequest(ProxyRequest);
                 os << SS.str() ;
-
-                std::cout << __FILE__ << " : " << __func__  << " : " << __LINE__ << std::endl;
 
                 for(const auto &i:ProxyRequest) {
                     std::cout << "   " << i.first << ":" << i.second << std::endl;
