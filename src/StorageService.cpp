@@ -18,11 +18,11 @@ namespace OpenWifi {
 
 
 
-        std::cout << __FILE__ << ":" << __func__  << ":" << __LINE__ << " : " << MicroService::instance().DataDir() << std::endl;
+        // std::cout << __FILE__ << ":" << __func__  << ":" << __LINE__ << " : " << MicroService::instance().DataDir() << std::endl;
 		SubscriberDB_ = std::make_unique<OpenWifi::SubscriberInfoDB>(dbType_,*Pool_, Logger_);
-		std::cout << __FILE__ << ":" << __func__  << ":" << __LINE__ << std::endl;
+		// std::cout << __FILE__ << ":" << __func__  << ":" << __LINE__ << std::endl;
 		SubscriberDB_->Create();
-		std::cout << __FILE__ << ":" << __func__  << ":" << __LINE__ << std::endl;
+		// std::cout << __FILE__ << ":" << __func__  << ":" << __LINE__ << std::endl;
 
         return 0;
     }
