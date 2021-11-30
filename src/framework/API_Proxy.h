@@ -45,6 +45,10 @@ namespace OpenWifi {
             ProxyRequest.read(Request->stream());
             std::cout << __FILE__ << " : " << __func__  << " : " << __LINE__ << std::endl;
 
+            for(const auto &i:ProxyRequest) {
+                std::cout << "   " << i.first << ":" << i.second << std::endl;
+            }
+
             Poco::Net::HTTPResponse ProxyResponse;
             std::istream &is = Session.receiveResponse(ProxyResponse);
             std::cout << __FILE__ << " : " << __func__  << " : " << __LINE__ << std::endl;
