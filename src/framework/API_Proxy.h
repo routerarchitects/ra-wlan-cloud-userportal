@@ -44,10 +44,14 @@ namespace OpenWifi {
 
             Poco::JSON::Parser P;
             auto Body = P.parse(Request->stream()).extract<Poco::JSON::Object::Ptr>();
+            std::stringstream SS;
+            Poco::JSON::Stringifier::stringify(Body,SS);
+
+            std::cout << __FILE__ << " : " << __func__  << " : " << __LINE__ << " >>> " << SS.str() << std::endl;
 
             std::ostream & os = Session.sendRequest(ProxyRequest);
 
-            Poco::JSON::Stringifier::stringify(Body,os);
+            os << SS.str() ;
 
             std::cout << __FILE__ << " : " << __func__  << " : " << __LINE__ << std::endl;
 
