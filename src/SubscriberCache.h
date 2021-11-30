@@ -19,12 +19,10 @@ namespace OpenWifi {
         int Start() override;
         void Stop() override;
 
-        inline bool GetSubInfo(const std::string &Id, std::shared_ptr<SubObjects::SubscriberInfo> & SubInfo) {
-            return false;
-        }
+        bool GetSubInfo(const std::string &Id, Poco::SharedPtr<SubObjects::SubscriberInfo> & SubInfo);
 
     private:
-        Poco::ExpireLRUCache<std::string,std::shared_ptr<SubObjects::SubscriberInfo>>    subs_;
+        Poco::ExpireLRUCache<std::string,SubObjects::SubscriberInfo>    SubsCache_{2048};
 
         SubscriberCache() noexcept:
         SubSystemServer("SubscriberCache", "SUb-CACHE", "subcache")

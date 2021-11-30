@@ -24,12 +24,14 @@
 
 namespace OpenWifi {
 
-    class Storage : public StorageClass {
+    class StorageService : public StorageClass {
         public:
-            static Storage *instance() {
-                static auto instance_ = new Storage;
+        static StorageService *instance() {
+            static auto instance_ = new StorageService;
                 return instance_;
             }
+
+            OpenWifi::SubscriberInfoDB & SubInfoDB() { return *SubscriberDB_; };
 
             int Start() override;
             void Stop() override;
@@ -40,7 +42,7 @@ namespace OpenWifi {
             std::atomic_bool                                    Running_=false;
     };
 
-    inline class Storage * StorageService() { return Storage::instance(); }
+    inline class StorageService * StorageService() { return StorageService::instance(); }
 
 }  // namespace
 

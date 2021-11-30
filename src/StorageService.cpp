@@ -10,7 +10,7 @@
 
 namespace OpenWifi {
 
-	int Storage::Start() {
+    int StorageService::Start() {
 		std::lock_guard		Guard(Mutex_);
 		Logger_.notice("Starting.");
 
@@ -22,7 +22,7 @@ namespace OpenWifi {
         return 0;
     }
 
-	void Storage::Stop() {
+    void StorageService::Stop() {
 	    std::lock_guard		Guard(Mutex_);
 
 	    StorageClass::Stop();
