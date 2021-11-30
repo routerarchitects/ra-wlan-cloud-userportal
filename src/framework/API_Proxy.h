@@ -46,14 +46,14 @@ namespace OpenWifi {
                     std::cout << "   " << i.first << ":" << i.second << std::endl;
                 }
 
+                std::cout << Request->getMethod() << " is ok" << std::endl;
+
                 Poco::Net::HTTPResponse ProxyResponse;
                 std::istream &ProxyResponseStream = Session.receiveResponse(ProxyResponse);
                 if(Request->getMethod() == Poco::Net::HTTPRequest::HTTP_DELETE) {
-                    std::cout << "Delete is ok" << std::endl;
                     Response->setStatus(ProxyResponse.getStatus());
                     Response->send();
                 } else {
-                    std::cout << Request->getMethod() << " is ok" << std::endl;
                     Poco::JSON::Parser  P2;
                     auto ProxyResponseBody = P2.parse(ProxyResponseStream).extract<Poco::JSON::Object::Ptr>();
                     std::stringstream SSR;
