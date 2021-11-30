@@ -77,6 +77,7 @@ namespace OpenWifi {
             }
         } catch (const Poco::Exception &E) {
             Logger.log(E);
+            std::cout << "EXC: " << E.what() << " " << E.message() << std::endl;
         }
     }
 }
