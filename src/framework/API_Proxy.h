@@ -25,7 +25,7 @@ namespace OpenWifi {
             DestinationURI.setPath(PathRewrite);
             DestinationURI.setQuery(SourceURI.getQuery());
             std::cout << __FILE__ << " : " << __func__  << " : " << __LINE__ << std::endl;
-            std::cout << __FILE__ << " : " << __func__  << " : " << __LINE__ << std::endl;
+            std::cout << __FILE__ << " : " << __func__  << " : " << __LINE__ << DestinationURI.getPathAndQuery() << std::endl;
 
             Poco::Net::HTTPSClientSession Session(DestinationURI.getHost(), DestinationURI.getPort());
             std::cout << __FILE__ << " : " << __func__  << " : " << __LINE__ << std::endl;
