@@ -24,7 +24,7 @@ namespace OpenWifi {
                 std::cout << DestinationURI.getHost() << ":" << DestinationURI.getPort() << "/" << DestinationURI.getPathAndQuery() << std::endl;
 
                 Poco::Net::HTTPSClientSession Session(DestinationURI.getHost(), DestinationURI.getPort());
-
+                Session.setKeepAlive(true);
                 Session.setTimeout(Poco::Timespan(msTimeout_/1000, msTimeout_ % 1000));
                 Poco::Net::HTTPRequest ProxyRequest(Request->getMethod(),
                                                     DestinationURI.getPathAndQuery(),
@@ -37,6 +37,7 @@ namespace OpenWifi {
                 auto Body = P.parse(Request->stream()).extract<Poco::JSON::Object::Ptr>();
                 std::stringstream SS;
                 Poco::JSON::Stringifier::stringify(Body,SS);
+                ProxyRequest.setContentLength(SS.str().size());
 
                 std::ostream & os = Session.sendRequest(ProxyRequest);
                 os << SS.str() ;
