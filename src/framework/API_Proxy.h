@@ -53,6 +53,7 @@ namespace OpenWifi {
                 if(Request->getMethod() == Poco::Net::HTTPRequest::HTTP_DELETE) {
                     Response->setStatus(ProxyResponse.getStatus());
                     Response->send();
+                    return;
                 } else {
                     Poco::JSON::Parser  P2;
                     auto ProxyResponseBody = P2.parse(ProxyResponseStream).extract<Poco::JSON::Object::Ptr>();
@@ -62,6 +63,7 @@ namespace OpenWifi {
                     Response->setContentType("application/json");
                     Response->setContentLength(SSR.str().size());
                     Response->sendBuffer(SSR.str().c_str(),SSR.str().size());
+                    return;
 //                    std::cout << __FILE__ << " : " << __func__  << " : " << __LINE__ << " >>> " << SSR.str() << std::endl;
                 }
             }
