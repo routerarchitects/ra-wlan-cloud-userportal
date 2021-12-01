@@ -21,7 +21,7 @@ namespace OpenWifi {
                 Poco::URI	DestinationURI(Svc.PrivateEndPoint);
                 DestinationURI.setPath(PathRewrite);
                 DestinationURI.setQuery(SourceURI.getQuery());
-                std::cout << DestinationURI.getHost() << ":" << DestinationURI.getPort() << "/" << DestinationURI.getPathAndQuery() << std::endl;
+                // std::cout << DestinationURI.getHost() << ":" << DestinationURI.getPort() << "/" << DestinationURI.getPathAndQuery() << std::endl;
 
                 Poco::Net::HTTPSClientSession Session(DestinationURI.getHost(), DestinationURI.getPort());
                 Session.setKeepAlive(true);
@@ -62,22 +62,28 @@ namespace OpenWifi {
                     }
 
                     Poco::Net::HTTPResponse ProxyResponse;
-                    std::istream &ProxyResponseStream = Session.receiveResponse(ProxyResponse);
-                    Poco::JSON::Parser  P2;
-                    auto ProxyResponseBody = P2.parse(ProxyResponseStream).extract<Poco::JSON::Object::Ptr>();
                     std::stringstream SSR;
-                    Poco::JSON::Stringifier::condense(ProxyResponseBody,SSR);
+                    try {
+                        std::istream &ProxyResponseStream = Session.receiveResponse(ProxyResponse);
+                        Poco::JSON::Parser  P2;
+                        auto ProxyResponseBody = P2.parse(ProxyResponseStream).extract<Poco::JSON::Object::Ptr>();
+                        Poco::JSON::Stringifier::condense(ProxyResponseBody,SSR);
+                        Response->setContentType("application/json");
+                        Response->setContentLength(SSR.str().size());
+                        Response->setStatus(ProxyResponse.getStatus());
+                        Response->sendBuffer(SSR.str().c_str(),SSR.str().size());
+                        return;
+                    } catch( const Poco::Exception & E) {
+
+                    }
                     Response->setStatus(ProxyResponse.getStatus());
-                    Response->setContentType("application/json");
-                    Response->setContentLength(SSR.str().size());
-                    Response->sendBuffer(SSR.str().c_str(),SSR.str().size());
+                    Response->send();
                     return;
                 }
             }
 
         } catch (const Poco::Exception &E) {
             Logger.log(E);
-            std::cout << "EXC: " << E.what() << " " << E.message() << std::endl;
         }
     }
 }
