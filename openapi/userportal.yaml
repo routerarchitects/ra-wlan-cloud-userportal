@@ -752,3 +752,39 @@ paths:
               schema:
                 $ref: '#/components/schemas/AssociationList'
 
+  /action:
+    post:
+      tags:
+        - Device Commands
+      summary: Sending different commands to a device
+      operationId: oerfirmAnAction
+      parameters:
+        - in: query
+          name: action
+          schema:
+            type: string
+            enum:
+              - reboot
+              - blink
+              - upgrade
+              - factory
+              - refresh
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                mac:
+                  type: string
+                when:
+                  type: integer
+                  format: int64
+
+      responses:
+        200:
+          $ref: '#/components/responses/Success'
+        400:
+          $ref: '#/components/responses/BadRequest'
+
+
