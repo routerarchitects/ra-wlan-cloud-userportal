@@ -462,7 +462,7 @@ components:
           readOnly: true
         userId:
           type: string
-          format: uuid
+          format: email
           readOnly: true
         firstName:
           type: string
