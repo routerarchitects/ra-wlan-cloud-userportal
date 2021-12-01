@@ -9,9 +9,7 @@
 namespace OpenWifi {
 
     void RESTAPI_oauth2_handler::DoPost() {
-        std::cout << __FILE__ << " : " << __func__  << " : " << __LINE__ << std::endl;
         API_Proxy(Logger_, Request, Response, OpenWifi::uSERVICE_SECURITY.c_str(),"/api/v1/suboauth2");
-        std::cout << __FILE__ << " : " << __func__  << " : " << __LINE__ << std::endl;
     }
 
     void RESTAPI_oauth2_handler::DoGet() {
@@ -21,9 +19,7 @@ namespace OpenWifi {
     }
 
     void RESTAPI_oauth2_handler::DoDelete() {
-        std::cout << __FILE__ << " : " << __func__  << " : " << __LINE__ << std::endl;
         API_Proxy(Logger_, Request, Response, OpenWifi::uSERVICE_SECURITY.c_str(),"/api/v1/suboauth2");
-        std::cout << __FILE__ << " : " << __func__  << " : " << __LINE__ << std::endl;
     }
 
 }

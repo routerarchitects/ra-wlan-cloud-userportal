@@ -32,8 +32,6 @@ namespace OpenWifi {
                 ProxyRequest.add("X-API-KEY", Svc.AccessKey);
                 ProxyRequest.add("X-INTERNAL-NAME", MicroService::instance().PublicEndPoint());
 
-                std::cout << Request->getMethod() << " is ok" << std::endl;
-
                 if(Request->getMethod() == Poco::Net::HTTPRequest::HTTP_DELETE) {
                     Session.sendRequest(ProxyRequest);
                     Poco::Net::HTTPResponse ProxyResponse;
@@ -44,19 +42,22 @@ namespace OpenWifi {
                 } else {
                     ProxyRequest.setContentType("application/json");
                     Poco::JSON::Parser P;
-                    auto Body = P.parse(Request->stream()).extract<Poco::JSON::Object::Ptr>();
                     std::stringstream SS;
-                    Poco::JSON::Stringifier::stringify(Body,SS);
-                    ProxyRequest.setContentLength(SS.str().size());
+                    try {
+                        auto Body = P.parse(Request->stream()).extract<Poco::JSON::Object::Ptr>();
+                        Poco::JSON::Stringifier::stringify(Body,SS);
+                    } catch(...) {
 
-                    std::ostream & os = Session.sendRequest(ProxyRequest);
-                    os << SS.str() ;
+                    }
 
-                    // for(const auto &i:ProxyRequest) {
-                    //     std::cout << "   " << i.first << ":" << i.second << std::endl;
-                    // }
+                    if(SS.str().empty()) {
+                        Session.sendRequest(ProxyRequest);
+                    } else {
+                        ProxyRequest.setContentLength(SS.str().size());
+                        std::ostream & os = Session.sendRequest(ProxyRequest);
+                        os << SS.str() ;
+                    }
 
-                    std::cout << Request->getMethod() << " is ok" << std::endl;
                     Poco::Net::HTTPResponse ProxyResponse;
                     std::istream &ProxyResponseStream = Session.receiveResponse(ProxyResponse);
                     Poco::JSON::Parser  P2;
