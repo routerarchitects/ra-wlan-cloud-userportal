@@ -32,6 +32,8 @@ namespace OpenWifi {
                 ProxyRequest.add("X-API-KEY", Svc.AccessKey);
                 ProxyRequest.add("X-INTERNAL-NAME", MicroService::instance().PublicEndPoint());
 
+                std::cout << Request->getMethod() << " is ok" << std::endl;
+
                 if(Request->getMethod() == Poco::Net::HTTPRequest::HTTP_DELETE) {
                     Session.sendRequest(ProxyRequest);
                     Poco::Net::HTTPResponse ProxyResponse;
@@ -55,7 +57,6 @@ namespace OpenWifi {
                     // }
 
                     std::cout << Request->getMethod() << " is ok" << std::endl;
-
                     Poco::Net::HTTPResponse ProxyResponse;
                     std::istream &ProxyResponseStream = Session.receiveResponse(ProxyResponse);
                     Poco::JSON::Parser  P2;
