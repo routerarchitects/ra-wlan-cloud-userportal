@@ -33,28 +33,30 @@ namespace OpenWifi {
                 ProxyRequest.add("X-INTERNAL-NAME", MicroService::instance().PublicEndPoint());
                 ProxyRequest.setContentType("application/json");
 
-                Poco::JSON::Parser P;
-                auto Body = P.parse(Request->stream()).extract<Poco::JSON::Object::Ptr>();
-                std::stringstream SS;
-                Poco::JSON::Stringifier::stringify(Body,SS);
-                ProxyRequest.setContentLength(SS.str().size());
-
-                std::ostream & os = Session.sendRequest(ProxyRequest);
-                os << SS.str() ;
-
-                for(const auto &i:ProxyRequest) {
-                    std::cout << "   " << i.first << ":" << i.second << std::endl;
-                }
-
-                std::cout << Request->getMethod() << " is ok" << std::endl;
-
-                Poco::Net::HTTPResponse ProxyResponse;
-                std::istream &ProxyResponseStream = Session.receiveResponse(ProxyResponse);
                 if(Request->getMethod() == Poco::Net::HTTPRequest::HTTP_DELETE) {
+                    Poco::Net::HTTPResponse ProxyResponse;
+                    Session.receiveResponse(ProxyResponse);
                     Response->setStatus(ProxyResponse.getStatus());
                     Response->send();
                     return;
                 } else {
+                    Poco::JSON::Parser P;
+                    auto Body = P.parse(Request->stream()).extract<Poco::JSON::Object::Ptr>();
+                    std::stringstream SS;
+                    Poco::JSON::Stringifier::stringify(Body,SS);
+                    ProxyRequest.setContentLength(SS.str().size());
+
+                    std::ostream & os = Session.sendRequest(ProxyRequest);
+                    os << SS.str() ;
+
+                    // for(const auto &i:ProxyRequest) {
+                    //     std::cout << "   " << i.first << ":" << i.second << std::endl;
+                    // }
+
+                    std::cout << Request->getMethod() << " is ok" << std::endl;
+
+                    Poco::Net::HTTPResponse ProxyResponse;
+                    std::istream &ProxyResponseStream = Session.receiveResponse(ProxyResponse);
                     Poco::JSON::Parser  P2;
                     auto ProxyResponseBody = P2.parse(ProxyResponseStream).extract<Poco::JSON::Object::Ptr>();
                     std::stringstream SSR;
@@ -64,7 +66,6 @@ namespace OpenWifi {
                     Response->setContentLength(SSR.str().size());
                     Response->sendBuffer(SSR.str().c_str(),SSR.str().size());
                     return;
-//                    std::cout << __FILE__ << " : " << __func__  << " : " << __LINE__ << " >>> " << SSR.str() << std::endl;
                 }
             }
 
