@@ -3713,7 +3713,7 @@ namespace OpenWifi {
     [[nodiscard]] bool AuthServiceIsAuthorized(Poco::Net::HTTPServerRequest & Request,std::string &SessionToken, SecurityObjects::UserInfoAndPolicy & UInfo, bool & Expired , bool Sub );
 #endif
     inline bool RESTAPIHandler::IsAuthorized( bool & Expired , bool Sub ) {
-        if(Internal_) {
+        if(Internal_ && Request->has("X-INTERNAL-NAME")) {
             auto Allowed = MicroService::instance().IsValidAPIKEY(*Request);
             if(!Allowed) {
                 if(Server_.LogBadTokens(false)) {

@@ -29,8 +29,12 @@ namespace OpenWifi {
                 Poco::Net::HTTPRequest ProxyRequest(Request->getMethod(),
                                                     DestinationURI.getPathAndQuery(),
                                                     Poco::Net::HTTPMessage::HTTP_1_1);
-                ProxyRequest.add("X-API-KEY", Svc.AccessKey);
-                ProxyRequest.add("X-INTERNAL-NAME", MicroService::instance().PublicEndPoint());
+                if(Request->has("Authorization")) {
+                    ProxyRequest.add("Authorization", Request->get("Authorization"));
+                } else {
+                    ProxyRequest.add("X-API-KEY", Svc.AccessKey);
+                    ProxyRequest.add("X-INTERNAL-NAME", MicroService::instance().PublicEndPoint());
+                }
 
                 if(Request->getMethod() == Poco::Net::HTTPRequest::HTTP_DELETE) {
                     Session.sendRequest(ProxyRequest);
