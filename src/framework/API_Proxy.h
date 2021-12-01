@@ -31,15 +31,16 @@ namespace OpenWifi {
                                                     Poco::Net::HTTPMessage::HTTP_1_1);
                 ProxyRequest.add("X-API-KEY", Svc.AccessKey);
                 ProxyRequest.add("X-INTERNAL-NAME", MicroService::instance().PublicEndPoint());
-                ProxyRequest.setContentType("application/json");
 
                 if(Request->getMethod() == Poco::Net::HTTPRequest::HTTP_DELETE) {
+                    Session.sendRequest(ProxyRequest);
                     Poco::Net::HTTPResponse ProxyResponse;
                     Session.receiveResponse(ProxyResponse);
                     Response->setStatus(ProxyResponse.getStatus());
                     Response->send();
                     return;
                 } else {
+                    ProxyRequest.setContentType("application/json");
                     Poco::JSON::Parser P;
                     auto Body = P.parse(Request->stream()).extract<Poco::JSON::Object::Ptr>();
                     std::stringstream SS;
