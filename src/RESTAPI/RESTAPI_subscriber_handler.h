@@ -2,9 +2,7 @@
 // Created by stephane bourque on 2021-11-07.
 //
 
-#ifndef OWSUB_RESTAPI_SUBSCRIBER_HANDLER_H
-#define OWSUB_RESTAPI_SUBSCRIBER_HANDLER_H
-
+#pragma once
 
 #include "framework/MicroService.h"
 
@@ -29,5 +27,3 @@ namespace OpenWifi {
     private:
     };
 }
-
-#endif //OWSUB_RESTAPI_SUBSCRIBER_HANDLER_H

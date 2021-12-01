@@ -2,8 +2,7 @@
 // Created by stephane bourque on 2021-11-28.
 //
 
-#ifndef OWSUB_RESTAPI_OAUTH2_HANDLER_H
-#define OWSUB_RESTAPI_OAUTH2_HANDLER_H
+#pragma once
 
 #include "framework/MicroService.h"
 
@@ -30,4 +29,3 @@ namespace OpenWifi {
     };
 }
 
-#endif //OWSUB_RESTAPI_OAUTH2_HANDLER_H
