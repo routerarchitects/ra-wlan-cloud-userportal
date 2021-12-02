@@ -601,7 +601,7 @@ components:
         aclTemplate:
           $ref: '#/components/schemas/AclTemplate'
 
-    MfaConfig:
+    SubMfaConfig:
       type: object
       properties:
         id:
@@ -617,26 +617,6 @@ components:
           type: string
           format: email
         sms:
-          type: string
-
-    MfaConfigChallenge:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        sent:
-          type: integer
-          format: int64
-        valid:
-          type: integer
-          format: int64
-        type:
-          type: string
-          enum:
-            - sms
-            - email
-        answer:
           type: string
 
 paths:
@@ -790,7 +770,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/AssociationList'
 
-  /mfa:
+  /submfa:
     get:
       tags:
         - MFA
@@ -798,14 +778,7 @@ paths:
       operationId: getMFS
       responses:
         200:
-          description:
-            Retrieved MFA configuration
-          content:
-            application/json:
-              schema:
-                oneOf:
-                  - $ref: '#/components/schemas/MfaConfig'
-                  - $ref: '#/components/schemas/MfaConfigChallenge'
+          $ref: '#/components/schemas/SubMfaConfig'
 
     put:
       tags:
@@ -814,7 +787,17 @@ paths:
       operationId: modifyMFS
       parameters:
         - in: query
-          name: challengeResponse
+          name: startValidation
+          schema:
+            type: boolean
+          required: false
+        - in: query
+          name: completeValidation
+          schema:
+            type: boolean
+          required: false
+        - in: query
+          name: challengeCode
           schema:
             type: string
           required: false
@@ -822,10 +805,10 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/MfaConfig'
+              $ref: '#/components/schemas/SubMfaConfig'
       responses:
         200:
-          $ref: '#/components/schemas/MfaConfig'
+          $ref: '#/components/schemas/SubMfaConfig'
         400:
           $ref: '#/components/responses/BadRequest'
 
