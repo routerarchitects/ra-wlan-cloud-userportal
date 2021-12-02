@@ -601,6 +601,36 @@ components:
         aclTemplate:
           $ref: '#/components/schemas/AclTemplate'
 
+    MfaConfig:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - disabled
+            - sms
+            - email
+        email:
+          type: string
+          format: email
+        sms:
+          type: string
+
+    MfaConfigChallenge:
+      type: object
+      properties:
+        sent:
+          type: integer
+          format: int64
+        valid:
+          type: integer
+          format: int64
+        type:
+          type: string
+          enum:
+            - sms
+            - email
+
 paths:
   /oauth2:
     post:
@@ -751,6 +781,45 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AssociationList'
+
+  /mfa:
+    get:
+      tags:
+        - MFA
+      summary: Retrieve the cyrrent setting for MFA
+      operationId: getMFS
+      responses:
+        200:
+          description:
+            Retrieved MFA configuration
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/MfaConfig'
+                  - $ref: '#/components/schemas/MfaConfigChallenge'
+
+    put:
+      tags:
+        - MFA
+      summary: Retrieve the cyrrent setting for MFA
+      operationId: modifyMFS
+      parameters:
+        - in: query
+          name: challengeResponse
+          schema:
+            type: string
+          required: false
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MfaConfig'
+      responses:
+        200:
+          $ref: '#/components/schemas/MfaConfig'
+        400:
+          $ref: '#/components/responses/BadRequest'
 
   /action:
     post:

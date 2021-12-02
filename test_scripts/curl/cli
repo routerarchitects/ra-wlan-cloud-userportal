@@ -1,0 +1,96 @@
+#!/bin/bash
+
+#
+#	License type: BSD 3-Clause License
+#	License copy: https://github.com/Telecominfraproject/wlan-cloud-ucentralgw/blob/master/LICENSE
+#
+#	Created by Stephane Bourque on 2021-03-04.
+#	Arilia Wireless Inc.
+#
+
+if [[ "$(which jq)" == "" ]]
+then
+  echo "You need the package jq installed to use this script."
+  exit 1
+fi
+
+if [[ "$(which curl)" == "" ]]
+then
+  echo "You need the package curl installed to use this script."
+  exit 1
+fi
+
+if [[ "${OWSUB}" == "" ]]
+then
+    echo "You must set the variable OWSUB in order to use this script. Something like"
+    echo "OWSUB=security.isp.com:16006"
+    exit 1
+fi
+
+if [[ "${FLAGS}" == "" ]]
+then
+	FLAGS="-s"
+fi
+
+target_servicetype=owsub
+target_service_endpoint="${OWSUB}"
+
+token=""
+result_file=result.json
+username="stephane.bourque@test.com"
+password="Snoopy99!"
+browser_list=(firefox sensible-browser xdg-open w3m links links2 lynx youtube-dl)
+browser=""
+
+login() {
+  payload="{ \"userId\" : \"$username\" , \"password\" : \"$password\" }"
+          token=$(curl ${FLAGS} -X POST -H "Content-Type: application/json" -d "$payload" "https://${target_service_endpoint}/api/v1/oauth2" | jq -r '.access_token')
+
+  if [[ "${token}" == "" ]]
+  then
+  	echo "Could not login. Please verify the host and username/password."
+    exit 13
+  fi
+  echo "${token}" > token.json
+}
+
+findbrowser() {
+	if [[ "${browser}" != "" ]]
+	then
+		echo
+	elif [[ "$(uname)" == "Darwin" ]]
+	then
+		browser=open
+	else
+		BROWSER_LIST=(firefox sensible-browser xdg-open w3m links links2 lynx youtube-dl)
+		for br_name in "${browser_list[@]}"
+		do
+			if [[ $(which ${br_name}) != "" ]]
+			then
+				browser=${br_name}
+				break
+			fi
+		done
+	fi
+}
+
+me() {
+    curl  ${FLAGS} -X GET -H "Content-Type: application/json" \
+    -H "Authorization: Bearer ${token}" \
+    "https://${target_service_endpoint}/api/v1/oauth2?me=true"
+}
+
+logout() {
+  curl  ${FLAGS} -X DELETE -H "Content-Type: application/json" \
+        -H "Authorization: Bearer ${token}" \
+        "https://${target_service_endpoint}/api/v1/oauth2/${token}"
+  rm -rf token.json
+}
+
+shopt -s nocasematch
+case "$1" in
+    "login") login; echo "You successfully logged in."  ; logout ;;
+    "me") login; me ; logout ;;
+    *) help ;;
+esac
+
