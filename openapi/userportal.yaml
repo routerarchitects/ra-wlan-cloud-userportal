@@ -604,6 +604,9 @@ components:
     MfaConfig:
       type: object
       properties:
+        id:
+          type: string
+          format: uuid
         type:
           type: string
           enum:
@@ -619,6 +622,9 @@ components:
     MfaConfigChallenge:
       type: object
       properties:
+        id:
+          type: string
+          format: uuid
         sent:
           type: integer
           format: int64
@@ -630,6 +636,8 @@ components:
           enum:
             - sms
             - email
+        answer:
+          type: string
 
 paths:
   /oauth2:
