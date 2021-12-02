@@ -74,7 +74,7 @@ add_executable(owsub
         src/RESTAPI/RESTAPI_wifiClients_handler.cpp src/RESTAPI/RESTAPI_wifiClients_handler.h
         src/RESTObjects/RESTAPI_SubObjects.cpp src/RESTObjects/RESTAPI_SubObjects.h
         src/RESTAPI/RESTAPI_subscriber_handler.cpp src/RESTAPI/RESTAPI_subscriber_handler.h
-        src/RESTAPI/RESTAPI_oauth2_handler.cpp src/RESTAPI/RESTAPI_oauth2_handler.h src/RESTAPI/RESTAPI_action_handler.cpp src/RESTAPI/RESTAPI_action_handler.h)
+        src/RESTAPI/RESTAPI_oauth2_handler.cpp src/RESTAPI/RESTAPI_oauth2_handler.h src/RESTAPI/RESTAPI_action_handler.cpp src/RESTAPI/RESTAPI_action_handler.h src/RESTAPI/RESTAPI_mfa_handler.cpp src/RESTAPI/RESTAPI_mfa_handler.h)
 
 target_link_libraries(owsub PUBLIC
         ${Poco_LIBRARIES} ${MySQL_LIBRARIES}
