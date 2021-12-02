@@ -108,7 +108,7 @@ components:
           enum:
             - bridge
             - manual
-            - automatic
+            - nat
           default: automatic
         enableLEDS:
           type: boolean
@@ -428,6 +428,8 @@ components:
         macAddress:
           type: string
         name:
+          type: string
+        deviceType:
           type: string
         subscriberDevices:
           $ref: '#/components/schemas/SubscriberDeviceList'
