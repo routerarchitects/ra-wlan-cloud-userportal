@@ -478,7 +478,6 @@ components:
           type: string
           format: email
         accessPoints:
-          readOnly: true
           $ref: '#/components/schemas/AccessPointList'
         serviceAddress:
           $ref: '#/components/schemas/Location'
@@ -819,7 +818,7 @@ paths:
       tags:
         - Device Commands
       summary: Sending different commands to a device
-      operationId: oerfirmAnAction
+      operationId: performAnAction
       parameters:
         - in: query
           name: action
