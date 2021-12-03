@@ -75,7 +75,7 @@ components:
               Code:
                 type: integer
     Error:
-      description: The requested operation was performed.
+      description: The requested operation failed.
       content:
         application/json:
           schema:
@@ -87,7 +87,7 @@ components:
               Code:
                 type: integer
     BadRequest:
-      description: The requested operation was performed.
+      description: The requested operation failed.
       content:
         application/json:
           schema:
@@ -642,7 +642,7 @@ paths:
           required: false
         - in: query
           name: requirements
-          description: A user forgot her password. She needs to present her e-mail address in the userId and set this to true
+          description: A user forgot her password. This will provided the password requirements.
           schema:
             type: boolean
           required: false
@@ -775,7 +775,7 @@ paths:
     get:
       tags:
         - MFA
-      summary: Retrieve the cyrrent setting for MFA
+      summary: Retrieve the current setting for MFA
       operationId: getMFS
       responses:
         200:
@@ -784,7 +784,7 @@ paths:
     put:
       tags:
         - MFA
-      summary: Retrieve the cyrrent setting for MFA
+      summary: Retrieve the current setting for MFA
       operationId: modifyMFS
       parameters:
         - in: query
@@ -847,5 +847,4 @@ paths:
           $ref: '#/components/responses/Success'
         400:
           $ref: '#/components/responses/BadRequest'
-
 
