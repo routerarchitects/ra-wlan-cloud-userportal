@@ -18,8 +18,8 @@ namespace OpenWifi::SubObjects {
         std::string     subnetMask;
         std::string     startIP;
         std::string     endIP;
-        uint64_t        created;
-        uint64_t        modified;
+        uint64_t        created = 0 ;
+        uint64_t        modified = 0 ;
 
         void to_json(Poco::JSON::Object &Obj) const;
         bool from_json(const Poco::JSON::Object::Ptr &Obj);
@@ -37,16 +37,16 @@ namespace OpenWifi::SubObjects {
     struct IPReservationList {
         std::string                 id;
         std::vector<IPReservation>  reservations;
-        uint64_t created;
-        uint64_t modified;
+        uint64_t created = 0 ;
+        uint64_t modified = 0 ;
 
         void to_json(Poco::JSON::Object &Obj) const;
         bool from_json(const Poco::JSON::Object::Ptr &Obj);
     };
 
     struct DnsConfiguration {
-        bool            ISP;
-        bool            custom;
+        bool            ISP=false;
+        bool            custom=false;
         std::string     primary;
         std::string     secondary;
 
@@ -63,8 +63,8 @@ namespace OpenWifi::SubObjects {
         std::string     defaultGateway;
         std::string     primaryDns;
         std::string     secondaryDns;
-        uint64_t        created;
-        uint64_t        modified;
+        uint64_t        created=0;
+        uint64_t        modified=0;
 
         void to_json(Poco::JSON::Object &Obj) const;
         bool from_json(const Poco::JSON::Object::Ptr &Obj);
@@ -83,8 +83,8 @@ namespace OpenWifi::SubObjects {
 
     struct WifiNetworkList {
         std::vector<WifiNetwork>    wifiNetworks;
-        uint64_t                    created;
-        uint64_t                    modified;
+        uint64_t                    created=0;
+        uint64_t                    modified=0;
 
         void to_json(Poco::JSON::Object &Obj) const;
         bool from_json(const Poco::JSON::Object::Ptr &Obj);
@@ -100,8 +100,8 @@ namespace OpenWifi::SubObjects {
 
     struct AccessTimes {
         std::vector<AccessTime> schedule;
-        uint64_t        created;
-        uint64_t        modified;
+        uint64_t        created=0;
+        uint64_t        modified=0;
 
         void to_json(Poco::JSON::Object &Obj) const;
         bool from_json(const Poco::JSON::Object::Ptr &Obj);
@@ -112,11 +112,11 @@ namespace OpenWifi::SubObjects {
         std::string     description;
         std::string     macAddress;
         std::string     manufacturer;
-        uint64_t        firstContact;
-        uint64_t        lastContact;
+        uint64_t        firstContact=0;
+        uint64_t        lastContact=0;
         std::string     group;
         std::string     icon;
-        bool            suspended;
+        bool            suspended=false;
         std::string     ip;
         std::vector<AccessTimes>    schedule;
 
@@ -126,8 +126,8 @@ namespace OpenWifi::SubObjects {
 
     struct SubscriberDeviceList {
         std::vector<SubscriberDevice>   devices;
-        uint64_t        created;
-        uint64_t        modified;
+        uint64_t        created=0;
+        uint64_t        modified=0;
 
         void to_json(Poco::JSON::Object &Obj) const;
         bool from_json(const Poco::JSON::Object::Ptr &Obj);
@@ -136,12 +136,12 @@ namespace OpenWifi::SubObjects {
     struct Association {
         std::string     name;
         std::string     macAddress;
-        int             rssi;
-        int             power;
+        int             rssi=0;
+        int             power=0;
         std::string     ipv4;
         std::string     ipv6;
-        uint64_t        tx;
-        uint64_t        rx;
+        uint64_t        tx=0;
+        uint64_t        rx=0;
 
         void to_json(Poco::JSON::Object &Obj) const;
         bool from_json(const Poco::JSON::Object::Ptr &Obj);
@@ -149,8 +149,8 @@ namespace OpenWifi::SubObjects {
 
     struct AssociationList {
         std::vector<Association>    associations;
-        uint64_t        created;
-        uint64_t        modified;
+        uint64_t        created=0;
+        uint64_t        modified=0;
 
         void to_json(Poco::JSON::Object &Obj) const;
         bool from_json(const Poco::JSON::Object::Ptr &Obj);
@@ -162,8 +162,8 @@ namespace OpenWifi::SubObjects {
         std::string     mode;
         std::string     ipv4;
         std::string     ipv6;
-        uint64_t        tx;
-        uint64_t        rx;
+        uint64_t        tx=0;
+        uint64_t        rx=0;
 
         void to_json(Poco::JSON::Object &Obj) const;
         bool from_json(const Poco::JSON::Object::Ptr &Obj);
@@ -171,8 +171,8 @@ namespace OpenWifi::SubObjects {
 
     struct ClientList {
         std::vector<Client> clients;
-        uint64_t        created;
-        uint64_t        modified;
+        uint64_t        created=0;
+        uint64_t        modified=0;
 
         void to_json(Poco::JSON::Object &Obj) const;
         bool from_json(const Poco::JSON::Object::Ptr &Obj);
@@ -226,8 +226,8 @@ namespace OpenWifi::SubObjects {
         AccessPointList             accessPoints;
         Location                    serviceAddress;
         Location                    billingAddress;
-        uint64_t                    created;
-        uint64_t                    modified;
+        uint64_t                    created = 0;
+        uint64_t                    modified = 0;
 
         void to_json(Poco::JSON::Object &Obj) const;
         bool from_json(const Poco::JSON::Object::Ptr &Obj);

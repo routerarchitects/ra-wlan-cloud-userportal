@@ -9,6 +9,7 @@ namespace OpenWifi {
 
     void RESTAPI_action_handler::DoPost() {
         auto Command = GetParameter("action","");
+
         if(Command.empty()) {
             return BadRequest(RESTAPI::Errors::MissingOrInvalidParameters);
         }
@@ -16,6 +17,13 @@ namespace OpenWifi {
         auto Body = ParseStream();
         std::string Mac, ImageName,Pattern{"blink"};
         AssignIfPresent(Body,"mac",Mac);
+
+        Poco::toLowerInPlace(Mac);
+        Poco::trimInPlace(Mac);
+        if(Mac.empty()) {
+            return BadRequest(RESTAPI::Errors::MissingSerialNumber);
+        }
+
         uint64_t    When=0, Duration = 30;
         bool keepRedirector=true;
         AssignIfPresent(Body, "when",When);
@@ -23,10 +31,6 @@ namespace OpenWifi {
         AssignIfPresent(Body, "uri", ImageName);
         AssignIfPresent(Body, "pattern", Pattern);
         AssignIfPresent(Body, "keepRedirector",keepRedirector);
-
-        if(Mac.empty()) {
-            return BadRequest(RESTAPI::Errors::MissingOrInvalidParameters);
-        }
 
         Poco::SharedPtr<SubObjects::SubscriberInfo>     SubInfo;
         auto UserFound = SubscriberCache()->GetSubInfo(UserInfo_.userinfo.Id,SubInfo);
@@ -37,26 +41,25 @@ namespace OpenWifi {
         for(const auto &i:SubInfo->accessPoints.list) {
             if(i.macAddress == Mac) {
                 if(Command == "reboot") {
-                    Reboot(Mac, When);
+                    return Reboot(Mac, When);
                 } else if(Command == "leds") {
-                    LEDs(Mac, When, Duration, Pattern);
+                    return LEDs(Mac, When, Duration, Pattern);
                 } else if(Command == "upgrade") {
-                    Upgrade(Mac, When, ImageName, keepRedirector);
+                    return Upgrade(Mac, When, ImageName, keepRedirector);
                 } else if(Command == "factory") {
-                    Factory(Mac, When, keepRedirector);
+                    return Factory(Mac, When, keepRedirector);
                 } else if(Command == "refresh") {
-                    Refresh(Mac, When);
+                    return Refresh(Mac, When);
                 } else {
                     return BadRequest(RESTAPI::Errors::MissingOrInvalidParameters);
                 }
-
             }
         }
         return NotFound();
     }
 
     void RESTAPI_action_handler::Reboot(const std::string & Mac, uint64_t When) {
-        std::string         EndPoint = "/device/" + Mac + "/reboot";
+        std::string         EndPoint = "/api/v1/device/" + Mac + "/reboot";
         Poco::JSON::Object  ObjRequest;
 
         ObjRequest.set("serialNumber", Mac);
@@ -66,7 +69,7 @@ namespace OpenWifi {
     }
 
     void RESTAPI_action_handler::LEDs(const std::string & Mac, uint64_t When, uint64_t Duration, const std::string & Pattern) {
-        std::string         EndPoint = "/device/" + Mac + "/leds";
+        std::string         EndPoint = "/api/v1/device/" + Mac + "/leds";
         Poco::JSON::Object  ObjRequest;
 
         ObjRequest.set("serialNumber", Mac);
@@ -77,7 +80,7 @@ namespace OpenWifi {
     }
 
     void RESTAPI_action_handler::Factory(const std::string & Mac, uint64_t When, bool KeepRedirector) {
-        std::string         EndPoint = "/device/" + Mac + "/factory";
+        std::string         EndPoint = "/api/v1/device/" + Mac + "/factory";
         Poco::JSON::Object  ObjRequest;
 
         ObjRequest.set("serialNumber", Mac);
@@ -87,7 +90,7 @@ namespace OpenWifi {
     }
 
     void RESTAPI_action_handler::Upgrade(const std::string & Mac, uint64_t When, const std::string & ImageName, bool KeepRedirector) {
-        std::string         EndPoint = "/device/" + Mac + "/upgrade";
+        std::string         EndPoint = "/api/v1/device/" + Mac + "/upgrade";
         Poco::JSON::Object  ObjRequest;
 
         ObjRequest.set("serialNumber", Mac);
@@ -97,7 +100,7 @@ namespace OpenWifi {
     }
 
     void RESTAPI_action_handler::Refresh(const std::string & Mac, uint64_t When) {
-        std::string         EndPoint = "/device/" + Mac + "/refresh";
+        std::string         EndPoint = "/api/v1/device/" + Mac + "/refresh";
         Poco::JSON::Object  ObjRequest;
 
         ObjRequest.set("serialNumber", Mac);
@@ -106,7 +109,9 @@ namespace OpenWifi {
     }
 
     void RESTAPI_action_handler::PerformCommand(const std::string & EndPoint, Poco::JSON::Object & CommandRequest) {
+
         auto API = OpenAPIRequestPost(uSERVICE_GATEWAY, EndPoint, Types::StringPairVec{}, CommandRequest, 20000);
+
         Poco::JSON::Object::Ptr CallResponse;
 
         auto ResponseStatus = API.Do(CallResponse);

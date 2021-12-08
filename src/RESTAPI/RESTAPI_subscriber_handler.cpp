@@ -15,6 +15,23 @@ namespace OpenWifi {
         SI.id = UI.userinfo.Id;
         SI.created = SI.modified = Now;
         SI.userId = UI.userinfo.email;
+        const auto NameParts = Poco::StringTokenizer(UI.userinfo.name," ");
+        if(NameParts.count()>0) {
+            for(auto i=0; i<NameParts.count();++i) {
+                if(i==0)
+                    SI.firstName = NameParts[0];
+                else
+                    SI.lastName = NameParts[i] + " ";
+            }
+            Poco::trimInPlace(SI.firstName);
+            Poco::trimInPlace(SI.lastName);
+        } else {
+            SI.firstName = UI.userinfo.name;
+        }
+
+        if(!UI.userinfo.userTypeProprietaryInfo.mobiles.empty())
+            SI.phoneNumber = UI.userinfo.userTypeProprietaryInfo.mobiles[0].number;
+
         SubObjects::AccessPoint AP;
         AP.macAddress = "000000000000";
         AP.id = MicroService::instance().CreateUUID();
