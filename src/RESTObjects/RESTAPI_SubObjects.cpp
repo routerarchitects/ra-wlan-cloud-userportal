@@ -20,6 +20,10 @@ namespace OpenWifi::SubObjects {
         field_to_json(Obj, "endIP", endIP);
         field_to_json(Obj, "created", created);
         field_to_json(Obj, "modified", modified);
+        field_to_json(Obj, "subnetV6", subnetV6);
+        field_to_json(Obj, "subnetMaskV6", subnetMaskV6);
+        field_to_json(Obj, "startIPV6", startIPV6);
+        field_to_json(Obj, "endIPV6", endIPV6);
     }
 
     bool HomeDeviceMode::from_json(const Poco::JSON::Object::Ptr &Obj) {
@@ -32,6 +36,10 @@ namespace OpenWifi::SubObjects {
             field_from_json(Obj, "endIP", endIP);
             field_from_json(Obj, "created", created);
             field_from_json(Obj, "modified", modified);
+            field_from_json(Obj, "subnetV6", subnetV6);
+            field_from_json(Obj, "subnetMaskV6", subnetMaskV6);
+            field_from_json(Obj, "startIPV6", startIPV6);
+            field_from_json(Obj, "endIPV6", endIPV6);
             return true;
         } catch (...) {
         }
@@ -104,6 +112,12 @@ namespace OpenWifi::SubObjects {
         field_to_json(Obj, "secondaryDns", secondaryDns);
         field_to_json(Obj, "created", created);
         field_to_json(Obj, "modified", modified);
+        field_to_json(Obj, "ipV6Support", ipV6Support);
+        field_to_json(Obj, "ipAddressV6", ipAddressV6);
+        field_to_json(Obj, "subnetMaskV6", subnetMaskV6);
+        field_to_json(Obj, "defaultGatewayV6", defaultGatewayV6);
+        field_to_json(Obj, "primaryDnsV6", primaryDnsV6);
+        field_to_json(Obj, "secondaryDnsV6", secondaryDnsV6);
     }
 
     bool InternetConnection::from_json(const Poco::JSON::Object::Ptr &Obj) {
@@ -118,6 +132,12 @@ namespace OpenWifi::SubObjects {
             field_from_json(Obj, "secondaryDns", secondaryDns);
             field_from_json(Obj, "created", created);
             field_from_json(Obj, "modified", modified);
+            field_from_json(Obj, "ipV6Support", ipV6Support);
+            field_from_json(Obj, "ipAddressV6", ipAddressV6);
+            field_from_json(Obj, "subnetMaskV6", subnetMaskV6);
+            field_from_json(Obj, "defaultGatewayV6", defaultGatewayV6);
+            field_from_json(Obj, "primaryDnsV6", primaryDnsV6);
+            field_from_json(Obj, "secondaryDnsV6", secondaryDnsV6);
             return true;
         } catch (...) {
         }

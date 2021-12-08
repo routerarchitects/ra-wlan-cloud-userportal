@@ -110,6 +110,9 @@ components:
             - manual
             - nat
           default: automatic
+        ipV6Support:
+          type: boolean
+          default: false
         enableLEDS:
           type: boolean
           default: true
@@ -117,14 +120,26 @@ components:
           type: string
           format: ipv4
         subnetMask:
-          type: string
-          format: ipv4
+          type: int
+          format: int32
         startIP:
           type: string
           format: ipv4
         endIP:
           type: string
           format: ipv4
+        subnetV6:
+          type: string
+          format: ipv6
+        subnetMaskV6:
+          type: int
+          format: int32
+        startIPV6:
+          type: string
+          format: ipv6
+        endIPV6:
+          type: string
+          format: ipv6
         created:
           type: integer
           format: int64
@@ -181,6 +196,9 @@ components:
             - manual
             - pppoe
             - automatic
+        ipV6Support:
+          type: boolean
+          default: false
         username:
           type: string
         password:
@@ -200,6 +218,21 @@ components:
         secondaryDns:
           type: string
           format: ipv4
+        ipAddressV6:
+          type: string
+          format: ipv6
+        subnetMaskV6:
+          type: int
+          format: int32
+        defaultGatewayV6:
+          type: strin
+          format: ipv6
+        primaryDnsV6:
+          type: string
+          format: ipv6
+        secondaryDnsV6:
+          type: string
+          format: ipv6
         created:
           type: integer
           format: int64

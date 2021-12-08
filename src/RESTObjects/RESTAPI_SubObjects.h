@@ -20,6 +20,10 @@ namespace OpenWifi::SubObjects {
         std::string     endIP;
         uint64_t        created = 0 ;
         uint64_t        modified = 0 ;
+        std::string     subnetV6;
+        int             subnetMaskV6=0;
+        std::string     startIPV6;
+        std::string     endIPV6;
 
         void to_json(Poco::JSON::Object &Obj) const;
         bool from_json(const Poco::JSON::Object::Ptr &Obj);
@@ -65,6 +69,12 @@ namespace OpenWifi::SubObjects {
         std::string     secondaryDns;
         uint64_t        created=0;
         uint64_t        modified=0;
+        bool            ipV6Support=false;
+        std::string     ipAddressV6;
+        int             subnetMaskV6=0;
+        std::string     defaultGatewayV6;
+        std::string     primaryDnsV6;
+        std::string     secondaryDnsV6;
 
         void to_json(Poco::JSON::Object &Obj) const;
         bool from_json(const Poco::JSON::Object::Ptr &Obj);

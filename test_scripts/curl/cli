@@ -77,7 +77,8 @@ findbrowser() {
 me() {
     curl  ${FLAGS} -X GET -H "Content-Type: application/json" \
     -H "Authorization: Bearer ${token}" \
-    "https://${target_service_endpoint}/api/v1/oauth2?me=true"
+    "https://${target_service_endpoint}/api/v1/oauth2?me=true" > ${result_file}
+    jq < ${result_file}
 }
 
 logout() {
@@ -87,10 +88,30 @@ logout() {
   rm -rf token.json
 }
 
+startmfa() {
+    payload="{ \"type\" : \"sms\" , \"sms\" : \"$1\" }"
+    curl ${FLAGS} -X PUT "https://${target_service_endpoint}/api/v1/submfa?startValidation=true" \
+        -H "Content-Type: application/json" \
+        -H "Authorization: Bearer ${token}" \
+        -d ${payload} > ${result_file}
+     jq < ${result_file}
+}
+
+completemfa() {
+    payload="{ \"type\" : \"sms\" , \"sms\" : \"$1\" }"
+    curl ${FLAGS} -X PUT "https://${target_service_endpoint}/api/v1/submfa?completeValidation=true&challengeCode=$2" \
+        -H "Content-Type: application/json" \
+        -H "Authorization: Bearer ${token}" \
+        -d ${payload} > ${result_file}
+    jq < ${result_file}
+}
+
 shopt -s nocasematch
 case "$1" in
     "login") login; echo "You successfully logged in."  ; logout ;;
     "me") login; me ; logout ;;
+    "startmfa") login; startmfa "$2" ; logout;;
+    "completemfa") login; completemfa "$2" "$3" ; logout;;
     *) help ;;
 esac
 
