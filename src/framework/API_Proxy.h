@@ -51,7 +51,10 @@ namespace OpenWifi {
                         Poco::JSON::Stringifier::condense(Body,SS);
                         SS << "\r\n\r\n";
                     } catch(...) {
+
                     }
+
+                    std::cout << ">>>" << SS.str() << std::endl;
 
                     if(SS.str().empty()) {
                         Session.sendRequest(ProxyRequest);
