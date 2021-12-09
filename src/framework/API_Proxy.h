@@ -48,7 +48,7 @@ namespace OpenWifi {
                     std::stringstream SS;
                     try {
                         auto Body = P.parse(Request->stream()).extract<Poco::JSON::Object::Ptr>();
-                        Poco::JSON::Stringifier::stringify(Body,SS);
+                        Poco::JSON::Stringifier::condense(Body,SS);
                     } catch(...) {
                     }
 
@@ -56,7 +56,7 @@ namespace OpenWifi {
                         Session.sendRequest(ProxyRequest);
                     } else {
                         ProxyRequest.setContentType("application/json");
-                        ProxyRequest.setContentLength(SS.str().size());
+                        // ProxyRequest.setContentLength(SS.str().size());
                         std::ostream & os = Session.sendRequest(ProxyRequest);
                         os << SS.str() ;
                     }
