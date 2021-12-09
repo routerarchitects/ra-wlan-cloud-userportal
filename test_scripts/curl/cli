@@ -90,6 +90,7 @@ logout() {
 
 startmfa() {
     payload="{ \"type\" : \"sms\" , \"sms\" : \"$1\" }"
+    echo ${payload}
     curl ${FLAGS} -X PUT "https://${target_service_endpoint}/api/v1/submfa?startValidation=true" \
         -H "Content-Type: application/json" \
         -H "Authorization: Bearer ${token}" \
