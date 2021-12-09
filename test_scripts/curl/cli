@@ -90,11 +90,10 @@ logout() {
 
 startmfa() {
     payload="{ \"type\" : \"sms\" , \"sms\" : \"$1\" }"
-    echo ${payload}
     curl ${FLAGS} -X PUT "https://${target_service_endpoint}/api/v1/submfa?startValidation=true" \
         -H "Content-Type: application/json" \
         -H "Authorization: Bearer ${token}" \
-        -d ${payload} > ${result_file}
+        -d "${payload}" > ${result_file}
      jq < ${result_file}
 }
 
@@ -103,7 +102,7 @@ completemfa() {
     curl ${FLAGS} -X PUT "https://${target_service_endpoint}/api/v1/submfa?completeValidation=true&challengeCode=$2" \
         -H "Content-Type: application/json" \
         -H "Authorization: Bearer ${token}" \
-        -d ${payload} > ${result_file}
+        -d "${payload}" > ${result_file}
     jq < ${result_file}
 }
 
