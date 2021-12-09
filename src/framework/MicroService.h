@@ -64,6 +64,7 @@ using namespace std::chrono_literals;
 
 #include "cppkafka/cppkafka.h"
 
+#include "framework/OpenWifiTypes.h"
 #include "framework/KafkaTopics.h"
 #include "framework/RESTAPI_protocol.h"
 #include "framework/RESTAPI_errors.h"
@@ -72,6 +73,8 @@ using namespace std::chrono_literals;
 #include "nlohmann/json.hpp"
 
 #include "ow_version.h"
+
+#define _OWDBG_ std::cout << __FILE__ << " : " << __LINE__ << std::endl;
 
 namespace OpenWifi {
 

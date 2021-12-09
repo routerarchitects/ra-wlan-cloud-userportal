@@ -108,7 +108,13 @@ namespace OpenWifi {
             //  We cannot add a serial of all 0, and we cannot add a device that's already been claimed.
             for(auto &Old:Existing.accessPoints.list) {
                 if(New.id==Old.id) {
-                    Old = New;
+                    if (Old.macAddress == "000000000000") {
+                        Old = New;
+                    } else {
+                        auto T = Old.macAddress;
+                        Old = New;
+                        Old.macAddress = T;
+                    }
                     Old.internetConnection.modified = Now;
                     Old.deviceMode.modified = Now;
                     Old.wifiNetworks.modified = Now;

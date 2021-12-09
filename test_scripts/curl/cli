@@ -106,12 +106,28 @@ completemfa() {
     jq < ${result_file}
 }
 
+getmfa() {
+    curl ${FLAGS} -X GET "https://${target_service_endpoint}/api/v1/submfa" \
+        -H "Content-Type: application/json" \
+        -H "Authorization: Bearer ${token}" > ${result_file}
+    jq < ${result_file}
+}
+
+getmyinfo() {
+    curl ${FLAGS} -X GET "https://${target_service_endpoint}/api/v1/subscriber" \
+        -H "Content-Type: application/json" \
+        -H "Authorization: Bearer ${token}" > ${result_file}
+    jq < ${result_file}
+}
+
 shopt -s nocasematch
 case "$1" in
     "login") login; echo "You successfully logged in."  ; logout ;;
     "me") login; me ; logout ;;
     "startmfa") login; startmfa "$2" ; logout;;
     "completemfa") login; completemfa "$2" "$3" ; logout;;
+    "getmfa") login; getmfa ; logout;;
+    "getmyinfo") login; getmyinfo ; logout;;
     *) help ;;
 esac
 
