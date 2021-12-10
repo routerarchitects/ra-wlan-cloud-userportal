@@ -11,13 +11,14 @@ namespace OpenWifi {
     public:
         RESTAPI_oauth2_handler(const RESTAPIHandler::BindingMap &bindings,
                                Poco::Logger &L,
-                               RESTAPI_GenericServer & Server, bool Internal)
+                               RESTAPI_GenericServer & Server, uint64_t TransactionId, bool Internal)
         : RESTAPIHandler(bindings, L,
                          std::vector<std::string>{Poco::Net::HTTPRequest::HTTP_POST,
                                                   Poco::Net::HTTPRequest::HTTP_DELETE,
                                                   Poco::Net::HTTPRequest::HTTP_GET,
                                                   Poco::Net::HTTPRequest::HTTP_OPTIONS},
                                                   Server,
+                                                  TransactionId,
                                                   Internal, false, true , RateLimit{.Interval=1000,.MaxCalls=10}) {}
         static const std::list<const char *> PathName() { return std::list<const char *>{"/api/v1/oauth2/{token}","/api/v1/oauth2"}; };
 
