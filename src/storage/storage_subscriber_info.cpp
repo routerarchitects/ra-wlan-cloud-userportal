@@ -39,7 +39,6 @@ namespace OpenWifi {
     void SubscriberInfoDB::CreateDefaultSubscriberInfo(const SecurityObjects::UserInfoAndPolicy & UI, SubObjects::SubscriberInfo &SI) {
         auto Now = std::time(nullptr);
 
-        std::cout << "OWNER: '" << UI.userinfo.owner << "'" << std::endl;
         //  ok, we need to generate a default record and store it...
         SI.id = UI.userinfo.Id;
         SI.created = SI.modified = Now;
