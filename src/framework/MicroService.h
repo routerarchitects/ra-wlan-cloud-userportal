@@ -3747,6 +3747,8 @@ namespace OpenWifi {
                 std::string Path(URI.getPathAndQuery());
                 Session.setTimeout(Poco::Timespan(msTimeout_/1000, msTimeout_ % 1000));
 
+                std::cout << ">>>PATH:" << URI.toString() << std::endl;
+
                 Poco::Net::HTTPRequest Request(Poco::Net::HTTPRequest::HTTP_POST,
                                                Path,
                                                Poco::Net::HTTPMessage::HTTP_1_1);

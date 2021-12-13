@@ -38,17 +38,35 @@ target_service_endpoint="${OWSUB}"
 token=""
 result_file=result.json
 username="stephane.bourque@subs.com"
-password="Snoopy99!"
+password="NoMoreN00bs!"
 browser_list=(firefox sensible-browser xdg-open w3m links links2 lynx youtube-dl)
 browser=""
 
 login() {
   payload="{ \"userId\" : \"$username\" , \"password\" : \"$password\" }"
-          token=$(curl ${FLAGS} -X POST -H "Content-Type: application/json" -d "$payload" "https://${target_service_endpoint}/api/v1/oauth2" | jq -r '.access_token')
-
-  if [[ "${token}" == "" ]]
+  curl ${FLAGS} -X POST -H "Content-Type: application/json" -d "$payload" "https://${target_service_endpoint}/api/v1/oauth2" > ${result_file}
+  token=$(cat ${result_file} | jq -r '.access_token' )
+  if [[ "${token}" == "null" ]]
   then
-  	echo "Could not login. Please verify the host and username/password."
+    method=$(cat ${result_file} | jq -r '.method' )
+    if [[ "${method}" == "sms" ]]
+    then
+        while true
+        do
+            read -r -p "Please provide the SMS login code that was sent to you: " challenge_code
+            mfauuid=$(cat ${result_file} | jq -r '.uuid' )
+            mfaloginpayload="{ \"uuid\" : \"$uuid\", \"answer\" : \"$challenge_code\" }"
+            curl ${FLAGS} -X POST "https://${target_service_endpoint}/api/v1/oauth2?completeMFAChallenge=true" \
+                            -d "$mfaloginpayload" > mfa_answer.json
+            token=$(cat mfa_answer.json | jq -r '.access_token')
+            if [[ "{$token}" != "null" ]]
+            then
+                break
+            fi
+        done
+        return
+    fi
+    echo "Could not login. Please verify the host and username/password."
     exit 13
   fi
   echo "${token}" > token.json
@@ -120,6 +138,15 @@ getmyinfo() {
     jq < ${result_file}
 }
 
+reboot() {
+    payload="{ \"mac\" : \"$1\" , \"when\" : 0 }"
+    curl ${FLAGS} -X POST "https://${target_service_endpoint}/api/v1/action?action=reboot" \
+        -H "Content-Type: application/json" \
+        -H "Authorization: Bearer ${token}" \
+        -d "${payload}" > ${result_file}
+    jq < ${result_file}
+};
+
 shopt -s nocasematch
 case "$1" in
     "login") login; echo "You successfully logged in."  ; logout ;;
@@ -128,6 +155,7 @@ case "$1" in
     "completemfa") login; completemfa "$2" "$3" ; logout;;
     "getmfa") login; getmfa ; logout;;
     "getmyinfo") login; getmyinfo ; logout;;
+    "reboot") login; reboot "$2" ; logout ;;
     *) help ;;
 esac
 
