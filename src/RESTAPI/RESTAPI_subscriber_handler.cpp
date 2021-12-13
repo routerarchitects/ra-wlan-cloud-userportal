@@ -33,7 +33,7 @@ namespace OpenWifi {
             SI.phoneNumber = UI.userinfo.userTypeProprietaryInfo.mobiles[0].number;
 
         SubObjects::AccessPoint AP;
-        AP.macAddress = "000000000000";
+        AP.macAddress = UI.userinfo.owner.empty() ? "000000000000" : UI.userinfo.owner ;
         AP.id = MicroService::instance().CreateUUID();
         AP.name = "My First Access Point";
         AP.deviceMode.created = AP.deviceMode.modified = Now;
