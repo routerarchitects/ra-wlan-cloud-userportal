@@ -128,7 +128,7 @@ namespace OpenWifi {
 
         Poco::JSON::Object::Ptr CallResponse;
 
-        auto ResponseStatus = API.Do(CallResponse);
+        auto ResponseStatus = API.Do(CallResponse, UserInfo_.webtoken.access_token_);
 
         if(ResponseStatus == Poco::Net::HTTPServerResponse::HTTP_GATEWAY_TIMEOUT) {
             Poco::JSON::Object  ResponseObject;
