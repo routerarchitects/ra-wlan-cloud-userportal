@@ -11,26 +11,19 @@ namespace OpenWifi {
     void RESTAPI_action_handler::DoPost() {
         auto Command = GetParameter("action","");
 
-        _OWDEBUG_
         if(Command.empty()) {
             return BadRequest(RESTAPI::Errors::MissingOrInvalidParameters);
         }
 
-        _OWDEBUG_
         auto Body = ParseStream();
         std::string Mac, ImageName,Pattern{"blink"};
-        _OWDEBUG_
         AssignIfPresent(Body,"mac",Mac);
 
-        _OWDEBUG_
         Poco::toLowerInPlace(Mac);
         Poco::trimInPlace(Mac);
-        _OWDEBUG_
         if(Mac.empty()) {
             return BadRequest(RESTAPI::Errors::MissingSerialNumber);
         }
-        _OWDEBUG_
-
         uint64_t    When=0, Duration = 30;
         bool keepRedirector=true;
         AssignIfPresent(Body, "when",When);
@@ -49,7 +42,6 @@ namespace OpenWifi {
                 return NotFound();
         }
 
-        _OWDEBUG_
         for(const auto &i:SubInfo->accessPoints.list) {
             if(i.macAddress == Mac) {
                 if(Command == "reboot") {
