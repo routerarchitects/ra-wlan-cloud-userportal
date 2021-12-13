@@ -3736,18 +3736,27 @@ namespace OpenWifi {
     inline Poco::Net::HTTPServerResponse::HTTPStatus OpenAPIRequestPost::Do(Poco::JSON::Object::Ptr &ResponseObject) {
         try {
             auto Services = MicroService::instance().GetServices(Type_);
+            std::cout << "Starting to do the post" << std::endl;
+
             for(auto const &Svc:Services) {
+                _OWDEBUG_
                 Poco::URI	URI(Svc.PrivateEndPoint);
+                _OWDEBUG_
                 Poco::Net::HTTPSClientSession Session(URI.getHost(), URI.getPort());
+                _OWDEBUG_
 
                 URI.setPath(EndPoint_);
+                _OWDEBUG_
                 for (const auto &qp : QueryData_)
                     URI.addQueryParameter(qp.first, qp.second);
+                _OWDEBUG_
 
                 std::string Path(URI.getPathAndQuery());
                 Session.setTimeout(Poco::Timespan(msTimeout_/1000, msTimeout_ % 1000));
 
+                _OWDEBUG_
                 std::cout << ">>>PATH:" << URI.toString() << std::endl;
+                _OWDEBUG_
 
                 Poco::Net::HTTPRequest Request(Poco::Net::HTTPRequest::HTTP_POST,
                                                Path,
@@ -3755,18 +3764,23 @@ namespace OpenWifi {
                 std::ostringstream obody;
                 Poco::JSON::Stringifier::stringify(Body_,obody);
 
+                _OWDEBUG_
                 Request.setContentType("application/json");
                 Request.setContentLength(obody.str().size());
+                _OWDEBUG_
 
                 Request.add("X-API-KEY", Svc.AccessKey);
                 Request.add("X-INTERNAL-NAME", MicroService::instance().PublicEndPoint());
+                _OWDEBUG_
 
                 std::ostream & os = Session.sendRequest(Request);
                 os << obody.str();
 
                 Poco::Net::HTTPResponse Response;
                 std::istream &is = Session.receiveResponse(Response);
+                _OWDEBUG_
                 if(Response.getStatus()==Poco::Net::HTTPResponse::HTTP_OK) {
+                    _OWDEBUG_
                     Poco::JSON::Parser	P;
                     ResponseObject = P.parse(is).extract<Poco::JSON::Object::Ptr>();
                 } else {

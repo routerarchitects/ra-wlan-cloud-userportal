@@ -55,7 +55,8 @@ login() {
         do
             read -r -p "Please provide the SMS login code that was sent to you: " challenge_code
             mfauuid=$(cat ${result_file} | jq -r '.uuid' )
-            mfaloginpayload="{ \"uuid\" : \"$uuid\", \"answer\" : \"$challenge_code\" }"
+            mfaloginpayload="{ \"uuid\" : \"${mfauuid}\", \"answer\" : \"${challenge_code}\" }"
+            echo ${mfaloginpayload}
             curl ${FLAGS} -X POST "https://${target_service_endpoint}/api/v1/oauth2?completeMFAChallenge=true" \
                             -d "$mfaloginpayload" > mfa_answer.json
             token=$(cat mfa_answer.json | jq -r '.access_token')

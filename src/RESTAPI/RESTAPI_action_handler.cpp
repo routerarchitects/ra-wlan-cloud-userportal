@@ -10,7 +10,6 @@ namespace OpenWifi {
     void RESTAPI_action_handler::DoPost() {
         auto Command = GetParameter("action","");
 
-        std::cout << "Doing a command..." << std::endl;
         if(Command.empty()) {
             return BadRequest(RESTAPI::Errors::MissingOrInvalidParameters);
         }
@@ -62,6 +61,8 @@ namespace OpenWifi {
     void RESTAPI_action_handler::Reboot(const std::string & Mac, uint64_t When) {
         std::string         EndPoint = "/api/v1/device/" + Mac + "/reboot";
         Poco::JSON::Object  ObjRequest;
+
+        std::cout << "MAC:" << Mac << std::endl;
 
         ObjRequest.set("serialNumber", Mac);
         ObjRequest.set("when",0);
