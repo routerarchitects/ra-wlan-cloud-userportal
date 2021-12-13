@@ -28,6 +28,7 @@ namespace OpenWifi {
     class SubscriberInfoDB : public ORM::DB<SubInfoDBRecordType, SubObjects::SubscriberInfo> {
     public:
         SubscriberInfoDB( OpenWifi::DBType T, Poco::Data::SessionPool & P, Poco::Logger &L);
+        void CreateDefaultSubscriberInfo(const SecurityObjects::UserInfoAndPolicy & UI, SubObjects::SubscriberInfo &SI);
     private:
     };
 }

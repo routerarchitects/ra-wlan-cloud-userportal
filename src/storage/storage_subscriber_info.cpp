@@ -36,6 +36,53 @@ namespace OpenWifi {
     SubscriberInfoDB::SubscriberInfoDB( OpenWifi::DBType T, Poco::Data::SessionPool & P, Poco::Logger &L) :
         DB(T, "subscriberinfo", SubInfoDBDB_Fields, SubInfoDBDB_Fields_Indexes, P, L, "sui") {}
 
+    void SubscriberInfoDB::CreateDefaultSubscriberInfo(const SecurityObjects::UserInfoAndPolicy & UI, SubObjects::SubscriberInfo &SI) {
+        auto Now = std::time(nullptr);
+
+        //  ok, we need to generate a default record and store it...
+        SI.id = UI.userinfo.Id;
+        SI.created = SI.modified = Now;
+        SI.userId = UI.userinfo.email;
+        const auto NameParts = Poco::StringTokenizer(UI.userinfo.name," ");
+        if(NameParts.count()>0) {
+            for(auto i=0; i<NameParts.count();++i) {
+                if(i==0)
+                    SI.firstName = NameParts[0];
+                else
+                    SI.lastName = NameParts[i] + " ";
+            }
+            Poco::trimInPlace(SI.firstName);
+            Poco::trimInPlace(SI.lastName);
+        } else {
+            SI.firstName = UI.userinfo.name;
+        }
+
+        if(!UI.userinfo.userTypeProprietaryInfo.mobiles.empty())
+            SI.phoneNumber = UI.userinfo.userTypeProprietaryInfo.mobiles[0].number;
+
+        SubObjects::AccessPoint AP;
+        AP.macAddress = UI.userinfo.owner.empty() ? "000000000000" : UI.userinfo.owner ;
+        AP.id = MicroService::instance().CreateUUID();
+        AP.name = "My First Access Point";
+        AP.deviceMode.created = AP.deviceMode.modified = Now;
+        AP.deviceMode.type = "nat" ;
+        AP.deviceMode.enableLEDS = true;
+        AP.internetConnection.modified = AP.internetConnection.created = Now;
+        AP.internetConnection.type = "automatic";
+
+        SubObjects::WifiNetwork WN;
+        WN.type = "main";
+        WN.name = "HomeWifi";
+        WN.password = "OpenWifi";
+        WN.encryption = "wpa2";
+        WN.bands.emplace_back("2G");
+        WN.bands.emplace_back("5G");
+
+        AP.wifiNetworks.created = AP.wifiNetworks.modified = Now;
+        AP.wifiNetworks.wifiNetworks.push_back(WN);
+        SI.accessPoints.list.push_back(AP);
+    }
+
 }
 
 template<> void ORM::DB<OpenWifi::SubInfoDBRecordType, OpenWifi::SubObjects::SubscriberInfo>::Convert(OpenWifi::SubInfoDBRecordType &In, OpenWifi::SubObjects::SubscriberInfo &Out) {

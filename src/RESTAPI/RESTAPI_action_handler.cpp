@@ -4,6 +4,7 @@
 
 #include "RESTAPI_action_handler.h"
 #include "SubscriberCache.h"
+#include "StorageService.h"
 
 namespace OpenWifi {
 
@@ -41,7 +42,11 @@ namespace OpenWifi {
         Poco::SharedPtr<SubObjects::SubscriberInfo>     SubInfo;
         auto UserFound = SubscriberCache()->GetSubInfo(UserInfo_.userinfo.Id,SubInfo);
         if(!UserFound) {
-            return NotFound();
+            SubObjects::SubscriberInfo  SI;
+            StorageService()->SubInfoDB().CreateDefaultSubscriberInfo(UserInfo_, SI);
+            StorageService()->SubInfoDB().CreateRecord(SI);
+            if(!SubscriberCache()->GetSubInfo(UserInfo_.userinfo.Id,SubInfo))
+                return NotFound();
         }
 
         _OWDEBUG_
