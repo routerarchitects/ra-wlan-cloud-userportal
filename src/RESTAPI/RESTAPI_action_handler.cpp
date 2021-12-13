@@ -10,6 +10,7 @@ namespace OpenWifi {
     void RESTAPI_action_handler::DoPost() {
         auto Command = GetParameter("action","");
 
+        std::cout << "Doing a command..." << std::endl;
         if(Command.empty()) {
             return BadRequest(RESTAPI::Errors::MissingOrInvalidParameters);
         }
