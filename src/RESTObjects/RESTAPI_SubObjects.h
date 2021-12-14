@@ -53,6 +53,8 @@ namespace OpenWifi::SubObjects {
         bool            custom=false;
         std::string     primary;
         std::string     secondary;
+        std::string     primaryV6;
+        std::string     secondaryV6;
 
         void to_json(Poco::JSON::Object &Obj) const;
         bool from_json(const Poco::JSON::Object::Ptr &Obj);

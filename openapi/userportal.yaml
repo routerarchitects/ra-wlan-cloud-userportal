@@ -154,7 +154,7 @@ components:
           type: string
         ipAddress:
           type: string
-          format: ipv4
+          example: maybe IPv4 or IPv6
         macAddress:
           type: string
           format: mac-address
@@ -183,9 +183,15 @@ components:
         primary:
           type: string
           format: ipv4
-        seconfary:
+        secondary:
           type: string
           format: ipv4
+        primaryV6:
+          type: string
+          format: ipv6
+        secondaryV6:
+          type: string
+          format: ipv6
 
     InternetConnection:
       type: object

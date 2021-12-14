@@ -87,6 +87,8 @@ namespace OpenWifi::SubObjects {
         field_to_json(Obj, "custom", custom);
         field_to_json(Obj, "primary", primary);
         field_to_json(Obj, "secondary", secondary);
+        field_to_json(Obj, "primaryV6", primaryV6);
+        field_to_json(Obj, "secondaryV6", secondaryV6);
     }
 
     bool DnsConfiguration::from_json(const Poco::JSON::Object::Ptr &Obj) {
@@ -95,6 +97,8 @@ namespace OpenWifi::SubObjects {
             field_from_json(Obj, "custom", custom);
             field_from_json(Obj, "primary", primary);
             field_from_json(Obj, "secondary", secondary);
+            field_from_json(Obj, "primaryV6", primaryV6);
+            field_from_json(Obj, "secondaryV6", secondaryV6);
             return true;
         } catch (...) {
         }
