@@ -43,7 +43,7 @@ namespace OpenWifi {
         SI.id = UI.userinfo.Id;
         SI.created = SI.modified = Now;
         SI.userId = UI.userinfo.email;
-        const auto NameParts = Poco::StringTokenizer(UI.userinfo.name," ");
+        const auto NameParts = Poco::StringTokenizer(UI.userinfo.name.empty() ? SI.userId : UI.userinfo.name," @._-");
         if(NameParts.count()>0) {
             for(auto i=0; i<NameParts.count();++i) {
                 if(i==0)

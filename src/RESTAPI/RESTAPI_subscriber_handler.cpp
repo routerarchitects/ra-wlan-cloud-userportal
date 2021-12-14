@@ -39,6 +39,8 @@ namespace OpenWifi {
         SubObjects::SubscriberInfo  Existing;
         if(!StorageService()->SubInfoDB().GetRecord("id", UserInfo_.userinfo.Id, Existing)) {
             StorageService()->SubInfoDB().CreateDefaultSubscriberInfo(UserInfo_, Existing);
+            StorageService()->SubInfoDB().CreateRecord(Existing);
+            StorageService()->SubInfoDB().GetRecord("id",UserInfo_.userinfo.Id,Existing);
         }
 
         auto Body = ParseStream();
