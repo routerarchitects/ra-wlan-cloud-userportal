@@ -46,7 +46,7 @@ namespace OpenWifi {
             if(i.macAddress == Mac) {
                 if(Command == "reboot") {
                     return Reboot(Mac, When);
-                } else if(Command == "leds") {
+                } else if(Command == "blink") {
                     return LEDs(Mac, When, Duration, Pattern);
                 } else if(Command == "upgrade") {
                     return Upgrade(Mac, When, ImageName, keepRedirector);
