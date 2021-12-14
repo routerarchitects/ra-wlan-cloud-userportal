@@ -129,7 +129,7 @@ namespace OpenWifi {
         auto ResponseStatus = API.Do(CallResponse, UserInfo_.webtoken.access_token_);
         _OWDEBUG_
 
-        if(ResponseStatus != Poco::Net::HTTPServerResponse::HTTP_GATEWAY_TIMEOUT) {
+        if(ResponseStatus == Poco::Net::HTTPServerResponse::HTTP_GATEWAY_TIMEOUT) {
             Poco::JSON::Object  ResponseObject;
             ResponseObject.set("Code",Poco::Net::HTTPServerResponse::HTTP_GATEWAY_TIMEOUT);
             ResponseObject.set("Details","Command could not complete, you may want to retry this operation later.");
