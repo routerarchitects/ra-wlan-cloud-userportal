@@ -45,13 +45,12 @@ namespace OpenWifi {
                         for(const auto &i:ifs) {
                             if(i.contains("ssids")) {
                                 for(const auto &j:i["ssids"]) {
-                                    auto ssid = to_string(j["ssid"]);
                                     if(j.contains("associations")) {
                                         for(const auto &k:j["associations"]) {
                                             SubObjects::Association Assoc;
 
-                                            Assoc.ssid = ssid;
-                                            Assoc.macAddress = to_string(k["station"]);
+                                            Assoc.ssid = j["ssid"];
+                                            Assoc.macAddress = k["station"];
                                             Assoc.rssi = k["rssi"];
                                             Assoc.rx = k["rx_bytes"];
                                             Assoc.tx = k["tx_bytes"];
