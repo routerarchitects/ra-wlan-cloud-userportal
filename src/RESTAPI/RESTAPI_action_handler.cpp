@@ -118,16 +118,9 @@ namespace OpenWifi {
     }
 
     void RESTAPI_action_handler::PerformCommand(const std::string &Command, const std::string & EndPoint, Poco::JSON::Object & CommandRequest) {
-
-        _OWDEBUG_
         auto API = OpenAPIRequestPost(uSERVICE_GATEWAY, EndPoint, Types::StringPairVec{}, CommandRequest, 60000);
-        _OWDEBUG_
-
         Poco::JSON::Object::Ptr CallResponse;
-        _OWDEBUG_
-
         auto ResponseStatus = API.Do(CallResponse, UserInfo_.webtoken.access_token_);
-        _OWDEBUG_
 
         if(ResponseStatus == Poco::Net::HTTPServerResponse::HTTP_GATEWAY_TIMEOUT) {
             Poco::JSON::Object  ResponseObject;
@@ -142,40 +135,22 @@ namespace OpenWifi {
             auto & os = Response->send();
             os << SS.str();
         } else {
-            _OWDEBUG_
             Response->setStatus(ResponseStatus);
-            _OWDEBUG_
             std::stringstream SS;
-            _OWDEBUG_
             Poco::JSON::Stringifier::condense(CallResponse,SS);
-            _OWDEBUG_
-
             Poco::JSON::Parser  P;
-            _OWDEBUG_
             auto Raw = P.parse(SS.str()).extract<Poco::JSON::Object::Ptr>();
-            _OWDEBUG_
             if(Raw->has("command") && Raw->has("errorCode") && Raw->has("errorText")) {
-                _OWDEBUG_
                 Poco::JSON::Object  ReturnResponse;
-                _OWDEBUG_
                 ReturnResponse.set("Operation", Raw->get("command").toString());
-                _OWDEBUG_
                 ReturnResponse.set("Details", Raw->get("errorText").toString());
-                _OWDEBUG_
                 ReturnResponse.set("Code", Raw->get("errorCode"));
-                _OWDEBUG_
 
                 std::stringstream  Ret;
-                _OWDEBUG_
                 Poco::JSON::Stringifier::condense(ReturnResponse,Ret);
-                _OWDEBUG_
                 Response->setContentLength(Ret.str().size());
-                _OWDEBUG_
                 Response->setContentType("application/json");
-                _OWDEBUG_
-                _OWDEBUG_
                 auto & os = Response->send();
-                _OWDEBUG_
                 os << Ret.str();
             }
         }
