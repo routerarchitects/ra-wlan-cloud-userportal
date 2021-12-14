@@ -131,6 +131,15 @@ getmfa() {
     jq < ${result_file}
 }
 
+disablemfa() {
+    payload="{ \"type\" : \"disabled\"  }"
+    curl ${FLAGS} -X PUT "https://${target_service_endpoint}/api/v1/submfa" \
+        -H "Content-Type: application/json" \
+        -H "Authorization: Bearer ${token}" \
+        -d "${payload}" > ${result_file}
+    jq < ${result_file}
+}
+
 getmyinfo() {
     curl ${FLAGS} -X GET "https://${target_service_endpoint}/api/v1/subscriber" \
         -H "Content-Type: application/json" \
@@ -163,6 +172,7 @@ case "$1" in
     "startmfa") login; startmfa "$2" ; logout;;
     "completemfa") login; completemfa "$2" "$3" ; logout;;
     "getmfa") login; getmfa ; logout;;
+    "disablemfa") login; disablemfa ; logout;;
     "getmyinfo") login; getmyinfo ; logout;;
     "reboot") login; reboot "$2" ; logout ;;
     "blink") login; blink "$2" ; logout ;;
