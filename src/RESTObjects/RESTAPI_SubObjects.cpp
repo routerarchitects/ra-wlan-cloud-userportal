@@ -266,6 +266,7 @@ namespace OpenWifi::SubObjects {
 
     void Association::to_json(Poco::JSON::Object &Obj) const {
         field_to_json(Obj, "name", name);
+        field_to_json(Obj, "ssid", ssid);
         field_to_json(Obj, "macAddress", macAddress);
         field_to_json(Obj, "rssi", rssi);
         field_to_json(Obj, "power", power);
@@ -278,6 +279,7 @@ namespace OpenWifi::SubObjects {
     bool Association::from_json(const Poco::JSON::Object::Ptr &Obj) {
         try {
             field_from_json(Obj, "name", name);
+            field_from_json(Obj, "ssid", ssid);
             field_from_json(Obj, "macAddress", macAddress);
             field_from_json(Obj, "rssi", rssi);
             field_from_json(Obj, "power", power);
@@ -375,13 +377,13 @@ namespace OpenWifi::SubObjects {
         } catch (...) {
         }
         return false;
-
     }
 
     void AccessPoint::to_json(Poco::JSON::Object &Obj) const {
         field_to_json(Obj, "id", id);
         field_to_json(Obj, "macAddress", macAddress);
         field_to_json(Obj, "name", name);
+        field_to_json(Obj, "deviceType", deviceType);
         field_to_json(Obj, "subscriberDevices", subscriberDevices);
         field_to_json(Obj, "ipReservations", ipReservations);
         field_to_json(Obj, "address", address);
@@ -396,6 +398,7 @@ namespace OpenWifi::SubObjects {
             field_from_json(Obj, "id", id);
             field_from_json(Obj, "macAddress", macAddress);
             field_from_json(Obj, "name", name);
+            field_from_json(Obj, "deviceType", deviceType);
             field_from_json(Obj, "subscriberDevices", subscriberDevices);
             field_from_json(Obj, "ipReservations", ipReservations);
             field_from_json(Obj, "address", address);

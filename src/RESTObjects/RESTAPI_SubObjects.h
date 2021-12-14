@@ -145,6 +145,7 @@ namespace OpenWifi::SubObjects {
 
     struct Association {
         std::string     name;
+        std::string     ssid;
         std::string     macAddress;
         int             rssi=0;
         int             power=0;
@@ -206,6 +207,7 @@ namespace OpenWifi::SubObjects {
         std::string                 id;
         std::string                 macAddress;
         std::string                 name;
+        std::string                 deviceType;
         SubscriberDeviceList        subscriberDevices;
         IPReservationList           ipReservations;
         Location                    address;

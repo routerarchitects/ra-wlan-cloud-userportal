@@ -770,10 +770,9 @@ paths:
       operationId: getWiredClients
       parameters:
         - in: query
-          name: deviceId
+          name: serialNumber
           schema:
             type: string
-            format: uuid
           required: true
       responses:
         200:
@@ -791,10 +790,9 @@ paths:
       operationId: getWifiClients
       parameters:
         - in: query
-          name: deviceId
+          name: serialNumber
           schema:
             type: string
-            format: uuid
           required: true
       responses:
         200:
