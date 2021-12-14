@@ -141,7 +141,7 @@ namespace OpenWifi {
 
             Poco::JSON::Parser  P;
             auto Raw = P.parse(SS.str()).extract<Poco::JSON::Object::Ptr>();
-            if(Raw->get("command") && Raw->get("errorCode") && Raw->get("errorText")) {
+            if(Raw->has("command") && Raw->has("errorCode") && Raw->has("errorText")) {
                 Poco::JSON::Object  ReturnResponse;
                 ReturnResponse.set("Operation", Raw->get("command").toString());
                 ReturnResponse.set("Details", Raw->get("errorText").toString());
