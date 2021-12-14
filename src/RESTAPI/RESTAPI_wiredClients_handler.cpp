@@ -35,7 +35,7 @@ namespace OpenWifi {
                 Answer.set("created", Now);
                 Answer.set("modified", Now);
                 SubObjects::ClientList CList;
-
+                CList.modified = CList.created = Now;
                 if (ResponseStatus == Poco::Net::HTTPServerResponse::HTTP_OK) {
                     std::stringstream SS;
                     Poco::JSON::Stringifier::condense(CallResponse, SS);

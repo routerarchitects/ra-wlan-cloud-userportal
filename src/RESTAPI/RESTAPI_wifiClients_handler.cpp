@@ -31,10 +31,8 @@ namespace OpenWifi {
                 auto ResponseStatus = Api.Do(CallResponse, UserInfo_.webtoken.access_token_);
                 Poco::JSON::Object  Answer;
                 uint64_t    Now = std::time(nullptr);
-                Answer.set("created",Now);
-                Answer.set("modified", Now);
                 SubObjects::AssociationList AssocList;
-
+                AssocList.modified = AssocList.created = Now;
                 if( ResponseStatus == Poco::Net::HTTPServerResponse::HTTP_OK) {
                     std::stringstream SS;
                     Poco::JSON::Stringifier::condense(CallResponse,SS);
