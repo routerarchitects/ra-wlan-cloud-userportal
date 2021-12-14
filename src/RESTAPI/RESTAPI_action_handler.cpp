@@ -66,8 +66,11 @@ namespace OpenWifi {
         std::string         EndPoint = "/api/v1/device/" + Mac + "/reboot";
         Poco::JSON::Object  ObjRequest;
 
+        _OWDEBUG_
         ObjRequest.set("serialNumber", Mac);
+        _OWDEBUG_
         ObjRequest.set("when",0);
+        _OWDEBUG_
 
         PerformCommand("reboot",EndPoint, ObjRequest);
     }
@@ -116,11 +119,15 @@ namespace OpenWifi {
 
     void RESTAPI_action_handler::PerformCommand(const std::string &Command, const std::string & EndPoint, Poco::JSON::Object & CommandRequest) {
 
+        _OWDEBUG_
         auto API = OpenAPIRequestPost(uSERVICE_GATEWAY, EndPoint, Types::StringPairVec{}, CommandRequest, 60000);
+        _OWDEBUG_
 
         Poco::JSON::Object::Ptr CallResponse;
+        _OWDEBUG_
 
         auto ResponseStatus = API.Do(CallResponse, UserInfo_.webtoken.access_token_);
+        _OWDEBUG_
 
         if(ResponseStatus != Poco::Net::HTTPServerResponse::HTTP_GATEWAY_TIMEOUT) {
             Poco::JSON::Object  ResponseObject;
