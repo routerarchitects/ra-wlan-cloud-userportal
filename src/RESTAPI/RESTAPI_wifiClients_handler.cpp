@@ -62,9 +62,7 @@ namespace OpenWifi {
                                 }
                             }
                         }
-                        Poco::JSON::Object  P;
-                        AssocList.to_json(P);
-                        Answer.set("associations",P);
+                        AssocList.to_json(Answer);
                     } catch (...) {
                     }
                 }

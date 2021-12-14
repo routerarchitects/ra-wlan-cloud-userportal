@@ -54,6 +54,8 @@ namespace OpenWifi::SecurityObjects {
             return ADMIN;
         else if (!Poco::icompare(U,"subscriber"))
             return SUBSCRIBER;
+        else if (!Poco::icompare(U,"partner"))
+            return PARTNER;
         else if (!Poco::icompare(U,"csr"))
             return CSR;
         else if (!Poco::icompare(U, "system"))
@@ -72,6 +74,7 @@ namespace OpenWifi::SecurityObjects {
             case ROOT: return "root";
             case ADMIN: return "admin";
             case SUBSCRIBER: return "subscriber";
+            case PARTNER: return "partner";
             case CSR: return "csr";
             case SYSTEM: return "system";
             case INSTALLER: return "installer";

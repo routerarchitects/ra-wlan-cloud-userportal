@@ -70,9 +70,7 @@ namespace OpenWifi {
                                 }
                             }
                         }
-                        Poco::JSON::Object  P;
-                        CList.to_json(P);
-                        Answer.set("clients",P);
+                        CList.to_json(Answer);
                     } catch (...) {
                     }
                 }
