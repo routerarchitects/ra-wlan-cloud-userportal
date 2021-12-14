@@ -116,7 +116,7 @@ namespace OpenWifi {
 
     void RESTAPI_action_handler::PerformCommand(const std::string &Command, const std::string & EndPoint, Poco::JSON::Object & CommandRequest) {
 
-        auto API = OpenAPIRequestPost(uSERVICE_GATEWAY, EndPoint, Types::StringPairVec{}, CommandRequest, 20000);
+        auto API = OpenAPIRequestPost(uSERVICE_GATEWAY, EndPoint, Types::StringPairVec{}, CommandRequest, 60000);
 
         Poco::JSON::Object::Ptr CallResponse;
 
