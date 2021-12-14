@@ -154,7 +154,7 @@ reboot() {
         -H "Authorization: Bearer ${token}" \
         -d "${payload}" > ${result_file}
     jq < ${result_file}
-};
+}
 
 blink() {
     payload="{ \"mac\" : \"$1\" , \"when\" : 0 , \"pattern\" : \"blink\" , \"duration\" : 20 }"
@@ -163,14 +163,21 @@ blink() {
         -H "Authorization: Bearer ${token}" \
         -d "${payload}" > ${result_file}
     jq < ${result_file}
-};
+}
 
 wificlients() {
     curl ${FLAGS} -X GET "https://${target_service_endpoint}/api/v1/wificlients?serialNumber=$1" \
         -H "Content-Type: application/json" \
         -H "Authorization: Bearer ${token}" > ${result_file}
     jq < ${result_file}
-};
+}
+
+wiredclients() {
+    curl ${FLAGS} -X GET "https://${target_service_endpoint}/api/v1/wiredclients?serialNumber=$1" \
+        -H "Content-Type: application/json" \
+        -H "Authorization: Bearer ${token}" > ${result_file}
+    jq < ${result_file}
+}
 
 shopt -s nocasematch
 case "$1" in
@@ -184,6 +191,7 @@ case "$1" in
     "reboot") login; reboot "$2" ; logout ;;
     "blink") login; blink "$2" ; logout ;;
     "wificlients") login; wificlients "$2" ; logout ;;
+    "wiredclients") login; wiredclients "$2" ; logout ;;
     *) help ;;
 esac
 
