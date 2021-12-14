@@ -762,7 +762,7 @@ paths:
         400:
           $ref: '#/components/responses/Error'
 
-  /wiredClients:
+  /wiredclients:
     get:
       tags:
         - Clients
@@ -782,7 +782,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ClientList'
 
-  /wifiClients:
+  /wificlients:
     get:
       tags:
         - WiFi Clients

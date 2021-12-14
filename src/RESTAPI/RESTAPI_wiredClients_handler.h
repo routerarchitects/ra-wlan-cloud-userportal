@@ -18,7 +18,7 @@ namespace OpenWifi {
             TransactionId,
             Internal,true, false, RateLimit{.Interval=1000,.MaxCalls=10}, true){}
 
-            static const std::list<const char *> PathName() { return std::list<const char *>{"/api/v1/wiredClients"}; };
+            static const std::list<const char *> PathName() { return std::list<const char *>{"/api/v1/wiredclients"}; };
 
         inline bool RoleIsAuthorized(std::string & Reason) {
             if(UserInfo_.userinfo.userRole != SecurityObjects::USER_ROLE::SUBSCRIBER) {
