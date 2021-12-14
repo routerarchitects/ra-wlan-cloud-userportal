@@ -120,7 +120,7 @@ components:
           type: string
           format: ipv4
         subnetMask:
-          type: int
+          type: integer
           format: int32
         startIP:
           type: string
@@ -132,7 +132,7 @@ components:
           type: string
           format: ipv6
         subnetMaskV6:
-          type: int
+          type: integer
           format: int32
         startIPV6:
           type: string
@@ -222,10 +222,10 @@ components:
           type: string
           format: ipv6
         subnetMaskV6:
-          type: int
+          type: integer
           format: int32
         defaultGatewayV6:
-          type: strin
+          type: string
           format: ipv6
         primaryDnsV6:
           type: string
@@ -874,6 +874,15 @@ paths:
                 when:
                   type: integer
                   format: int64
+                duration:
+                  type: integer
+                  format: int64
+                pattern:
+                  type: string
+                  enum:
+                    - on
+                    - off
+                    - blink
 
       responses:
         200:

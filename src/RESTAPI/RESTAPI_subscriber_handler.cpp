@@ -5,11 +5,15 @@
 #include "RESTAPI_subscriber_handler.h"
 #include "StorageService.h"
 #include "RESTObjects/RESTAPI_SubObjects.h"
+#include "SubscriberCache.h"
 
 namespace OpenWifi {
 
-
     void RESTAPI_subscriber_handler::DoGet() {
+
+        if(UserInfo_.userinfo.Id.empty()) {
+            return NotFound();
+        }
 
         SubObjects::SubscriberInfo  SI;
         if(StorageService()->SubInfoDB().GetRecord("id", UserInfo_.userinfo.Id,SI)) {
@@ -78,8 +82,10 @@ namespace OpenWifi {
         }
 
         if(StorageService()->SubInfoDB().UpdateRecord("id",UserInfo_.userinfo.Id, Existing)) {
+
             SubObjects::SubscriberInfo  Modified;
             StorageService()->SubInfoDB().GetRecord("id",UserInfo_.userinfo.Id,Modified);
+            SubscriberCache()->UpdateSubInfo(UserInfo_.userinfo.Id,Modified);
             Poco::JSON::Object  Answer;
 
             Modified.to_json(Answer);

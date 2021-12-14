@@ -69,7 +69,7 @@ namespace OpenWifi {
         ObjRequest.set("serialNumber", Mac);
         ObjRequest.set("when",0);
 
-        PerformCommand(EndPoint, ObjRequest);
+        PerformCommand("reboot",EndPoint, ObjRequest);
     }
 
     void RESTAPI_action_handler::LEDs(const std::string & Mac, uint64_t When, uint64_t Duration, const std::string & Pattern) {
@@ -80,7 +80,7 @@ namespace OpenWifi {
         ObjRequest.set("when",When);
         ObjRequest.set("duration",Duration);
         ObjRequest.set("pattern", Pattern);
-        PerformCommand(EndPoint, ObjRequest);
+        PerformCommand("leds",EndPoint, ObjRequest);
     }
 
     void RESTAPI_action_handler::Factory(const std::string & Mac, uint64_t When, bool KeepRedirector) {
@@ -90,7 +90,7 @@ namespace OpenWifi {
         ObjRequest.set("serialNumber", Mac);
         ObjRequest.set("when",When);
         ObjRequest.set("keepRedirector",KeepRedirector);
-        PerformCommand(EndPoint, ObjRequest);
+        PerformCommand("factory",EndPoint, ObjRequest);
     }
 
     void RESTAPI_action_handler::Upgrade(const std::string & Mac, uint64_t When, const std::string & ImageName, bool KeepRedirector) {
@@ -100,7 +100,7 @@ namespace OpenWifi {
         ObjRequest.set("serialNumber", Mac);
         ObjRequest.set("when",When);
         ObjRequest.set("uri",ImageName);
-        PerformCommand(EndPoint, ObjRequest);
+        PerformCommand("upgrade",EndPoint, ObjRequest);
     }
 
     void RESTAPI_action_handler::Refresh(const std::string & Mac, uint64_t When) {
@@ -109,10 +109,10 @@ namespace OpenWifi {
 
         ObjRequest.set("serialNumber", Mac);
         ObjRequest.set("when",When);
-        PerformCommand(EndPoint, ObjRequest);
+        PerformCommand("refresh",EndPoint, ObjRequest);
     }
 
-    void RESTAPI_action_handler::PerformCommand(const std::string & EndPoint, Poco::JSON::Object & CommandRequest) {
+    void RESTAPI_action_handler::PerformCommand(const std::string &Command, const std::string & EndPoint, Poco::JSON::Object & CommandRequest) {
 
         auto API = OpenAPIRequestPost(uSERVICE_GATEWAY, EndPoint, Types::StringPairVec{}, CommandRequest, 20000);
 
@@ -120,11 +120,11 @@ namespace OpenWifi {
 
         auto ResponseStatus = API.Do(CallResponse, UserInfo_.webtoken.access_token_);
 
-        if(ResponseStatus == Poco::Net::HTTPServerResponse::HTTP_GATEWAY_TIMEOUT) {
+        if(ResponseStatus != Poco::Net::HTTPServerResponse::HTTP_GATEWAY_TIMEOUT) {
             Poco::JSON::Object  ResponseObject;
-            ResponseObject.set("ErrorCode",Poco::Net::HTTPServerResponse::HTTP_GATEWAY_TIMEOUT);
-            ResponseObject.set("ErrorDetails","Command could not complete in time.");
-            ResponseObject.set("ErrorDescription","Command could not complete, you may want to retry this operation later.");
+            ResponseObject.set("Code",Poco::Net::HTTPServerResponse::HTTP_GATEWAY_TIMEOUT);
+            ResponseObject.set("Details","Command could not complete, you may want to retry this operation later.");
+            ResponseObject.set("Operation",Command);
             Response->setStatus(ResponseStatus);
             std::stringstream SS;
             Poco::JSON::Stringifier::condense(ResponseObject,SS);
@@ -136,10 +136,22 @@ namespace OpenWifi {
             Response->setStatus(ResponseStatus);
             std::stringstream SS;
             Poco::JSON::Stringifier::condense(CallResponse,SS);
-            Response->setContentLength(SS.str().size());
-            Response->setContentType("application/json");
-            auto & os = Response->send();
-            os << SS.str();
+
+            Poco::JSON::Parser  P;
+            auto Raw = P.parse(SS.str()).extract<Poco::JSON::Object::Ptr>();
+            if(Raw->get("command") && Raw->get("errorCode") && Raw->get("errorText")) {
+                Poco::JSON::Object  ReturnResponse;
+                ReturnResponse.set("Operation", Raw->get("command").toString());
+                ReturnResponse.set("Details", Raw->get("errorText").toString());
+                ReturnResponse.set("Code", Raw->get("errorCode"));
+
+                std::stringstream  Ret;
+                Poco::JSON::Stringifier::condense(ReturnResponse,Ret);
+                Response->setContentLength(Ret.str().size());
+                Response->setContentType("application/json");
+                auto & os = Response->send();
+                os << Ret.str();
+            }
         }
     }
 

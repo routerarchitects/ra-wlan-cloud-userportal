@@ -20,6 +20,7 @@ namespace OpenWifi {
         void Stop() override;
 
         bool GetSubInfo(const std::string &Id, Poco::SharedPtr<SubObjects::SubscriberInfo> & SubInfo);
+        void UpdateSubInfo(const std::string &Id, const SubObjects::SubscriberInfo& SubInfo);
 
     private:
         Poco::ExpireLRUCache<std::string,SubObjects::SubscriberInfo>    SubsCache_{2048};

@@ -28,4 +28,7 @@ namespace OpenWifi {
         return false;
     }
 
+    void SubscriberCache::UpdateSubInfo(const std::string &Id, const SubObjects::SubscriberInfo &SubInfo) {
+        SubsCache_.update(Id,SubInfo);
+    }
 }
