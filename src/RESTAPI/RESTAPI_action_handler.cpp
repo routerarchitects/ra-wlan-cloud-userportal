@@ -135,11 +135,16 @@ namespace OpenWifi {
             auto & os = Response->send();
             os << SS.str();
         } else {
+            _OWDEBUG_
             Response->setStatus(ResponseStatus);
+            _OWDEBUG_
             std::stringstream SS;
+            _OWDEBUG_
             Poco::JSON::Stringifier::condense(CallResponse,SS);
+            _OWDEBUG_
 
             Poco::JSON::Parser  P;
+            _OWDEBUG_
             auto Raw = P.parse(SS.str()).extract<Poco::JSON::Object::Ptr>();
             _OWDEBUG_
             if(Raw->has("command") && Raw->has("errorCode") && Raw->has("errorText")) {
