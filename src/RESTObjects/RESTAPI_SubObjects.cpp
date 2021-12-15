@@ -110,7 +110,7 @@ namespace OpenWifi::SubObjects {
         field_to_json(Obj, "username", username);
         field_to_json(Obj, "password", password);
         field_to_json(Obj, "ipAddress", ipAddress);
-        field_to_json(Obj, "subNetMask", subNetMask);
+        field_to_json(Obj, "subnetMask", subnetMask);
         field_to_json(Obj, "defaultGateway", defaultGateway);
         field_to_json(Obj, "primaryDns", primaryDns);
         field_to_json(Obj, "secondaryDns", secondaryDns);
@@ -130,7 +130,7 @@ namespace OpenWifi::SubObjects {
             field_from_json(Obj, "username", username);
             field_from_json(Obj, "password", password);
             field_from_json(Obj, "ipAddress", ipAddress);
-            field_from_json(Obj, "subNetMask", subNetMask);
+            field_from_json(Obj, "subnetMask", subnetMask);
             field_from_json(Obj, "defaultGateway", defaultGateway);
             field_from_json(Obj, "primaryDns", primaryDns);
             field_from_json(Obj, "secondaryDns", secondaryDns);

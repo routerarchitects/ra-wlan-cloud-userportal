@@ -65,7 +65,7 @@ namespace OpenWifi::SubObjects {
         std::string     username;
         std::string     password;
         std::string     ipAddress;
-        std::string     subNetMask;
+        std::string     subnetMask;
         std::string     defaultGateway;
         std::string     primaryDns;
         std::string     secondaryDns;
