@@ -162,21 +162,20 @@ namespace ORM {
             const FieldVec & Fields,
             const IndexVec & Indexes,
             Poco::Data::SessionPool & Pool,
-                Poco::Logger &L,
-                const char *Prefix):
+            Poco::Logger &L,
+            const char *Prefix):
                 Type_(dbtype),
                 DBName_(TableName),
                 Pool_(Pool),
                 Logger_(L),
                 Prefix_(Prefix)
         {
+            assert(RecordTuple::length == Fields.size());
+
             bool first = true;
             int  Place=0;
 
-            assert( RecordTuple::length == Fields.size());
-
             for(const auto &i:Fields) {
-
                 FieldNames_[i.Name] = Place;
                 if(!first) {
                     CreateFields_ += ", ";
@@ -488,6 +487,18 @@ namespace ORM {
             return false;
         }
 
+        template <typename T> bool ReplaceRecord( const char *FieldName, T & Value,  RecordType & R) {
+            try {
+                if(Exists(FieldName, Value)) {
+                    return UpdateRecord(FieldName,Value,R);
+                }
+                return CreateRecord(R);
+            } catch (const Poco::Exception &E) {
+                Logger_.log(E);
+            }
+            return false;
+        }
+
         template <typename T> bool GetNameAndDescription(const char *FieldName, T & Value, std::string & Name, std::string & Description ) {
             try {
                 assert( FieldNames_.find(FieldName) != FieldNames_.end() );
@@ -776,9 +787,9 @@ namespace ORM {
     protected:
         Poco::Data::SessionPool     &Pool_;
         Poco::Logger                &Logger_;
+        std::string                 DBName_;
     private:
         OpenWifi::DBType            Type_;
-        std::string                 DBName_;
         std::string                 CreateFields_;
         std::string                 SelectFields_;
         std::string                 SelectList_;

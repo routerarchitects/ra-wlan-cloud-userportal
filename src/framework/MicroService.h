@@ -1035,8 +1035,29 @@ namespace OpenWifi {
     static const std::string uSERVICE_SUBCRIBER{ "owsub"};
     static const std::string uSERVICE_INSTALLER{ "owinst"};
 
+    template <class Record, typename KeyType = std::string, int Size=256, int Expiry=60000> class RecordCache {
+    public:
+        explicit RecordCache( KeyType Record::* Q) :
+                MemberOffset(Q){
+        };
+        inline auto update(const Record &R) {
+            return Cache_.update(R.*MemberOffset, R);
+        }
+        inline auto get(const KeyType &K) {
+            return Cache_.get(K);
+        }
+        inline auto remove(const KeyType &K) {
+            return Cache_.remove(K);
+        }
+        inline auto remove(const Record &R) {
+            return Cache_.remove(R.*MemberOffset);
+        }
+    private:
+        KeyType Record::* MemberOffset;
+        Poco::ExpireLRUCache<KeyType,Record>  Cache_{Size,Expiry};
+    };
 
-	class MyErrorHandler : public Poco::ErrorHandler {
+    class MyErrorHandler : public Poco::ErrorHandler {
 	  public:
 		explicit MyErrorHandler(Poco::Util::Application &App) : App_(App) {}
 		inline void exception(const Poco::Exception & E) {
@@ -1473,7 +1494,7 @@ namespace OpenWifi {
 	        int      Count=0;
 	    };
 
-	    static RESTAPI_RateLimiter *instance() {
+	    static auto instance() {
 	        static auto instance_ = new RESTAPI_RateLimiter;
 	        return instance_;
 	    }
@@ -1520,7 +1541,7 @@ namespace OpenWifi {
 
 	};
 
-	inline RESTAPI_RateLimiter * RESTAPI_RateLimiter() { return RESTAPI_RateLimiter::instance(); }
+    inline auto RESTAPI_RateLimiter() { return RESTAPI_RateLimiter::instance(); }
 
 	class RESTAPIHandler : public Poco::Net::HTTPRequestHandler {
 	public:
@@ -1900,11 +1921,30 @@ namespace OpenWifi {
 	        Response->set("Cache-Control", "private");
 	        Response->set("Pragma", "private");
 	        Response->set("Expires", "Mon, 26 Jul 2027 05:00:00 GMT");
+            Response->setContentLength(TempAvatar.getSize());
 	        AddCORS();
 	        Response->sendFile(TempAvatar.path(),MT.ContentType);
 	    }
 
-	    inline void SendHTMLFileBack(Poco::File & File,
+        inline void SendFileContent(const std::string &Content, const std::string &Type, const std::string & Name) {
+            auto MT = Utils::FindMediaType(Name);
+            if(MT.Encoding==Utils::BINARY) {
+                Response->set("Content-Transfer-Encoding","binary");
+                Response->set("Accept-Ranges", "bytes");
+            }
+            Response->set("Content-Disposition", "attachment; filename=" + Name );
+            Response->set("Accept-Ranges", "bytes");
+            Response->set("Cache-Control", "private");
+            Response->set("Pragma", "private");
+            Response->set("Expires", "Mon, 26 Jul 2027 05:00:00 GMT");
+            Response->setContentLength(Content.size());
+            Response->setContentType(Type );
+            AddCORS();
+            auto & OutputStream = Response->send();
+            OutputStream << Content ;
+        }
+
+        inline void SendHTMLFileBack(Poco::File & File,
                                      const Types::StringPairVec & FormVars) {
 	        Response->set("Pragma", "private");
 	        Response->set("Expires", "Mon, 26 Jul 2027 05:00:00 GMT");
@@ -2205,7 +2245,7 @@ namespace OpenWifi {
 
 	    inline void initialize(Poco::Util::Application & self) override;
 
-	    static KafkaManager *instance() {
+	    static auto instance() {
 	        static auto instance_ = new KafkaManager;
 	        return instance_;
 	    }
@@ -2299,7 +2339,7 @@ namespace OpenWifi {
 	    }
 	};
 
-	inline KafkaManager * KafkaManager() { return KafkaManager::instance(); }
+	inline auto KafkaManager() { return KafkaManager::instance(); }
 
 	class AuthClient : public SubSystemServer {
 	public:
@@ -2308,7 +2348,7 @@ namespace OpenWifi {
 	    {
 	    }
 
-	    static AuthClient *instance() {
+	    static auto instance() {
 	        static auto instance_ = new AuthClient;
 	        return instance_;
 	    }
@@ -2376,7 +2416,7 @@ namespace OpenWifi {
 	    Poco::ExpireLRUCache<std::string,OpenWifi::SecurityObjects::UserInfoAndPolicy>      Cache_{1024,1200000 };
 	};
 
-	inline AuthClient * AuthClient() { return AuthClient::instance(); }
+	inline auto AuthClient() { return AuthClient::instance(); }
 
 	class ALBRequestHandler: public Poco::Net::HTTPRequestHandler
 	        /// Return a HTML document with the current date and time.
@@ -2432,8 +2472,8 @@ namespace OpenWifi {
 	    {
 	    }
 
-	    static ALBHealthCheckServer *instance() {
-	        static ALBHealthCheckServer * instance = new ALBHealthCheckServer;
+	    static auto instance() {
+	        static auto instance = new ALBHealthCheckServer;
 	        return instance;
 	    }
 
@@ -2451,7 +2491,7 @@ namespace OpenWifi {
 	    std::atomic_bool                            Running_=false;
 	};
 
-	inline ALBHealthCheckServer * ALBHealthCheckServer() { return ALBHealthCheckServer::instance(); }
+	inline auto ALBHealthCheckServer() { return ALBHealthCheckServer::instance(); }
 
 	Poco::Net::HTTPRequestHandler * RESTAPI_ExtRouter(const char *Path, RESTAPIHandler::BindingMap &Bindings,
                                            Poco::Logger & L, RESTAPI_GenericServer & S, uint64_t Id);
@@ -2462,7 +2502,7 @@ namespace OpenWifi {
 
 	class RESTAPI_ExtServer : public SubSystemServer {
 	public:
-	    static RESTAPI_ExtServer *instance() {
+	    static auto instance() {
 	        static auto instance_ = new RESTAPI_ExtServer;
 	        return instance_;
 	    }
@@ -2493,7 +2533,7 @@ namespace OpenWifi {
             }
 	};
 
-	inline RESTAPI_ExtServer * RESTAPI_ExtServer() { return RESTAPI_ExtServer::instance(); };
+	inline auto RESTAPI_ExtServer() { return RESTAPI_ExtServer::instance(); };
 
 	class ExtRequestHandlerFactory : public Poco::Net::HTTPRequestHandlerFactory {
 	public:
@@ -2545,7 +2585,7 @@ namespace OpenWifi {
 	class RESTAPI_IntServer : public SubSystemServer {
 
 	public:
-	    static RESTAPI_IntServer *instance() {
+	    static auto instance() {
 	        static auto instance_ = new RESTAPI_IntServer;
 	        return instance_;
 	    }
@@ -2574,7 +2614,7 @@ namespace OpenWifi {
 	    }
 	};
 
-	inline RESTAPI_IntServer * RESTAPI_IntServer() { return RESTAPI_IntServer::instance(); };
+	inline auto RESTAPI_IntServer() { return RESTAPI_IntServer::instance(); };
 
 	class IntRequestHandlerFactory : public Poco::Net::HTTPRequestHandlerFactory {
 	public:
