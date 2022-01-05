@@ -260,11 +260,25 @@ components:
           type: string
         encryption:
           type: string
+          enum:
+            - none
+            - psk
+            - psk2
+            - psk-mixed
+            - wpa
+            - wpa2
+            - wpa-mixed
+            - sae
+            - sae-mixed
+            - wpa3
+            - wpa3-192
+            - wpa3-mixed
         bands:
           type: array
           items:
             type: string
             enum:
+              - all
               - 2G
               - 5G
               - 5GL
@@ -458,6 +472,134 @@ components:
           items:
             type: string
 
+    RadioRates:
+      type: object
+      properties:
+        beacon:
+          type: integer
+          default: 6000
+          enum:
+            - 0
+            - 1000
+            - 2000
+            - 5500
+            - 6000
+            - 9000
+            - 11000
+            - 12000
+            - 18000
+            - 24000
+            - 36000
+            - 48000
+            - 54000
+        multicast:
+          type: integer
+          default: 24000
+          enum:
+            - 0
+            - 1000
+            - 2000
+            - 5500
+            - 6000
+            - 9000
+            - 11000
+            - 12000
+            - 18000
+            - 24000
+            - 36000
+            - 48000
+            - 54000
+
+    RadioHE:
+      type: object
+      properties:
+        multipleBSSID:
+          type: boolean
+          default: false
+        ema:
+          type: boolean
+          default: false
+        bssColor:
+          type: integer
+          default: 64
+
+    RadioInformation:
+      type: object
+      properties:
+        band:
+          type: string
+          enum:
+            - 2G
+            - 5G
+            - 5GL
+            - 5GU
+            - 6G
+        bandwidth:
+          type: integer
+          enum:
+            - 5
+            - 10
+            - 20
+        channel:
+          oneOf:
+            - type: integer
+              minimum: 1
+              maximum: 171
+            - type: string
+              enum:
+                - auto
+        country:
+          type: string
+          minLength: 2
+          maxLength: 2
+        channelMode:
+          type: string
+          enum:
+            - HT
+            - VHT
+            - HE
+          default: HE
+        channelWidth:
+          type: integer
+          enum:
+            - 20
+            - 40
+            - 80
+            - 160
+            - 8080
+          default: 80
+        requireMode:
+          type: string
+          enum:
+            - HT
+            - VHT
+            - HE
+        txPower:
+          type: integer
+          minimum: 0
+          maximum: 30
+        legacyRates:
+          type: boolean
+          default: false
+        beaconInterval:
+          type: integer
+          minimum: 15
+          maximum: 65535
+          default: 100
+        dtimPeriod:
+          type: integer
+          default: 2
+          minimum: 1
+          maximum: 255
+        rates:
+          $ref: '#/components/schemas/RadioRates'
+        he:
+          $ref: '#/components/schemas/RadioHE'
+        rawInfo:
+          type: array
+          items:
+            type: string
+
     AccessPoint:
       type: object
       properties:
@@ -484,6 +626,10 @@ components:
           $ref: '#/components/schemas/HomeDeviceMode'
         dnsConfiguration:
           $ref: '#/components/schemas/DnsConfiguration'
+        radios:
+          type: array
+          items:
+            $ref: '#/components/schemas/RadioInformation'
 
 
     AccessPointList:
