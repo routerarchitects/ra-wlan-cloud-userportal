@@ -112,6 +112,7 @@ namespace OpenWifi::SubObjects {
         field_to_json(Obj, "ipAddress", ipAddress);
         field_to_json(Obj, "subnetMask", subnetMask);
         field_to_json(Obj, "defaultGateway", defaultGateway);
+        field_to_json(Obj, "sendHostname", sendHostname);
         field_to_json(Obj, "primaryDns", primaryDns);
         field_to_json(Obj, "secondaryDns", secondaryDns);
         field_to_json(Obj, "created", created);
@@ -132,6 +133,7 @@ namespace OpenWifi::SubObjects {
             field_from_json(Obj, "ipAddress", ipAddress);
             field_from_json(Obj, "subnetMask", subnetMask);
             field_from_json(Obj, "defaultGateway", defaultGateway);
+            field_from_json(Obj, "sendHostname", sendHostname);
             field_from_json(Obj, "primaryDns", primaryDns);
             field_from_json(Obj, "secondaryDns", secondaryDns);
             field_from_json(Obj, "created", created);
@@ -383,6 +385,79 @@ namespace OpenWifi::SubObjects {
         return false;
     }
 
+    void RadioHE::to_json(Poco::JSON::Object &Obj) const {
+        field_to_json(Obj, "multipleBSSID", multipleBSSID);
+        field_to_json(Obj, "ema", ema);
+        field_to_json(Obj, "bssColor", bssColor);
+    }
+
+    bool RadioHE::from_json(const Poco::JSON::Object::Ptr &Obj) {
+        try {
+            field_from_json(Obj, "multipleBSSID", multipleBSSID);
+            field_from_json(Obj, "ema", ema);
+            field_from_json(Obj, "bssColor", bssColor);
+            return true;
+        } catch (...) {
+        }
+        return false;
+    }
+
+    void RadioRates::to_json(Poco::JSON::Object &Obj) const {
+        field_to_json(Obj, "beacon", beacon);
+        field_to_json(Obj, "multicast", multicast);
+    }
+
+    bool RadioRates::from_json(const Poco::JSON::Object::Ptr &Obj) {
+        try {
+            field_from_json(Obj, "beacon", beacon);
+            field_from_json(Obj, "multicast", multicast);
+            return true;
+        } catch (...) {
+        }
+        return false;
+    }
+
+    void RadioInformation::to_json(Poco::JSON::Object &Obj) const {
+        field_to_json(Obj, "band", band);
+        field_to_json(Obj, "bandwidth", bandwidth);
+        field_to_json(Obj, "channel", channel);
+        field_to_json(Obj, "country", country);
+        field_to_json(Obj, "channelMode", channelMode);
+        field_to_json(Obj, "channelWidth", channelWidth);
+        field_to_json(Obj, "requireMode", requireMode);
+        field_to_json(Obj, "txpower", txpower);
+        field_to_json(Obj, "legacyRates", legacyRates);
+        field_to_json(Obj, "beaconInterval", beaconInterval);
+        field_to_json(Obj, "dtimPeriod", dtimPeriod);
+        field_to_json(Obj, "maximumClients", maximumClients);
+        field_to_json(Obj, "rates", rates);
+        field_to_json(Obj, "he", he);
+        field_to_json(Obj, "rawInfo", rawInfo);
+    }
+
+    bool RadioInformation::from_json(const Poco::JSON::Object::Ptr &Obj) {
+        try {
+            field_from_json(Obj, "band", band);
+            field_from_json(Obj, "bandwidth", bandwidth);
+            field_from_json(Obj, "channel", channel);
+            field_from_json(Obj, "country", country);
+            field_from_json(Obj, "channelMode", channelMode);
+            field_from_json(Obj, "channelWidth", channelWidth);
+            field_from_json(Obj, "requireMode", requireMode);
+            field_from_json(Obj, "txpower", txpower);
+            field_from_json(Obj, "legacyRates", legacyRates);
+            field_from_json(Obj, "beaconInterval", beaconInterval);
+            field_from_json(Obj, "dtimPeriod", dtimPeriod);
+            field_from_json(Obj, "maximumClients", maximumClients);
+            field_from_json(Obj, "rates", rates);
+            field_from_json(Obj, "he", he);
+            field_from_json(Obj, "rawInfo", rawInfo);
+            return true;
+        } catch (...) {
+        }
+        return false;
+    }
+
     void AccessPoint::to_json(Poco::JSON::Object &Obj) const {
         field_to_json(Obj, "id", id);
         field_to_json(Obj, "macAddress", macAddress);
@@ -395,6 +470,8 @@ namespace OpenWifi::SubObjects {
         field_to_json(Obj, "internetConnection", internetConnection);
         field_to_json(Obj, "deviceMode", deviceMode);
         field_to_json(Obj, "dnsConfiguration", dnsConfiguration);
+        field_to_json(Obj, "radios", radios);
+        field_to_json(Obj, "automaticUpgrade", automaticUpgrade);
     }
 
     bool AccessPoint::from_json(const Poco::JSON::Object::Ptr &Obj) {
@@ -410,6 +487,8 @@ namespace OpenWifi::SubObjects {
             field_from_json(Obj, "internetConnection", internetConnection);
             field_from_json(Obj, "deviceMode", deviceMode);
             field_from_json(Obj, "dnsConfiguration", dnsConfiguration);
+            field_from_json(Obj, "radios", radios);
+            field_from_json(Obj, "automaticUpgrade", automaticUpgrade);
             return true;
         } catch (...) {
         }

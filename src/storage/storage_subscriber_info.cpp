@@ -40,7 +40,7 @@ namespace OpenWifi {
         auto Now = std::time(nullptr);
 
         //  ok, we need to generate a default record and store it...
-        SI.id = UI.userinfo.Id;
+        SI.id = UI.userinfo.id;
         SI.created = SI.modified = Now;
         SI.userId = UI.userinfo.email;
         const auto NameParts = Poco::StringTokenizer(UI.userinfo.name.empty() ? SI.userId : UI.userinfo.name," @._-");
@@ -85,7 +85,7 @@ namespace OpenWifi {
 
 }
 
-template<> void ORM::DB<OpenWifi::SubInfoDBRecordType, OpenWifi::SubObjects::SubscriberInfo>::Convert(OpenWifi::SubInfoDBRecordType &In, OpenWifi::SubObjects::SubscriberInfo &Out) {
+template<> void ORM::DB<OpenWifi::SubInfoDBRecordType, OpenWifi::SubObjects::SubscriberInfo>::Convert(const OpenWifi::SubInfoDBRecordType &In, OpenWifi::SubObjects::SubscriberInfo &Out) {
     Out.id = In.get<0>();
     Out.userId = In.get<1>();
     Out.firstName = In.get<2>();
@@ -100,7 +100,7 @@ template<> void ORM::DB<OpenWifi::SubInfoDBRecordType, OpenWifi::SubObjects::Sub
     Out.modified = In.get<11>();
 }
 
-template<> void ORM::DB<OpenWifi::SubInfoDBRecordType, OpenWifi::SubObjects::SubscriberInfo>::Convert(OpenWifi::SubObjects::SubscriberInfo &In, OpenWifi::SubInfoDBRecordType &Out) {
+template<> void ORM::DB<OpenWifi::SubInfoDBRecordType, OpenWifi::SubObjects::SubscriberInfo>::Convert(const OpenWifi::SubObjects::SubscriberInfo &In, OpenWifi::SubInfoDBRecordType &Out) {
     Out.set<0>(In.id);
     Out.set<1>(In.userId);
     Out.set<2>(In.firstName);

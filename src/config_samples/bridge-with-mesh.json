@@ -1,0 +1,96 @@
+{
+	"globals": {
+		"wireless-multimedia": {
+			"profile": "rfc8325"
+		}
+	},
+	"radios": [
+		{
+			"band": "5G",
+			"country": "CA",
+			"channel-mode": "HE",
+			"channel-width": 80
+		},
+		{
+			"band": "2G",
+			"country": "CA",
+			"channel-mode": "HE",
+			"channel-width": 40
+		}
+	],
+	"interfaces": [
+		{
+			"name": "HomeNetwork",
+			"role": "upstream",
+			"tunnel": {
+				"proto": "mesh"
+			},
+			"services": [ "ssh", "lldp", "mdns" ],
+			"ethernet": [
+				{
+					"select-ports": [
+						"WAN*", "LAN*"
+					]
+				}
+			],
+			"ipv4": {
+				"addressing": "dynamic"
+			},
+			"ipv6": {
+				"addressing": "dynamic"
+			},
+			"ssids": [
+				{
+					"name": "mesh",
+					"wifi-bands": [
+						"5G"
+					],
+					"bss-mode": "mesh",
+					"encryption": {
+						"proto": "psk2",
+						"key": "aaaaaaaa",
+						"ieee80211w": "required"
+					}
+				},
+                {
+                    "name": "Cockney",
+                    "wifi-bands": [
+                            "5G"
+                    ],
+                    "bss-mode": "ap",
+                    "encryption": {
+                            "proto": "psk2",
+                            "key": "aaaaaaaa",
+                            "ieee80211w": "required"
+                    },
+					"roaming": {
+						"message-exchange": "ds",
+						"generate-psk": true
+					},
+					"services": [ "wifi-steering" ]
+                }
+			]
+		}
+	],
+	"services": {
+		"mdns": {
+			"enable": true
+		},
+		"lldp": {
+			"describe": "uCentral",
+			"location": "universe"
+		},
+		"wifi-steering": {
+			"mode": "local",
+			"network": "upstream",
+			"assoc-steering": true,
+			"required-snr": -85,
+			"required-probe-snr": -80,
+			"required-roam-snr": -80,
+			"load-kick-threshold": 90
+		},
+		"ssh": {
+			"port": 22
+		}
+	}
+}

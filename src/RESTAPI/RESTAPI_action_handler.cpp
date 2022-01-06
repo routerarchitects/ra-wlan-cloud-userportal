@@ -33,12 +33,12 @@ namespace OpenWifi {
         AssignIfPresent(Body, "keepRedirector",keepRedirector);
 
         Poco::SharedPtr<SubObjects::SubscriberInfo>     SubInfo;
-        auto UserFound = SubscriberCache()->GetSubInfo(UserInfo_.userinfo.Id,SubInfo);
+        auto UserFound = SubscriberCache()->GetSubInfo(UserInfo_.userinfo.id,SubInfo);
         if(!UserFound) {
             SubObjects::SubscriberInfo  SI;
             StorageService()->SubInfoDB().CreateDefaultSubscriberInfo(UserInfo_, SI);
             StorageService()->SubInfoDB().CreateRecord(SI);
-            if(!SubscriberCache()->GetSubInfo(UserInfo_.userinfo.Id,SubInfo))
+            if(!SubscriberCache()->GetSubInfo(UserInfo_.userinfo.id,SubInfo))
                 return NotFound();
         }
 

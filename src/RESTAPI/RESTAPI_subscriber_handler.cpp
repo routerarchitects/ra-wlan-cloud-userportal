@@ -11,12 +11,12 @@ namespace OpenWifi {
 
     void RESTAPI_subscriber_handler::DoGet() {
 
-        if(UserInfo_.userinfo.Id.empty()) {
+        if(UserInfo_.userinfo.id.empty()) {
             return NotFound();
         }
 
         SubObjects::SubscriberInfo  SI;
-        if(StorageService()->SubInfoDB().GetRecord("id", UserInfo_.userinfo.Id,SI)) {
+        if(StorageService()->SubInfoDB().GetRecord("id", UserInfo_.userinfo.id,SI)) {
             Poco::JSON::Object  Answer;
             SI.to_json(Answer);
             return ReturnObject(Answer);
@@ -32,15 +32,15 @@ namespace OpenWifi {
 
     void RESTAPI_subscriber_handler::DoPut() {
 
-        if(UserInfo_.userinfo.Id.empty()) {
+        if(UserInfo_.userinfo.id.empty()) {
             return NotFound();
         }
 
         SubObjects::SubscriberInfo  Existing;
-        if(!StorageService()->SubInfoDB().GetRecord("id", UserInfo_.userinfo.Id, Existing)) {
+        if(!StorageService()->SubInfoDB().GetRecord("id", UserInfo_.userinfo.id, Existing)) {
             StorageService()->SubInfoDB().CreateDefaultSubscriberInfo(UserInfo_, Existing);
             StorageService()->SubInfoDB().CreateRecord(Existing);
-            StorageService()->SubInfoDB().GetRecord("id",UserInfo_.userinfo.Id,Existing);
+            StorageService()->SubInfoDB().GetRecord("id",UserInfo_.userinfo.id,Existing);
         }
 
         auto Body = ParseStream();
@@ -87,11 +87,11 @@ namespace OpenWifi {
             }
         }
 
-        if(StorageService()->SubInfoDB().UpdateRecord("id",UserInfo_.userinfo.Id, Existing)) {
+        if(StorageService()->SubInfoDB().UpdateRecord("id",UserInfo_.userinfo.id, Existing)) {
 
             SubObjects::SubscriberInfo  Modified;
-            StorageService()->SubInfoDB().GetRecord("id",UserInfo_.userinfo.Id,Modified);
-            SubscriberCache()->UpdateSubInfo(UserInfo_.userinfo.Id,Modified);
+            StorageService()->SubInfoDB().GetRecord("id",UserInfo_.userinfo.id,Modified);
+            SubscriberCache()->UpdateSubInfo(UserInfo_.userinfo.id,Modified);
             Poco::JSON::Object  Answer;
 
             Modified.to_json(Answer);

@@ -67,6 +67,7 @@ namespace OpenWifi::SubObjects {
         std::string     ipAddress;
         std::string     subnetMask;
         std::string     defaultGateway;
+        bool            sendHostname = true;
         std::string     primaryDns;
         std::string     secondaryDns;
         uint64_t        created=0;
@@ -205,6 +206,44 @@ namespace OpenWifi::SubObjects {
         bool from_json(const Poco::JSON::Object::Ptr &Obj);
     };
 
+    struct RadioHE {
+        bool                        multipleBSSID = false;
+        bool                        ema = false;
+        uint64_t                    bssColor = 64;
+
+        void to_json(Poco::JSON::Object &Obj) const;
+        bool from_json(const Poco::JSON::Object::Ptr &Obj);
+    };
+
+    struct RadioRates {
+        uint64_t                    beacon = 6000;
+        uint64_t                    multicast = 24000;
+
+        void to_json(Poco::JSON::Object &Obj) const;
+        bool from_json(const Poco::JSON::Object::Ptr &Obj);
+    };
+
+    struct RadioInformation {
+        std::string             band;
+        uint64_t                bandwidth;
+        uint64_t                channel = 0 ;
+        std::string             country;
+        std::string             channelMode{"HE"};
+        uint64_t                channelWidth = 80;
+        std::string             requireMode;
+        uint64_t                txpower=0;
+        bool                    legacyRates = false;
+        uint64_t                beaconInterval = 100;
+        uint64_t                dtimPeriod = 2;
+        uint64_t                maximumClients = 64;
+        RadioRates              rates;
+        RadioHE                 he;
+        std::vector<std::string>    rawInfo;
+
+        void to_json(Poco::JSON::Object &Obj) const;
+        bool from_json(const Poco::JSON::Object::Ptr &Obj);
+    };
+
     struct AccessPoint {
         std::string                 id;
         std::string                 macAddress;
@@ -217,6 +256,8 @@ namespace OpenWifi::SubObjects {
         InternetConnection          internetConnection;
         HomeDeviceMode              deviceMode;
         DnsConfiguration            dnsConfiguration;
+        std::vector<RadioInformation>   radios;
+        bool                        automaticUpgrade = true;
 
         void to_json(Poco::JSON::Object &Obj) const;
         bool from_json(const Poco::JSON::Object::Ptr &Obj);

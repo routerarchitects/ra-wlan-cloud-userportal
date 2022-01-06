@@ -630,6 +630,9 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/RadioInformation'
+        automaticUpgrade:
+          type: boolean
+          default: true
 
 
     AccessPointList:

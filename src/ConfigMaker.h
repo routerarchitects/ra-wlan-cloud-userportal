@@ -20,6 +20,5 @@ namespace OpenWifi {
     private:
         const std::string   id_;
         bool                bad_=false;
-        std::vector<std::string,
     };
 }

@@ -16,7 +16,7 @@ namespace OpenWifi {
         }
 
         SubObjects::SubscriberInfo SI;
-        if (!StorageService()->SubInfoDB().GetRecord("id", UserInfo_.userinfo.Id, SI)) {
+        if (!StorageService()->SubInfoDB().GetRecord("id", UserInfo_.userinfo.id, SI)) {
             return NotFound();
         }
 
