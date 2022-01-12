@@ -98,5 +98,53 @@ namespace OpenWifi::SDK::GW {
                 }
             }
         }
+
+        bool SetVenue(RESTAPIHandler *client, const std::string & SerialNumber, const std::string &uuid) {
+            Poco::JSON::Object      Body;
+
+            Body.set("serialNumber", SerialNumber);
+            Body.set("venue", uuid);
+            OpenWifi::OpenAPIRequestPut R(OpenWifi::uSERVICE_GATEWAY,
+                                          "/api/v1/device/" +SerialNumber,
+                                          {},
+                                          Body,
+                                          10000);
+            Poco::JSON::Object::Ptr Response;
+            auto ResponseStatus = R.Do(Response, client ? client->UserInfo_.webtoken.access_token_ : "");
+            if(ResponseStatus == Poco::Net::HTTPResponse::HTTP_OK) {
+                return true;
+            }
+            return false;
+        }
+
+        bool Configure(RESTAPIHandler *client, const std::string &Mac, Poco::JSON::Object::Ptr & Configuration, Poco::JSON::Object::Ptr & Response) {
+
+            Poco::JSON::Object      Body;
+
+            Poco::JSON::Parser P;
+            uint64_t Now = std::time(nullptr);
+
+            Configuration->set("uuid", Now);
+            Body.set("serialNumber", Mac);
+            Body.set("UUID", Now);
+            Body.set("when",0);
+            Body.set("configuration", Configuration);
+
+            OpenWifi::OpenAPIRequestPost R(OpenWifi::uSERVICE_GATEWAY,
+                                           "/api/v1/device/" + Mac + "/configure",
+                                           {},
+                                           Body,
+                                           10000);
+
+            auto ResponseStatus = R.Do(Response, client ? client->UserInfo_.webtoken.access_token_ : "");
+            if(ResponseStatus == Poco::Net::HTTPResponse::HTTP_OK) {
+                std::ostringstream os;
+                Poco::JSON::Stringifier::stringify(Response,os);
+                return true;
+            }
+
+            return false;
+        }
+
     }
 }
