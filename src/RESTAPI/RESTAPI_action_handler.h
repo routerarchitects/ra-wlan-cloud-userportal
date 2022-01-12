@@ -34,13 +34,5 @@ namespace OpenWifi {
         void DoDelete() final {};
     private:
 
-        void Reboot(const std::string & Mac, uint64_t When);
-        void LEDs(const std::string & Mac, uint64_t When, uint64_t Duration, const std::string & Pattern);
-        void Factory(const std::string & Mac, uint64_t When, bool KeepRedirector);
-        void Upgrade(const std::string & Mac, uint64_t When, const std::string & ImageName, bool KeepRedirector);
-        void Refresh(const std::string & Mac, uint64_t When);
-
-        void PerformCommand(const std::string & Command, const std::string & EndPoint, Poco::JSON::Object & CommandRequest);
-
     };
 }
