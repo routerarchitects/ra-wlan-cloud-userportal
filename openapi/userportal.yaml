@@ -1048,3 +1048,43 @@ paths:
         400:
           $ref: '#/components/responses/BadRequest'
 
+  /claim:
+    put:
+      tags:
+        - Subscriber Device
+      summary: A subscriber is trying to claim a specific SerialNumber.
+      operationId: deviceClaim
+      parameters:
+        - in: query
+          name: serialNumber
+          schema:
+            type: string
+            minLength: 12
+            maxLength: 12
+          required: true
+        - in: query
+          name: id
+          schema:
+            type: string
+          required: true
+          description: Any string or ID will be stored along with teh claim.
+      responses:
+        200:
+          description: result of the command
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  errorCode:
+                    type: integer
+                    enum:
+                      - 0 # success
+                      - 1 # device already claimed by another subscriber (claim refused)
+                      - 2 # subscriber already has another device (this is a warning)
+                      - 3 # device already claimed by this user, extending claiming period (this is a warning)
+                      - 4 # invalid device (claim refused)
+                  errorText:
+                    type: string
+                  details:
+                    type: string
