@@ -15,7 +15,7 @@ The directory will be maintained by TIP and the above assets must be handed in f
 ## Location
 The URI of the directory is located here:
 
-https://s3.aws.amazon.com/tip_self_care_directory.json
+https://s3.us-west-2.amazonaws.com/ucentral.arilia.com/tip_selfcare_registry.json
 
 ### The file format
 The file actually contains a JSOn document containing an array of all the entries in the program. Here
