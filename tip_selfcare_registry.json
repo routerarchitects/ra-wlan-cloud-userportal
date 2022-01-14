@@ -5,6 +5,7 @@
       "org_name" : "Arilia Wireless Development Inc.",
       "small_org_logo" : "https://s3.us-west-2.amazonaws.com/ucentral.arilia.com/ARILIA+LOGO-01.svg",
       "large_org_logo" : "https://s3.us-west-2.amazonaws.com/ucentral.arilia.com/ARILIA+LOGO.svg",
+      "subscriber_portal" : "https://ucentral.dpaas.arilia.com:16006",
       "org_color_1" : "#3399ff",
       "access_policy" : "https://ucentral.dpaas.arilia.com:16001/wwwassets/access_policy.html",
       "password_policy_regex" : "^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$%^&*-]).{8,}$",

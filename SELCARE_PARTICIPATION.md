@@ -27,6 +27,7 @@ is a sample
     {
       "org_uri" : "https://www.example.com" ,
       "org_name" : "Example Corp Inc.",
+      "subscriber_portal" : "https://ucentral.dpaas.arilia.com:16006",
       "small_org_logo" : "https://www.example.com/logos/small_logo.svg",
       "large_org_logo" : "https://www.example.com/logos/big_logo.svg",
       "org_color_1" : "#3399ff",
