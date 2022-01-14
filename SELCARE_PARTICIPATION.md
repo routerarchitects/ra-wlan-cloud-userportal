@@ -29,6 +29,7 @@ is a sample
       "org_name" : "Example Corp Inc.",
       "small_org_logo" : "https://www.example.com/logos/small_logo.svg",
       "large_org_logo" : "https://www.example.com/logos/big_logo.svg",
+      "org_color_1" : "#3399ff",
       "access_policy" : "https://www.example.com/policies/selfcare_program_policy.html",
       "password_policy_regex" : "^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$%^&*-]).{8,}$",
       "password_policy" : "https://www.example.com/policies/selfcare_password_policy.html"

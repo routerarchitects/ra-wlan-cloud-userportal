@@ -2,12 +2,13 @@
   [
     {
       "org_uri" : "https://www.example.com" ,
-      "org_name" : "Example Corp Inc.",
-      "small_org_logo" : "https://www.example.com/logos/small_logo.svg",
-      "large_org_logo" : "https://www.example.com/logos/big_logo.svg",
-      "access_policy" : "https://www.example.com/policies/selfcare_program_policy.html",
+      "org_name" : "Arilia Wireless Development Inc.",
+      "small_org_logo" : "https://s3.us-west-2.amazonaws.com/ucentral.arilia.com/ARILIA+LOGO-01.svg",
+      "large_org_logo" : "https://s3.us-west-2.amazonaws.com/ucentral.arilia.com/ARILIA+LOGO.svg",
+      "org_color_1" : "#3399ff",
+      "access_policy" : "https://ucentral.dpaas.arilia.com:16001/wwwassets/access_policy.html",
       "password_policy_regex" : "^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$%^&*-]).{8,}$",
-      "password_policy" : "https://www.example.com/policies/selfcare_password_policy.html"
+      "password_policy" : "https://ucentral.dpaas.arilia.com:16001/wwwassets/password_policy.html"
     }
   ]
 }
