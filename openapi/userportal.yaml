@@ -266,18 +266,12 @@ components:
         encryption:
           type: string
           enum:
-            - none
-            - psk
-            - psk2
-            - psk-mixed
-            - wpa
-            - wpa2
-            - wpa-mixed
-            - sae
-            - sae-mixed
-            - wpa3
-            - wpa3-192
-            - wpa3-mixed
+            - wpa1-personal
+            - wpa2-personal
+            - wpa3-personal
+            - wpa1/2-personal
+            - wpa2/3-personal
+          default: wpa2-personal
         bands:
           type: array
           items:
@@ -638,7 +632,10 @@ components:
         automaticUpgrade:
           type: boolean
           default: true
-
+        configurationUUID:
+          type: string
+          format: uuid
+          readOnly: true
 
     AccessPointList:
       type: object
