@@ -1,15 +1,38 @@
 {
-  [
-    {
-      "org_uri" : "https://www.example.com" ,
-      "org_name" : "Arilia Wireless Development Inc.",
-      "small_org_logo" : "https://s3.us-west-2.amazonaws.com/ucentral.arilia.com/ARILIA+LOGO-01.svg",
-      "large_org_logo" : "https://s3.us-west-2.amazonaws.com/ucentral.arilia.com/ARILIA+LOGO.svg",
-      "subscriber_portal" : "https://ucentral.dpaas.arilia.com:16006",
-      "org_color_1" : "#3399ff",
-      "access_policy" : "https://ucentral.dpaas.arilia.com:16001/wwwassets/access_policy.html",
-      "password_policy_regex" : "^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$%^&*-]).{8,}$",
-      "password_policy" : "https://ucentral.dpaas.arilia.com:16001/wwwassets/password_policy.html"
-    }
-  ]
+    "registry" :
+      [
+        {
+           "org_uri":"https://www.14oranges.com/",
+           "org_name":"14 Oranges Software Inc.",
+           "small_org_logo":"https://14oranges-ui.arilia.com/assets/14Oranges_Logo.png",
+           "large_org_logo":"https://14oranges-ui.arilia.com/assets/14Oranges_Logo.png",
+           "subscriber_portal":"https://14oranges.arilia.com:16006",
+           "org_color_1":"#0f5eaa",
+           "access_policy":"https://14oranges.arilia.com:16001/wwwassets/access_policy.html",
+           "password_policy_regex":"^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$%^&*-]).{8,}$",
+           "password_policy":"https://14oranges.arilia.com:16001/wwwassets/password_policy.html"
+        },
+        {
+          "org_uri" : "https://www.arilia.com" ,
+          "org_name" : "Arilia Wireless Development Inc.",
+          "small_org_logo" : "https://s3.us-west-2.amazonaws.com/ucentral.arilia.com/small_logo.jpg",
+          "large_org_logo" : "https://s3.us-west-2.amazonaws.com/ucentral.arilia.com/medium_logo.jpg",
+          "subscriber_portal" : "https://ucentral.dpaas.arilia.com:16006",
+          "org_color_1" : "#3399ff",
+          "access_policy" : "https://ucentral.dpaas.arilia.com:16001/wwwassets/access_policy.html",
+          "password_policy_regex" : "^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$%^&*-]).{8,}$",
+          "password_policy" : "https://ucentral.dpaas.arilia.com:16001/wwwassets/password_policy.html"
+        },
+        {
+          "org_uri" : "https://www.arilia.com" ,
+          "org_name" : "Arilia Living-Lab Inc.",
+          "small_org_logo" : "https://s3.us-west-2.amazonaws.com/ucentral.arilia.com/small_logo_livinglab.jpg",
+          "large_org_logo" : "https://s3.us-west-2.amazonaws.com/ucentral.arilia.com/medium_logo_livinglab.jpg",
+          "subscriber_portal" : "https://livinglab.arilia.com:16006",
+          "org_color_1" : "#3399ff",
+          "access_policy" : "https://livinglab.arilia.com:16001/wwwassets/access_policy.html",
+          "password_policy_regex" : "^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$%^&*-]).{8,}$",
+          "password_policy" : "https://livinglab.arilia.com:16001/wwwassets/password_policy.html"
+        }
+      ]
 }

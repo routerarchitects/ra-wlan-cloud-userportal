@@ -4,8 +4,8 @@ will be required to provide the following:
 - A URI to the program within your organization
 - Organization name
 - URI to your Subscriber Self-care portal, including the port
-- A logo of your company to be used in the rebranding of the application. This should be an SVG file of the 30px height, width 30px to 100px
-- A logo of your company to be used in the directory itself. The format should be SVG and the height of 75px and wifth of 75px to 250 px.
+- A logo of your company to be used in the rebranding of the application. This should be an JPG or PNG file of the 30px height, width 30px to 100px
+- A logo of your company to be used in the directory itself. The format should be JPG or PNG and the height of 75px and width of 75px to 250 px.
 - A URI to an access policy for your site
 - A password policy RegEx and textual description.
 
