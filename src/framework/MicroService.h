@@ -3616,11 +3616,51 @@ namespace OpenWifi {
 	    KafkaEnabled_ = MicroService::instance().ConfigGetBool("openwifi.kafka.enable",false);
 	}
 
+	inline void KafkaLoggerFun(cppkafka::KafkaHandleBase & handle, int level, const std::string & facility, const std::string &messqge) {
+		switch ((cppkafka::LogLevel) level) {
+			case cppkafka::LogLevel::LogNotice: {
+					KafkaManager()->Logger().notice(Poco::format("kafka-log: facility: %s message: %s",facility, messqge));
+				}
+				break;
+			case cppkafka::LogLevel::LogDebug: {
+					KafkaManager()->Logger().debug(Poco::format("kafka-log: facility: %s message: %s",facility, messqge));
+				}
+				break;
+			case cppkafka::LogLevel::LogInfo: {
+					KafkaManager()->Logger().information(Poco::format("kafka-log: facility: %s message: %s",facility, messqge));
+				}
+				break;
+				case cppkafka::LogLevel::LogWarning: {
+					KafkaManager()->Logger().warning(Poco::format("kafka-log: facility: %s message: %s",facility, messqge));
+				}
+				break;
+			case cppkafka::LogLevel::LogAlert:
+			case cppkafka::LogLevel::LogCrit: {
+					KafkaManager()->Logger().critical(Poco::format("kafka-log: facility: %s message: %s",facility, messqge));
+				}
+				break;
+			case cppkafka::LogLevel::LogErr:
+			case cppkafka::LogLevel::LogEmerg:
+			default: {
+				KafkaManager()->Logger().error(Poco::format("kafka-log: facility: %s message: %s",facility, messqge));
+				}
+				break;
+		}
+	}
+
+	inline void KafkaErrorFun(cppkafka::KafkaHandleBase & handle, int error, const std::string &reason) {
+		KafkaManager()->Logger().error(Poco::format("kafka-error: %d, reason: %s", error, reason));
+	}
+
 	inline void KafkaProducer::run() {
 	    cppkafka::Configuration Config({
 	        { "client.id", MicroService::instance().ConfigGetString("openwifi.kafka.client.id") },
 	        { "metadata.broker.list", MicroService::instance().ConfigGetString("openwifi.kafka.brokerlist") }
 	    });
+
+		Config.set_log_callback(KafkaLoggerFun);
+		Config.set_error_callback(KafkaErrorFun);
+
 	    KafkaManager()->SystemInfoWrapper_ = 	R"lit({ "system" : { "id" : )lit" +
 	            std::to_string(MicroService::instance().ID()) +
 	            R"lit( , "host" : ")lit" + MicroService::instance().PrivateEndPoint() +
@@ -3660,6 +3700,9 @@ namespace OpenWifi {
 	        { "auto.offset.reset", "latest" } ,
 	        { "enable.partition.eof", false }
 	    });
+
+		Config.set_log_callback(KafkaLoggerFun);
+		Config.set_error_callback(KafkaErrorFun);
 
 	    cppkafka::TopicConfiguration topic_config = {
 	            { "auto.offset.reset", "smallest" }
