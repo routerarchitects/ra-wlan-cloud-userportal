@@ -98,7 +98,7 @@ namespace OpenWifi {
 
                 if(i.deviceMode.type=="bridge") {
                     nlohmann::json ssids;
-                    for(const auto &j:i.wifiNetworks.wifiNetworks) {
+                    for(auto &j:i.wifiNetworks.wifiNetworks) {
                         nlohmann::json ssid;
                         ssid["name"] = j.name ;
                         if(j.bands[0]=="all") {
@@ -107,9 +107,27 @@ namespace OpenWifi {
                             ssid["wifi-bands"] = j.bands;
                         }
                         ssid["bss-mode"] = "ap";
-                        ssid["encryption"]["proto"] = j.encryption;
+                        if(j.encryption.empty()) {
+                            j.encryption = "wpa2-personal";
+                        }
+
+                        if(j.encryption=="wpa1-personal") {
+                            ssid["encryption"]["proto"] = "psk";
+                            ssid["encryption"]["ieee80211w"] = "optional";
+                        } else if(j.encryption=="wpa2-personal") {
+                            ssid["encryption"]["proto"] = "psk2";
+                            ssid["encryption"]["ieee80211w"] = "optional";
+                        } else if(j.encryption=="wpa3-personal") {
+                            ssid["encryption"]["proto"] = "sae";
+                            ssid["encryption"]["ieee80211w"] = "required";
+                        } else if (j.encryption=="wpa1/2-personal") {
+                            ssid["encryption"]["proto"] = "psk-mixed";
+                            ssid["encryption"]["ieee80211w"] = "optional";
+                        } else if (j.encryption=="wpa2/3-personal") {
+                            ssid["encryption"]["proto"] = "sae-mixed";
+                            ssid["encryption"]["ieee80211w"] = "optional";
+                        }
                         ssid["encryption"]["key"] = j.password;
-                        ssid["encryption"]["ieee80211w"] = "optional";
                         ssids.push_back(ssid);
                     }
                     UpstreamInterface["ssids"] = ssids;
@@ -252,9 +270,9 @@ namespace OpenWifi {
 
             Cfg.to_json(Answer);
 
-            //  get exiting configuration UUID, if it does not exist, create a new config and associate it with
-            //  the serial number.
-
+            if(i.configurationUUID.empty()) {
+                //  we need to crate this configuration and associate it to this device.
+            }
 
         }
 

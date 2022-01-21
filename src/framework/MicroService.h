@@ -239,6 +239,23 @@ namespace OpenWifi::RESTAPI_utils {
         Obj.set(Field,A);
     }
 
+    inline void field_to_json(Poco::JSON::Object &Obj, const char *Field, const Types::Counted3DMapSII &M) {
+        Poco::JSON::Array	A;
+        for(const auto &[OrgName,MonthlyNumberMap]:M) {
+            Poco::JSON::Object  OrgObject;
+            OrgObject.set("tag",OrgName);
+            Poco::JSON::Array   MonthlyArray;
+            for(const auto &[Month,Counter]:MonthlyNumberMap) {
+                Poco::JSON::Object  Inner;
+                Inner.set("value", Month);
+                Inner.set("counter", Counter);
+                MonthlyArray.add(Inner);
+            }
+            OrgObject.set("index",MonthlyArray);
+            A.add(OrgObject);
+        }
+    }
+
     template<typename T> void field_to_json(Poco::JSON::Object &Obj,
             const char *Field,
             const T &V,
@@ -1078,6 +1095,53 @@ namespace OpenWifi {
 	inline std::string to_string(const ConfigurationEntry &v) { return (std::string) v; }
 
 	typedef std::map<std::string,ConfigurationEntry>    ConfigurationMap_t;
+
+	template <typename T> class FIFO {
+	  public:
+		explicit FIFO(uint32_t Size) : Size_(Size) {
+			Buffer_->reserve(Size_);
+		}
+
+		mutable Poco::BasicEvent<bool> Writable_;
+		mutable Poco::BasicEvent<bool> Readable_;
+
+		inline bool Read(T &t) {
+			{
+				std::lock_guard M(Mutex_);
+				if (Write_ == Read_) {
+					return false;
+				}
+
+				t = (*Buffer_)[Read_++];
+				if (Read_ == Size_) {
+					Read_ = 0;
+				}
+			}
+			bool flag = true;
+			Writable_.notify(this, flag);
+			return true;
+		}
+
+		inline bool Write(const T &t) {
+			{
+				std::lock_guard M(Mutex_);
+				(*Buffer_)[Write_++] = t;
+				if (Write_ == Size_) {
+					Write_ = 0;
+				}
+			}
+			bool flag = true;
+			Readable_.notify(this, flag);
+			return false;
+		}
+
+	  private:
+		std::mutex      Mutex_;
+		uint32_t        Size_;
+		uint32_t        Read_=0;
+		uint32_t                        Write_=0;
+		std::unique_ptr<std::vector<T>>  Buffer_=std::make_unique<std::vector<T>>();
+	};
 
 	template <class Record, typename KeyType = std::string, int Size=256, int Expiry=60000> class RecordCache {
     public:

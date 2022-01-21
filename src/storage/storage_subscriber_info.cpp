@@ -74,7 +74,7 @@ namespace OpenWifi {
         WN.type = "main";
         WN.name = "HomeWifi";
         WN.password = "OpenWifi";
-        WN.encryption = "wpa2";
+        WN.encryption = "wpa2-personal";
         WN.bands.emplace_back("2G");
         WN.bands.emplace_back("5G");
 

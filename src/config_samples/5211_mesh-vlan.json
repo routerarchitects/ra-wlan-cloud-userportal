@@ -1,0 +1,144 @@
+{
+	"globals": {
+		"wireless-multimedia": {
+			"profile": "rfc8325"
+		}
+	},
+	"radios": [
+		{
+			"band": "5G",
+			"country": "CA",
+			"channel-mode": "VHT",
+			"channel-width": 80,
+			"bandwidth" : 20,
+			"tx-power" : 10,
+			"channel" : 36
+		},
+		{
+			"band": "2G",
+			"country": "CA",
+			"channel-mode": "VHT",
+			"channel-width": 40,
+			"bandwidth" : 20,
+            "tx-power" : 23
+		}
+	],
+	"interfaces": [
+		{
+			"name": "BowenNetwork",
+			"role": "upstream",
+			"vlan" : {
+			    "id" : 100
+			},
+			"tunnel": {
+				"proto": "mesh"
+			},
+			"services": [ "ssh", "lldp", "mdns" ],
+			"ethernet": [
+				{
+					"select-ports": [
+						"WAN*", "LAN*"
+					]
+				}
+			],
+			"ipv4": {
+				"addressing": "dynamic"
+			},
+			"ipv6": {
+				"addressing": "dynamic"
+			},
+			"ssids": [
+				{
+					"name": "BowenMesh",
+					"wifi-bands": [
+						"5G"
+					],
+					"bss-mode": "mesh",
+					"encryption": {
+						"proto": "psk2",
+						"key": "snoopy_mesh",
+						"ieee80211w": "optional"
+					},
+					"services" : [ "statistics" ]
+				},
+                {
+                    "name": "petunia",
+                    "wifi-bands": [
+                            "2G", "5G"
+                    ],
+                    "bss-mode": "ap",
+                    "encryption": {
+                            "proto": "psk2",
+                            "key": "snoopy99",
+        					"ieee80211w": "optional"
+                    },
+                    "roaming": {
+                        "message-exchange": "ds",
+                        "generate-psk": true
+                    },
+                    "services": [ "wifi-steering" ]
+                }
+			]
+		}
+	],
+	"services": {
+		"mdns": {
+			"enable": true
+		},
+		"lldp": {
+			"describe": "uCentral",
+			"location": "universe"
+		},
+		"wifi-steering": {
+			"mode": "local",
+			"network": "upstream",
+			"assoc-steering": true,
+			"required-snr": -85,
+			"required-probe-snr": -80,
+			"required-roam-snr": -80,
+			"load-kick-threshold": 90
+		},
+		"ssh": {
+			"port": 22
+		}
+	},
+    "metrics": {
+        "dhcp-snooping": {
+            "filters": [
+                "ack",
+                "discover",
+                "offer",
+                "request",
+                "solicit",
+                "reply",
+                "renew"
+            ]
+        },
+        "health": {
+            "interval": 60
+        },
+        "statistics": {
+            "interval": 60,
+            "types": [
+                "ssids",
+                "lldp",
+                "clients"
+            ]
+        },
+        "wifi-frames": {
+            "filters": [
+                "probe",
+                "auth",
+                "assoc",
+                "disassoc",
+                "deauth",
+                "local-deauth",
+                "inactive-deauth",
+                "key-mismatch",
+                "beacon-report",
+                "radar-detected"
+            ]
+        }
+    },
+	"uuid" : 48
+}

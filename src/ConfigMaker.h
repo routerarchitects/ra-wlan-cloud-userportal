@@ -13,10 +13,8 @@ namespace OpenWifi {
         explicit ConfigMaker(const std::string &Id) :
                 id_(Id) {
         }
-
         bool Prepare();
         bool Push();
-
     private:
         const std::string   id_;
         bool                bad_=false;

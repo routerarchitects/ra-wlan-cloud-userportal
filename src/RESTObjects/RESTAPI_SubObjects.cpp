@@ -472,6 +472,7 @@ namespace OpenWifi::SubObjects {
         field_to_json(Obj, "dnsConfiguration", dnsConfiguration);
         field_to_json(Obj, "radios", radios);
         field_to_json(Obj, "automaticUpgrade", automaticUpgrade);
+        field_to_json(Obj, "configurationUUID", configurationUUID);
     }
 
     bool AccessPoint::from_json(const Poco::JSON::Object::Ptr &Obj) {
@@ -489,6 +490,7 @@ namespace OpenWifi::SubObjects {
             field_from_json(Obj, "dnsConfiguration", dnsConfiguration);
             field_from_json(Obj, "radios", radios);
             field_from_json(Obj, "automaticUpgrade", automaticUpgrade);
+            field_from_json(Obj, "configurationUUID", configurationUUID);
             return true;
         } catch (...) {
         }
