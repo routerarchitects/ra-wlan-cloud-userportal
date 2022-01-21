@@ -15,8 +15,8 @@
         {
           "org_uri" : "https://www.arilia.com" ,
           "org_name" : "Arilia Wireless Development Inc.",
-          "small_org_logo" : "https://s3.us-west-2.amazonaws.com/ucentral.arilia.com/small_logo.jpeg",
-          "large_org_logo" : "https://s3.us-west-2.amazonaws.com/ucentral.arilia.com/medium_logo.jpeg",
+          "small_org_logo" : "https://s3.us-west-2.amazonaws.com/ucentral.arilia.com/small_logo.png",
+          "large_org_logo" : "https://s3.us-west-2.amazonaws.com/ucentral.arilia.com/medium_logo.png",
           "subscriber_portal" : "https://ucentral.dpaas.arilia.com:16006",
           "org_color_1" : "#3399ff",
           "access_policy" : "https://ucentral.dpaas.arilia.com:16001/wwwassets/access_policy.html",
@@ -26,8 +26,8 @@
         {
           "org_uri" : "https://www.arilia.com" ,
           "org_name" : "Arilia Living-Lab Inc.",
-          "small_org_logo" : "https://s3.us-west-2.amazonaws.com/ucentral.arilia.com/small_logo_livinglab.jpeg",
-          "large_org_logo" : "https://s3.us-west-2.amazonaws.com/ucentral.arilia.com/medium_logo_livinglab.jpeg",
+          "small_org_logo" : "https://s3.us-west-2.amazonaws.com/ucentral.arilia.com/small_logo_livinglab.png",
+          "large_org_logo" : "https://s3.us-west-2.amazonaws.com/ucentral.arilia.com/medium_logo_livinglab.png",
           "subscriber_portal" : "https://livinglab.arilia.com:16006",
           "org_color_1" : "#3399ff",
           "access_policy" : "https://livinglab.arilia.com:16001/wwwassets/access_policy.html",
