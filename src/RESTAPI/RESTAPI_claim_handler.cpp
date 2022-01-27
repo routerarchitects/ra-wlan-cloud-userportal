@@ -22,8 +22,7 @@ namespace OpenWifi {
         Poco::JSON::Object  Body;
         OpenAPIRequestPut  API(uSERVICE_PROVISIONING, EndPoint,
                                 { { "serialNumber" , SerialNumber },
-                                  { "claimer" , UserInfo_.userinfo.id },
-                                  { "claimId" , Id } },
+                                  { "claimer" , UserInfo_.userinfo.id }},
                                   Body, 20000);
 
         Poco::JSON::Object::Ptr CallResponse;
