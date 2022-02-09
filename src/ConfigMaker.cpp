@@ -21,7 +21,7 @@ namespace OpenWifi {
         }
 
         //  We need to create the basic sections
-        auto  metrics = nlohmann::json::parse( R"(
+        auto  metrics = R"(
         {
             "dhcp-snooping": {
                 "filters": [ "ack", "discover", "offer", "request", "solicit", "reply", "renew" ]
@@ -37,9 +37,9 @@ namespace OpenWifi {
                 "filters": ["probe", "auth", "assoc", "disassoc", "deauth", "local-deauth",
                             "inactive-deauth", "key-mismatch", "beacon-report", "radar-detected" ]
             }
-        } )" );
+        } )"_json;
 
-        auto services = nlohmann::json::parse( R"(
+        auto services = R"(
         "services": {
             "lldp": {
                 "describe": "uCentral",
@@ -50,7 +50,7 @@ namespace OpenWifi {
                 "password-authentication": false,
                 "port": 22
             }
-        } )" );
+        } )"_json;
 
         for(const auto &i:SI.accessPoints.list) {
 
@@ -271,7 +271,7 @@ namespace OpenWifi {
             Cfg.to_json(Answer);
 
             if(i.configurationUUID.empty()) {
-                //  we need to crate this configuration and associate it to this device.
+                //  we need to create this configuration and associate it to this device.
             }
 
         }
