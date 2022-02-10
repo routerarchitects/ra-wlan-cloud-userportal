@@ -52,7 +52,7 @@ namespace OpenWifi {
             }
         } )"_json;
 
-        for(const auto &i:SI.accessPoints.list) {
+        for(auto &i:SI.accessPoints.list) {
 
             nlohmann::json Interfaces;
             nlohmann::json UpstreamInterface;
