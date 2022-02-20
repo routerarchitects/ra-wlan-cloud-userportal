@@ -10,6 +10,7 @@
 #include "RESTAPI/RESTAPI_action_handler.h"
 #include "RESTAPI/RESTAPI_mfa_handler.h"
 #include "RESTAPI/RESTAPI_claim_handler.h"
+#include "RESTAPI/RESTAPI_signup_handler.h"
 
 namespace OpenWifi {
 
@@ -23,6 +24,7 @@ namespace OpenWifi {
                 RESTAPI_action_handler,
                 RESTAPI_mfa_handler,
                 RESTAPI_claim_handler,
+                RESTAPI_signup_handler,
                 RESTAPI_system_command>(Path, Bindings, L, S, TransactionId);
     }
 
