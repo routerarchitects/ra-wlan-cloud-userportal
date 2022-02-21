@@ -1106,9 +1106,69 @@ paths:
           required: true
       responses:
         200:
+          description: Success signup post
+          content:
+            application/json:
+              schema:
+                type:
+                  object
+                properties:
+                  signupUUID:
+                    type: string
+                    format: uuid
+        400:
+          $ref: '#/components/responses/BadRequest'
+        403:
+          $ref: '#/components/responses/Unauthorized'
+        404:
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags:
+        - Subscriber Registration
+      summary: modify the signup command in play
+      operationId: modifySignup
+      parameters:
+        - in: query
+          name: signupUUID
+          schema:
+            type: string
+            format: uuid
+          required: true
+        - in: query
+          name: operation
+          schema:
+            type: string
+            enum:
+              - cancel
+              - success
+              - inprogress
+              - failed
+              - poll
+          required: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                time:
+                  type: integer
+                  format: int64
+                errorCode:
+                  type: integer
+                  format: int32
+        required: false
+
+      responses:
+        200:
           $ref: '#/components/responses/Success'
         400:
           $ref: '#/components/responses/BadRequest'
-        404:
+        403:
           $ref: '#/components/responses/Unauthorized'
+        404:
+          $ref: '#/components/responses/NotFound'
 

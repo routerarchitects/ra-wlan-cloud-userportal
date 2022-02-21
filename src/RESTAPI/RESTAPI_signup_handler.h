@@ -13,12 +13,13 @@ namespace OpenWifi {
                 : RESTAPIHandler(bindings, L,
                                  std::vector<std::string>{
                                          Poco::Net::HTTPRequest::HTTP_POST,
-                                         Poco::Net::HTTPRequest::HTTP_OPTIONS},
+                                         Poco::Net::HTTPRequest::HTTP_OPTIONS,
+                                         Poco::Net::HTTPRequest::HTTP_PUT},
                                  Server,
                                  TransactionId,
                                  Internal, false, true ){}
 
-        static const std::list<const char *> PathName() { return std::list<const char *>{"/api/v1/action"}; };
+        static const std::list<const char *> PathName() { return std::list<const char *>{"/api/v1/signup"}; };
 
 /*        inline bool RoleIsAuthorized(std::string & Reason) {
             if(UserInfo_.userinfo.userRole != SecurityObjects::USER_ROLE::SUBSCRIBER) {
@@ -30,7 +31,7 @@ namespace OpenWifi {
 */
         void DoGet() final {};
         void DoPost() final;
-        void DoPut() final {};
+        void DoPut() final ;
         void DoDelete() final {};
     private:
 
