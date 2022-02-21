@@ -81,7 +81,8 @@ namespace OpenWifi {
 
         struct UserLoginLoginExtensions {
             std::vector<MobilePhoneNumber>  mobiles;
-            struct MfaAuthInfo mfa;
+            struct MfaAuthInfo              mfa;
+            std::string                     authenticatorSecret;
 
             void to_json(Poco::JSON::Object &Obj) const;
             bool from_json(Poco::JSON::Object::Ptr &Obj);
@@ -137,6 +138,7 @@ namespace OpenWifi {
             std::string oauthType;
             std::string oauthUserInfo;
             uint64_t    modified;
+            std::string signingUp;
 
             void to_json(Poco::JSON::Object &Obj) const;
             bool from_json(const Poco::JSON::Object::Ptr &Obj);
@@ -232,7 +234,8 @@ namespace OpenWifi {
             FORGOT_PASSWORD=1,
             VERIFY_EMAIL,
             SUB_FORGOT_PASSWORD,
-            SUB_VERIFY_EMAIL
+            SUB_VERIFY_EMAIL,
+            SUB_SIGNUP
         };
 
         struct ActionLink {
@@ -248,6 +251,7 @@ namespace OpenWifi {
             uint64_t            expires=0;
             uint64_t            completed=0;
             uint64_t            canceled=0;
+            bool                userAction=true;
 
             void to_json(Poco::JSON::Object &Obj) const;
             bool from_json(Poco::JSON::Object::Ptr &Obj);

@@ -172,12 +172,14 @@ namespace OpenWifi::SecurityObjects {
 	void UserLoginLoginExtensions::to_json(Poco::JSON::Object &Obj) const {
 	    field_to_json(Obj, "mobiles", mobiles);
 	    field_to_json(Obj, "mfa", mfa);
+        field_to_json(Obj, "authenticatorSecret", authenticatorSecret);
 	}
 
 	bool UserLoginLoginExtensions::from_json(Poco::JSON::Object::Ptr &Obj) {
 	    try {
-	        field_from_json(Obj,"mobiles",mobiles);
-	        field_from_json(Obj,"mfa",mfa);
+	        field_from_json(Obj, "mobiles",mobiles);
+	        field_from_json(Obj, "mfa",mfa);
+            field_from_json(Obj, "authenticatorSecret", authenticatorSecret);
 	        return true;
 	    } catch (...) {
 
@@ -255,6 +257,7 @@ namespace OpenWifi::SecurityObjects {
 		field_to_json(Obj,"oauthType",oauthType);
 		field_to_json(Obj,"oauthUserInfo",oauthUserInfo);
         field_to_json(Obj,"modified",modified);
+        field_to_json(Obj,"signingUp",signingUp);
     };
 
     bool UserInfo::from_json(const Poco::JSON::Object::Ptr &Obj) {
@@ -290,6 +293,7 @@ namespace OpenWifi::SecurityObjects {
 			field_from_json(Obj,"oauthType",oauthType);
 			field_from_json(Obj,"oauthUserInfo",oauthUserInfo);
             field_from_json(Obj,"modified",modified);
+            field_from_json(Obj,"signingUp",signingUp);
             return true;
         } catch (const Poco::Exception &E) {
 
@@ -498,6 +502,7 @@ namespace OpenWifi::SecurityObjects {
 	    field_to_json(Obj,"expires",expires);
 	    field_to_json(Obj,"completed",completed);
 	    field_to_json(Obj,"canceled",canceled);
+        field_to_json(Obj,"userAction",userAction);
 	}
 
     bool ActionLink::from_json(Poco::JSON::Object::Ptr &Obj) {
@@ -514,6 +519,7 @@ namespace OpenWifi::SecurityObjects {
 	        field_from_json(Obj,"expires",expires);
 	        field_from_json(Obj,"completed",completed);
 	        field_from_json(Obj,"canceled",canceled);
+            field_from_json(Obj,"userAction",userAction);
 	        return true;
 	    } catch(...) {
 
