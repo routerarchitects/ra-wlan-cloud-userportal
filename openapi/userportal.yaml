@@ -810,6 +810,68 @@ components:
         sms:
           type: string
 
+    NoteInfo:
+      type: object
+      properties:
+        created:
+          type: integer
+          format: int64
+        createdBy:
+          type: string
+        note:
+          type: string
+
+    ObjectInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        notes:
+          type: array
+          items:
+            $ref: '#/components/schemas/NoteInfo'
+        created:
+          type: integer
+          format: int64
+        modified:
+          type: integer
+          format: int64
+        tags:
+          type: array
+          items:
+            type: integer
+            format: int64
+
+    SignupEntry:
+      type: object
+      properties:
+        allOf:
+          $ref: '#/components/schemas/ObjectInfo'
+        email:
+          type: string
+          format: email
+        userId:
+          type: string
+          format: uuid
+        serialNumber:
+          type: string
+        created:
+          type: integer
+          format: int64
+        completed:
+          type: integer
+          format: int64
+        error:
+          type: integer
+          format: int64
+        status:
+          type: string
+
 paths:
   /oauth2:
     post:
@@ -1087,6 +1149,72 @@ paths:
                     type: string
 
   /signup:
+    get:
+      tags:
+        - Subscriber Registration
+      summary: This call allows someone to get the status of a signup.
+      operationId: getSignup
+      parameters:
+        - in: query
+          name: email
+          schema:
+            type: string
+            format: email
+          required: false
+        - in: query
+          name: serialNumber
+          schema:
+            type: string
+          required: false
+        - in: query
+          name: signupUUID
+          schema:
+            type: string
+            format: uuid
+          required: false
+      responses:
+        200:
+          $ref: '#/components/schemas/SignupEntry'
+        400:
+          $ref: '#/components/responses/BadRequest'
+        403:
+          $ref: '#/components/responses/Unauthorized'
+        404:
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags:
+        - Subscriber Registration
+      summary: This call allows someone to get the status of a signup.
+      operationId: deleteSignup
+      parameters:
+        - in: query
+          name: email
+          schema:
+            type: string
+            format: email
+          required: false
+        - in: query
+          name: serialNumber
+          schema:
+            type: string
+          required: false
+        - in: query
+          name: signupUUID
+          schema:
+            type: string
+            format: uuid
+          required: false
+      responses:
+        204:
+          $ref: '#/components/responses/Success'
+        400:
+          $ref: '#/components/responses/BadRequest'
+        403:
+          $ref: '#/components/responses/Unauthorized'
+        404:
+          $ref: '#/components/responses/NotFound'
+
     post:
       tags:
         - Subscriber Registration
@@ -1106,16 +1234,7 @@ paths:
           required: true
       responses:
         200:
-          description: Success signup post
-          content:
-            application/json:
-              schema:
-                type:
-                  object
-                properties:
-                  signupUUID:
-                    type: string
-                    format: uuid
+          $ref: '#/components/schemas/SignupEntry'
         400:
           $ref: '#/components/responses/BadRequest'
         403:
@@ -1160,15 +1279,18 @@ paths:
                 errorCode:
                   type: integer
                   format: int32
+                status:
+                  type: string
         required: false
 
       responses:
         200:
-          $ref: '#/components/responses/Success'
+          $ref: '#/components/schemas/SignupEntry'
         400:
           $ref: '#/components/responses/BadRequest'
         403:
           $ref: '#/components/responses/Unauthorized'
         404:
           $ref: '#/components/responses/NotFound'
+
 

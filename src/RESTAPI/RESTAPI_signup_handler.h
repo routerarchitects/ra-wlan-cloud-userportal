@@ -29,10 +29,10 @@ namespace OpenWifi {
             return true;
         }
 */
-        void DoGet() final {};
+        void DoGet() final;
         void DoPost() final;
         void DoPut() final ;
-        void DoDelete() final {};
+        void DoDelete() final;
     private:
 
     };

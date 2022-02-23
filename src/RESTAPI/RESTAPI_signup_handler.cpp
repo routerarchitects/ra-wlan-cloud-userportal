@@ -3,33 +3,24 @@
 //
 
 #include "RESTAPI_signup_handler.h"
-#include "StorageService.h"
-#include "RESTObjects/RESTAPI_SecurityObjects.h"
+#include "framework/API_Proxy.h"
 
 namespace OpenWifi {
 
     void RESTAPI_signup_handler::DoPost() {
-
-        auto UserName = GetParameter("email","");
-        auto SerialNumber = GetParameter("serialNumber","");
-
-        if(UserName.empty() || SerialNumber.empty()) {
-            return BadRequest(RESTAPI::Errors::MissingOrInvalidParameters);
-        }
-
-        if(!Utils::ValidEMailAddress(UserName)) {
-            return BadRequest(RESTAPI::Errors::InvalidEmailAddress);
-        }
-
-        if(!Utils::ValidSerialNumber(SerialNumber)) {
-            return BadRequest(RESTAPI::Errors::InvalidSerialNumber);
-        }
-
-        return OK();
+        return API_Proxy(Logger(), Request, Response, uSERVICE_PROVISIONING.c_str(), "/api/v1/signup", 60000);
     }
 
     void RESTAPI_signup_handler::DoPut() {
-        // TODO
+        return API_Proxy(Logger(), Request, Response, uSERVICE_PROVISIONING.c_str(), "/api/v1/signup", 60000);
+    }
+
+    void RESTAPI_signup_handler::DoGet() {
+        return API_Proxy(Logger(), Request, Response, uSERVICE_PROVISIONING.c_str(), "/api/v1/signup", 60000);
+    }
+
+    void RESTAPI_signup_handler::DoDelete() {
+        return API_Proxy(Logger(), Request, Response, uSERVICE_PROVISIONING.c_str(), "/api/v1/signup", 60000);
     }
 
 }
