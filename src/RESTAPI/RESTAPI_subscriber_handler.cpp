@@ -6,6 +6,7 @@
 #include "StorageService.h"
 #include "RESTObjects/RESTAPI_SubObjects.h"
 #include "SubscriberCache.h"
+#include "sdks/SDK_prov.h"
 
 namespace OpenWifi {
 
@@ -22,7 +23,14 @@ namespace OpenWifi {
             return ReturnObject(Answer);
         }
 
-        StorageService()->SubInfoDB().CreateDefaultSubscriberInfo(UserInfo_, SI);
+        //  if the user does not have a device, we cannot continue.
+        ProvObjects::InventoryTagList DeviceIds;
+        if(!SDK::Prov::Subscriber::GetDevices(this,UserInfo_.userinfo.id,DeviceIds) ||
+            DeviceIds.taglist.empty() ) {
+            return BadRequest("No devices activated yet.");
+        }
+
+        StorageService()->SubInfoDB().CreateDefaultSubscriberInfo(UserInfo_, SI, DeviceIds);
         StorageService()->SubInfoDB().CreateRecord(SI);
 
         Poco::JSON::Object  Answer;
@@ -38,9 +46,7 @@ namespace OpenWifi {
 
         SubObjects::SubscriberInfo  Existing;
         if(!StorageService()->SubInfoDB().GetRecord("id", UserInfo_.userinfo.id, Existing)) {
-            StorageService()->SubInfoDB().CreateDefaultSubscriberInfo(UserInfo_, Existing);
-            StorageService()->SubInfoDB().CreateRecord(Existing);
-            StorageService()->SubInfoDB().GetRecord("id",UserInfo_.userinfo.id,Existing);
+            return NotFound();
         }
 
         auto Body = ParseStream();

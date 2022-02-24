@@ -6,6 +6,7 @@
 
 #include "framework/orm.h"
 #include "RESTObjects/RESTAPI_SubObjects.h"
+#include "RESTObjects/RESTAPI_ProvObjects.h"
 
 namespace OpenWifi {
     typedef Poco::Tuple<
@@ -28,7 +29,7 @@ namespace OpenWifi {
     class SubscriberInfoDB : public ORM::DB<SubInfoDBRecordType, SubObjects::SubscriberInfo> {
     public:
         SubscriberInfoDB( OpenWifi::DBType T, Poco::Data::SessionPool & P, Poco::Logger &L);
-        void CreateDefaultSubscriberInfo(const SecurityObjects::UserInfoAndPolicy & UI, SubObjects::SubscriberInfo &SI);
+        void CreateDefaultSubscriberInfo(const SecurityObjects::UserInfoAndPolicy & UI, SubObjects::SubscriberInfo &SI,const ProvObjects::InventoryTagList &Devices);
     private:
     };
 }

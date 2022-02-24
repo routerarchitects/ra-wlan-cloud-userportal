@@ -17,7 +17,9 @@ namespace OpenWifi {
                                          Poco::Net::HTTPRequest::HTTP_PUT},
                                  Server,
                                  TransactionId,
-                                 Internal, false, true ){}
+                                 Internal, false, true ) {
+
+        }
 
         static const std::list<const char *> PathName() { return std::list<const char *>{"/api/v1/signup"}; };
 

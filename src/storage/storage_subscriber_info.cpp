@@ -36,7 +36,7 @@ namespace OpenWifi {
     SubscriberInfoDB::SubscriberInfoDB( OpenWifi::DBType T, Poco::Data::SessionPool & P, Poco::Logger &L) :
         DB(T, "subscriberinfo", SubInfoDBDB_Fields, SubInfoDBDB_Fields_Indexes, P, L, "sui") {}
 
-    void SubscriberInfoDB::CreateDefaultSubscriberInfo(const SecurityObjects::UserInfoAndPolicy & UI, SubObjects::SubscriberInfo &SI) {
+    void SubscriberInfoDB::CreateDefaultSubscriberInfo(const SecurityObjects::UserInfoAndPolicy & UI, SubObjects::SubscriberInfo &SI, const ProvObjects::InventoryTagList & Devices) {
         auto Now = std::time(nullptr);
 
         //  ok, we need to generate a default record and store it...
@@ -60,29 +60,86 @@ namespace OpenWifi {
         if(!UI.userinfo.userTypeProprietaryInfo.mobiles.empty())
             SI.phoneNumber = UI.userinfo.userTypeProprietaryInfo.mobiles[0].number;
 
-        SubObjects::AccessPoint AP;
-        AP.macAddress = UI.userinfo.owner.empty() ? "000000000000" : UI.userinfo.owner ;
-        AP.id = MicroService::instance().CreateUUID();
-        AP.name = "My First Access Point";
-        AP.deviceMode.created = AP.deviceMode.modified = Now;
-        AP.deviceMode.type = "nat" ;
-        AP.deviceMode.enableLEDS = true;
-        AP.internetConnection.modified = AP.internetConnection.created = Now;
-        AP.internetConnection.type = "automatic";
+        int ap_num=1;
+        for(const auto &i:Devices.taglist) {
+            SubObjects::AccessPoint AP;
+            AP.macAddress = i.serialNumber;
+            AP.deviceType = i.deviceType;
+            AP.id = MicroService::instance().CreateUUID();
+            AP.name = "Access Point #" + std::to_string(ap_num++);
+            AP.deviceMode.created = AP.deviceMode.modified = Now;
+            AP.deviceMode.type = "nat";
+            AP.deviceMode.enableLEDS = true;
+            AP.internetConnection.modified = AP.internetConnection.created = Now;
+            AP.internetConnection.type = "automatic";
 
-        SubObjects::WifiNetwork WN;
-        WN.type = "main";
-        WN.name = "HomeWifi";
-        WN.password = "OpenWifi";
-        WN.encryption = "wpa2-personal";
-        WN.bands.emplace_back("2G");
-        WN.bands.emplace_back("5G");
+            SubObjects::WifiNetwork WN;
+            WN.type = "main";
+            WN.name = "OpenWifi-" + AP.macAddress.substr(6);
+            WN.password = Poco::toUpper(i.serialNumber);
+            WN.encryption = "wpa2-personal";
+            if(AP.deviceType=="linksys_ea8300") {
+                WN.bands.emplace_back("2G");
+                WN.bands.emplace_back("5GL");
+                WN.bands.emplace_back("5GU");
+            } else {
+                WN.bands.emplace_back("2G");
+                WN.bands.emplace_back("5G");
+            }
 
-        AP.wifiNetworks.created = AP.wifiNetworks.modified = Now;
-        AP.wifiNetworks.wifiNetworks.push_back(WN);
-        SI.accessPoints.list.push_back(AP);
+            AP.wifiNetworks.created = AP.wifiNetworks.modified = Now;
+            AP.wifiNetworks.wifiNetworks.push_back(WN);
+
+            std::vector<SubObjects::RadioInformation> Radios;
+            for(const auto &b:WN.bands) {
+                SubObjects::RadioInformation    RI;
+
+                RI.band = b;
+                RI.rates.beacon = 6000;
+                RI.rates.multicast = 24000;
+                RI.channel = 0;
+                RI.country = i.locale;
+                RI.maximumClients = 64;
+                RI.legacyRates = false;
+                RI.he.bssColor = 1;
+                RI.he.ema = false;
+                RI.he.multipleBSSID = false;
+                RI.txpower = 0 ;
+                RI.beaconInterval = 100;
+                RI.dtimPeriod = 2;
+                RI.allowDFS = false;
+                RI.mimo = "2x2";
+                if(b=="2G") {
+                    RI.bandwidth = 20;
+                    RI.channelWidth = 40 ;
+                    RI.channelMode = "HT";
+                    RI.requireMode = "HT";
+                } else if(b=="5G") {
+                    RI.bandwidth = 20;
+                    RI.channelWidth = 40 ;
+                    RI.channelMode = "HE";
+                    RI.requireMode = "HT";
+                } else if(b=="5GU") {
+                    RI.bandwidth = 20;
+                    RI.channelWidth = 40 ;
+                    RI.channelMode = "HE";
+                    RI.requireMode = "HT";
+                } else if(b=="5GL") {
+                    RI.bandwidth = 20;
+                    RI.channelWidth = 40 ;
+                    RI.channelMode = "HE";
+                    RI.requireMode = "HT";
+                } else if(b=="6G") {
+                    RI.bandwidth = 20;
+                    RI.channelWidth = 40 ;
+                    RI.channelMode = "HE";
+                    RI.requireMode = "HT";
+                }
+                Radios.emplace_back(RI);
+            }
+            SI.accessPoints.list.push_back(AP);
+        }
     }
-
 }
 
 template<> void ORM::DB<OpenWifi::SubInfoDBRecordType, OpenWifi::SubObjects::SubscriberInfo>::Convert(const OpenWifi::SubInfoDBRecordType &In, OpenWifi::SubObjects::SubscriberInfo &Out) {

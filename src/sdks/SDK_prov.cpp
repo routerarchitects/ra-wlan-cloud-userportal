@@ -92,7 +92,9 @@ namespace OpenWifi::SDK::Prov {
         bool GetDevices(RESTAPIHandler *client, const std::string &SubscriberId, ProvObjects::InventoryTagList & Devices) {
             std::string         EndPoint = "/api/v1/inventory";
 
-            auto API = OpenAPIRequestGet(uSERVICE_PROVISIONING, EndPoint, { {"subscriber",SubscriberId} }, 60000);
+            auto API = OpenAPIRequestGet(uSERVICE_PROVISIONING, EndPoint, {
+                {"subscriber", SubscriberId}
+            }, 60000);
             Poco::JSON::Object::Ptr CallResponse;
 
             auto ResponseStatus = API.Do(CallResponse, client->UserInfo_.webtoken.access_token_);

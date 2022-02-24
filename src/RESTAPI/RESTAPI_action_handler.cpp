@@ -37,10 +37,8 @@ namespace OpenWifi {
         auto UserFound = SubscriberCache()->GetSubInfo(UserInfo_.userinfo.id,SubInfo);
         if(!UserFound) {
             SubObjects::SubscriberInfo  SI;
-            StorageService()->SubInfoDB().CreateDefaultSubscriberInfo(UserInfo_, SI);
-            StorageService()->SubInfoDB().CreateRecord(SI);
-            if(!SubscriberCache()->GetSubInfo(UserInfo_.userinfo.id,SubInfo))
-                return NotFound();
+            if(!StorageService()->SubInfoDB().GetRecord("id",UserInfo_.userinfo.id,SI))
+                return BadRequest("No devices activated yet.");
         }
 
         for(const auto &i:SubInfo->accessPoints.list) {
