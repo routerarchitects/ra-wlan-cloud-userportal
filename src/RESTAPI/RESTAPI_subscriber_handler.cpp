@@ -26,8 +26,11 @@ namespace OpenWifi {
 
         //  if the user does not have a device, we cannot continue.
         ProvObjects::InventoryTagList DeviceIds;
-        if(!SDK::Prov::Subscriber::GetDevices(this,UserInfo_.userinfo.id,DeviceIds) ||
-            DeviceIds.taglist.empty() ) {
+        if(!SDK::Prov::Subscriber::GetDevices(this,UserInfo_.userinfo.id,DeviceIds)) {
+            return BadRequest("Provisioning service not available yet.");
+        }
+
+        if(DeviceIds.taglist.empty() ) {
             return BadRequest("No devices activated yet.");
         }
 
