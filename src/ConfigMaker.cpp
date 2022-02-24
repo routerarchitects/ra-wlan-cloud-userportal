@@ -5,6 +5,7 @@
 #include "ConfigMaker.h"
 #include "RESTObjects/RESTAPI_SubObjects.h"
 #include "StorageService.h"
+#include "sdks/SDK_prov.h"
 
 namespace OpenWifi {
 
@@ -67,7 +68,8 @@ namespace OpenWifi {
             UpstreamInterface["services"].push_back("lldp");
 
             std::vector<std::string>    AllBands;
-            std::copy(i.radios.begin(),i.radios.end(),AllBands);
+            for(const auto &rr:i.radios)
+                AllBands.emplace_back(rr.band);
 
             if(i.internetConnection.type=="manual") {
                 UpstreamInterface["addressing"] = "static";
@@ -183,22 +185,8 @@ namespace OpenWifi {
                 nlohmann::json radio;
 
                 radio["band"] = k.band;
-                if(k.band=="2G") {
-                    radio["band"] = k.band;
-                    radio["bandwidth"] = 20;
-                } else if(k.band=="5G") {
-                    radio["band"] = k.band;
-                    radio["bandwidth"] = 80;
-                } else if(k.band=="6G") {
-                    radio["band"] = k.band;
-                    radio["bandwidth"] = 80;
-                } else if(k.band=="5GL") {
-                    radio["band"] = "5G-lower";
-                    radio["bandwidth"] = 80;
-                } else if(k.band=="5GU") {
-                    radio["band"] = "5G-upper";
-                    radio["bandwidth"] = 80;
-                }
+                radio["bandwidth"] = k.bandwidth;
+
                 if(k.channel==0)
                     radio["channel"] = "auto";
                 else
@@ -212,6 +200,10 @@ namespace OpenWifi {
                     radio["require-mode"] = k.requireMode;
                 if(k.txpower>0)
                     radio["tx-power"] = k.txpower;
+                if(k.allowDFS)
+                    radio["allow-dfs"] = true;
+                if(!k.mimo.empty())
+                    radio["mimo"] = k.mimo;
                 radio["legacy-rates"] = k.legacyRates;
                 radio["beacon-interval"] = k.beaconInterval;
                 radio["dtim-period"] = k.dtimPeriod;
@@ -272,12 +264,25 @@ namespace OpenWifi {
 
             if(i.configurationUUID.empty()) {
                 //  we need to create this configuration and associate it to this device.
+                std::string CfgUUID;
+                if(SDK::Prov::Configuration::Create(nullptr, i.macAddress, Cfg, CfgUUID)) {
+                    i.configurationUUID = CfgUUID;
+                    std::cout << "Created and assigned configuration: " << i.macAddress << std::endl;
+                } else {
+                    std::cout << "Failure to create configuration: " << i.macAddress << std::endl;
+                    return false;
+                }
             } else {
-                // we have an existing configuration...
+                if(SDK::Prov::Configuration::Update(nullptr,i.configurationUUID,Cfg)) {
+                    std::cout << "Modified configuration: " << i.macAddress << std::endl;
+                } else {
+                    std::cout << "failure to modify configuration: " << i.macAddress << std::endl;
+                    return false;
+                }
             }
         }
-
-        return false;
+        SI.modified = OpenWifi::Now();
+        return StorageService()->SubInfoDB().UpdateRecord("id",id_,SI);
     }
 
 }

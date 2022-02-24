@@ -65,7 +65,7 @@ namespace OpenWifi {
             SubObjects::AccessPoint AP;
             AP.macAddress = i.serialNumber;
             AP.deviceType = i.deviceType;
-            AP.id = MicroService::instance().CreateUUID();
+            AP.id = i.info.id;
             AP.name = "Access Point #" + std::to_string(ap_num++);
             AP.deviceMode.created = AP.deviceMode.modified = Now;
             AP.deviceMode.type = "nat";

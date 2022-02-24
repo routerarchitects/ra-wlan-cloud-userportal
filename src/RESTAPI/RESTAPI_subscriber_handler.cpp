@@ -7,6 +7,7 @@
 #include "RESTObjects/RESTAPI_SubObjects.h"
 #include "SubscriberCache.h"
 #include "sdks/SDK_prov.h"
+#include "ConfigMaker.h"
 
 namespace OpenWifi {
 
@@ -30,8 +31,15 @@ namespace OpenWifi {
             return BadRequest("No devices activated yet.");
         }
 
+        std::cout << "Creating default subscriber info..." << std::endl;
         StorageService()->SubInfoDB().CreateDefaultSubscriberInfo(UserInfo_, SI, DeviceIds);
         StorageService()->SubInfoDB().CreateRecord(SI);
+
+        std::cout << "Creating default config..." << std::endl;
+        ConfigMaker     InitialConfig(UserInfo_.userinfo.id);
+        InitialConfig.Prepare();
+
+        StorageService()->SubInfoDB().GetRecord("id", UserInfo_.userinfo.id, SI);
 
         Poco::JSON::Object  Answer;
         SI.to_json(Answer);

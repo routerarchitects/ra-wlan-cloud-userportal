@@ -83,8 +83,16 @@ namespace OpenWifi::SDK::Prov {
         }
 
         bool Update( RESTAPIHandler *client, const std::string &ConfigUUID, ProvObjects::DeviceConfiguration & Config) {
-
-            return false;
+            std::string         EndPoint = "/api/v1/configurations/"+ConfigUUID ;
+            Poco::JSON::Object  Body;
+            Config.to_json(Body);
+            auto API = OpenAPIRequestPut(uSERVICE_PROVISIONING, EndPoint, {}, Body, 10000);
+            Poco::JSON::Object::Ptr CallResponse;
+            auto ResponseStatus = API.Do(CallResponse, client->UserInfo_.webtoken.access_token_);
+            if(ResponseStatus != Poco::Net::HTTPResponse::HTTP_OK) {
+                return false;
+            }
+            return true;
         }
     }
 
