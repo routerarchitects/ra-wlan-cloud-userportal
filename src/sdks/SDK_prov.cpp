@@ -98,11 +98,11 @@ namespace OpenWifi::SDK::Prov {
 
     namespace Subscriber {
         bool GetDevices(RESTAPIHandler *client, const std::string &SubscriberId, ProvObjects::InventoryTagList & Devices) {
-            std::string         EndPoint = "/api/v1/inventory";
 
+            std::string         EndPoint = "/api/v1/inventory";
             auto API = OpenAPIRequestGet(uSERVICE_PROVISIONING, EndPoint, {
-                {"subscriber", SubscriberId}
-            }, 60000);
+                    {"subscriber", SubscriberId}
+                }, 60000);
             Poco::JSON::Object::Ptr CallResponse;
 
             std::cout << __LINE__ << std::endl;
@@ -112,6 +112,9 @@ namespace OpenWifi::SDK::Prov {
                 std::cout << __LINE__ << std::endl;
                 try {
                     std::cout << __LINE__ << std::endl;
+                    std::ostringstream OS;
+                    CallResponse->stringify(OS);
+                    std::cout << "JSON:" << OS.str() << std::endl;
                     return Devices.from_json(CallResponse);
                 } catch (...) {
                     std::cout << __LINE__ << std::endl;
