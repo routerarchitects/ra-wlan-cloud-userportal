@@ -61,16 +61,20 @@ namespace OpenWifi::SDK::Prov {
             auto API = OpenAPIRequestPost(uSERVICE_PROVISIONING, EndPoint, {}, Body, 10000);
             Poco::JSON::Object::Ptr CallResponse;
             auto ResponseStatus = API.Do(CallResponse, client->UserInfo_.webtoken.access_token_);
+            std::cout << __LINE__ << std::endl;
             if(ResponseStatus != Poco::Net::HTTPResponse::HTTP_OK) {
+                std::cout << __LINE__ << std::endl;
                 std::ostringstream OS;
                 CallResponse->stringify(OS);
                 std::cout << "CREATE: " << OS.str() << std::endl;
                 return false;
             }
 
+            std::cout << __LINE__ << std::endl;
             ProvObjects::DeviceConfiguration    NewConfig;
             NewConfig.from_json(CallResponse);
             ConfigUUID = NewConfig.info.id;
+            std::cout << __LINE__ << std::endl;
 
             Body.clear();
             Body.set("serialNumber", Mac);
@@ -79,25 +83,33 @@ namespace OpenWifi::SDK::Prov {
             auto API2 = OpenAPIRequestPut(uSERVICE_PROVISIONING, EndPoint, {}, Body, 10000);
             CallResponse->clear();
             ResponseStatus = API2.Do(CallResponse, client->UserInfo_.webtoken.access_token_);
+            std::cout << __LINE__ << std::endl;
             if(ResponseStatus != Poco::Net::HTTPResponse::HTTP_OK) {
+                std::cout << __LINE__ << std::endl;
                 std::ostringstream OS;
                 CallResponse->stringify(OS);
                 std::cout << "ASSIGN: " << OS.str() << std::endl;
                 return false;
             }
+            std::cout << __LINE__ << std::endl;
             return true;
         }
 
         bool Update( RESTAPIHandler *client, const std::string &ConfigUUID, ProvObjects::DeviceConfiguration & Config) {
+            std::cout << __LINE__ << std::endl;
             std::string         EndPoint = "/api/v1/configurations/"+ConfigUUID ;
             Poco::JSON::Object  Body;
             Config.to_json(Body);
             auto API = OpenAPIRequestPut(uSERVICE_PROVISIONING, EndPoint, {}, Body, 10000);
             Poco::JSON::Object::Ptr CallResponse;
+            std::cout << __LINE__ << std::endl;
             auto ResponseStatus = API.Do(CallResponse, client->UserInfo_.webtoken.access_token_);
+            std::cout << __LINE__ << std::endl;
             if(ResponseStatus != Poco::Net::HTTPResponse::HTTP_OK) {
+                std::cout << __LINE__ << std::endl;
                 return false;
             }
+            std::cout << __LINE__ << std::endl;
             return true;
         }
     }
