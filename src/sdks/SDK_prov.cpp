@@ -14,7 +14,7 @@ namespace OpenWifi::SDK::Prov {
             auto API = OpenAPIRequestGet(uSERVICE_PROVISIONING, EndPoint, {}, 60000);
             Poco::JSON::Object::Ptr CallResponse;
 
-            auto ResponseStatus = API.Do(CallResponse, client->UserInfo_.webtoken.access_token_);
+            auto ResponseStatus = API.Do(CallResponse, client == nullptr ? "" : client->UserInfo_.webtoken.access_token_);
             if(ResponseStatus == Poco::Net::HTTPServerResponse::HTTP_OK) {
                 try {
                     return Device.from_json(CallResponse);
@@ -32,7 +32,7 @@ namespace OpenWifi::SDK::Prov {
             std::string         EndPoint = "/api/v1/configurations/" + ConfigUUID ;
             auto API = OpenAPIRequestGet(uSERVICE_PROVISIONING, EndPoint, {}, 60000);
             Poco::JSON::Object::Ptr CallResponse;
-            auto ResponseStatus = API.Do(CallResponse, client->UserInfo_.webtoken.access_token_);
+            auto ResponseStatus = API.Do(CallResponse, client == nullptr ? "" : client->UserInfo_.webtoken.access_token_);
             if(ResponseStatus == Poco::Net::HTTPServerResponse::HTTP_OK) {
                 try {
                     return Config.from_json(CallResponse);
@@ -47,7 +47,7 @@ namespace OpenWifi::SDK::Prov {
             std::string         EndPoint = "/api/v1/configurations/" + ConfigUUID ;
             auto API = OpenAPIRequestDelete(uSERVICE_PROVISIONING, EndPoint, {}, 60000);
             Poco::JSON::Object::Ptr CallResponse;
-            auto ResponseStatus = API.Do(client->UserInfo_.webtoken.access_token_);
+            auto ResponseStatus = API.Do(client == nullptr ? "" : client->UserInfo_.webtoken.access_token_);
             if(ResponseStatus == Poco::Net::HTTPServerResponse::HTTP_OK) {
                 return true;
             }
@@ -60,7 +60,7 @@ namespace OpenWifi::SDK::Prov {
             Config.to_json(Body);
             auto API = OpenAPIRequestPost(uSERVICE_PROVISIONING, EndPoint, {}, Body, 10000);
             Poco::JSON::Object::Ptr CallResponse;
-            auto ResponseStatus = API.Do(CallResponse, client->UserInfo_.webtoken.access_token_);
+            auto ResponseStatus = API.Do(CallResponse, client == nullptr ? "" : client->UserInfo_.webtoken.access_token_);
             std::cout << __LINE__ << std::endl;
             if(ResponseStatus != Poco::Net::HTTPResponse::HTTP_OK) {
                 std::cout << __LINE__ << std::endl;
@@ -82,7 +82,7 @@ namespace OpenWifi::SDK::Prov {
             EndPoint = "/api/v1/inventory/" + Mac ;
             auto API2 = OpenAPIRequestPut(uSERVICE_PROVISIONING, EndPoint, {}, Body, 10000);
             CallResponse->clear();
-            ResponseStatus = API2.Do(CallResponse, client->UserInfo_.webtoken.access_token_);
+            ResponseStatus = API2.Do(CallResponse, client == nullptr ? "" : client->UserInfo_.webtoken.access_token_);
             std::cout << __LINE__ << std::endl;
             if(ResponseStatus != Poco::Net::HTTPResponse::HTTP_OK) {
                 std::cout << __LINE__ << std::endl;
@@ -103,7 +103,7 @@ namespace OpenWifi::SDK::Prov {
             auto API = OpenAPIRequestPut(uSERVICE_PROVISIONING, EndPoint, {}, Body, 10000);
             Poco::JSON::Object::Ptr CallResponse;
             std::cout << __LINE__ << std::endl;
-            auto ResponseStatus = API.Do(CallResponse, client->UserInfo_.webtoken.access_token_);
+            auto ResponseStatus = API.Do(CallResponse, client == nullptr ? "" : client->UserInfo_.webtoken.access_token_);
             std::cout << __LINE__ << std::endl;
             if(ResponseStatus != Poco::Net::HTTPResponse::HTTP_OK) {
                 std::cout << __LINE__ << std::endl;
