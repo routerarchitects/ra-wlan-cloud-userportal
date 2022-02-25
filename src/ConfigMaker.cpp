@@ -252,7 +252,7 @@ namespace OpenWifi {
 
             ProvObjects::DeviceConfigurationElementVec Configuration;
             std::cout << "Prepare " << __LINE__ << std::endl;
-
+/*
             ProvObjects::DeviceConfigurationElement Metrics{
                     .name = "metrics",
                     .description = "default metrics",
@@ -260,7 +260,7 @@ namespace OpenWifi {
                     .configuration = to_string(metrics)
             };
             std::cout << "Prepare " << __LINE__ << std::endl;
-/*
+*/
             ProvObjects::DeviceConfigurationElement Services{
                     .name = "services",
                     .description = "default services",
@@ -268,7 +268,7 @@ namespace OpenWifi {
                     .configuration = to_string(services)
             };
             std::cout << "Prepare " << __LINE__ << std::endl;
-
+/*
             Interfaces.push_back(UpstreamInterface);
             Interfaces.push_back(DownstreamInterface);
             ProvObjects::DeviceConfigurationElement InterfacesList{
@@ -286,8 +286,8 @@ namespace OpenWifi {
             };
 */
             std::cout << "Prepare " << __LINE__ << std::endl;
-            Configuration.push_back(Metrics);
-//            Configuration.push_back(Services);
+//            Configuration.push_back(Metrics);
+            Configuration.push_back(Services);
 //            Configuration.push_back(InterfacesList);
 //            Configuration.push_back(RadiosList);
             std::cout << "Prepare " << __LINE__ << std::endl;
