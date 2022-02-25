@@ -54,6 +54,9 @@ namespace OpenWifi {
 
     void RESTAPI_subscriber_handler::DoPut() {
 
+        auto ConfigChanged = GetParameter("configChanged","true") == "true";
+        auto ApplyConfigOnly = GetParameter("applyConfigOnly","true") == "true";
+
         if(UserInfo_.userinfo.id.empty()) {
             return NotFound();
         }
@@ -61,6 +64,14 @@ namespace OpenWifi {
         SubObjects::SubscriberInfo  Existing;
         if(!StorageService()->SubInfoDB().GetRecord("id", UserInfo_.userinfo.id, Existing)) {
             return NotFound();
+        }
+
+        if(ApplyConfigOnly) {
+            ConfigMaker     InitialConfig(UserInfo_.userinfo.id);
+            if(InitialConfig.Prepare())
+                return OK();
+            else
+                return InternalError("Configuration could not be refreshed.");
         }
 
         auto Body = ParseStream();
@@ -87,33 +98,29 @@ namespace OpenWifi {
         Existing.modified = Now;
 
         //  Look at the access points
-        for(const auto &New:Changes.accessPoints.list) {
-            //  match this ID with the existing ones, if not, we need to add it..
-            //  We cannot add a serial of all 0, and we cannot add a device that's already been claimed.
-            for(auto &Old:Existing.accessPoints.list) {
-                if(New.id==Old.id) {
-                    if (Old.macAddress == "000000000000") {
+        if(ConfigChanged) {
+            for (auto &New: Changes.accessPoints.list) {
+                for (auto &Old: Existing.accessPoints.list) {
+                    if (New.id == Old.id) {
+                        Old.internetConnection.modified = Now;
+                        Old.deviceMode.modified = Now;
+                        Old.wifiNetworks.modified = Now;
+                        Old.subscriberDevices.modified = Now;
                         Old = New;
-                    } else {
-                        auto T = Old.macAddress;
-                        Old = New;
-                        Old.macAddress = T;
                     }
-                    Old.internetConnection.modified = Now;
-                    Old.deviceMode.modified = Now;
-                    Old.wifiNetworks.modified = Now;
-                    Old.subscriberDevices.modified = Now;
                 }
             }
         }
 
         if(StorageService()->SubInfoDB().UpdateRecord("id",UserInfo_.userinfo.id, Existing)) {
-
+            if(ConfigChanged) {
+                ConfigMaker     InitialConfig(UserInfo_.userinfo.id);
+                InitialConfig.Prepare();
+            }
             SubObjects::SubscriberInfo  Modified;
             StorageService()->SubInfoDB().GetRecord("id",UserInfo_.userinfo.id,Modified);
             SubscriberCache()->UpdateSubInfo(UserInfo_.userinfo.id,Modified);
             Poco::JSON::Object  Answer;
-
             Modified.to_json(Answer);
             return ReturnObject(Answer);
         }

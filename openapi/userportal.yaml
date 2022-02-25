@@ -970,6 +970,19 @@ paths:
         - Subscriber Information
       summary: Modify the information stored about the subscriber
       operationId: modifySubscriberInfo
+      parameters:
+        - in: query
+          name: configChanged
+          schema:
+            type: boolean
+            default: false
+          required: false
+        - in: query
+          name: applyConfigOnly
+          schema:
+            type: boolean
+            default: false
+          required: false
       requestBody:
         content:
           application/json:
