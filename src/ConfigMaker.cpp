@@ -16,10 +16,13 @@ namespace OpenWifi {
     bool ConfigMaker::Prepare() {
         SubObjects::SubscriberInfo  SI;
 
+        std::cout << "Prepare " << __LINE__ << std::endl;
         if(!StorageService()->SubInfoDB().GetRecord("id", id_, SI)) {
+            std::cout << "Prepare " << __LINE__ << std::endl;
             bad_ = true;
             return false;
         }
+        std::cout << "Prepare " << __LINE__ << std::endl;
 
         //  We need to create the basic sections
         auto  metrics = R"(

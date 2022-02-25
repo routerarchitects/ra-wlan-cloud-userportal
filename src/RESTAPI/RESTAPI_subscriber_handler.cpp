@@ -35,15 +35,17 @@ namespace OpenWifi {
             return BadRequest("No devices activated yet.");
         }
 
-        std::cout << "Creating default subscriber info..." << std::endl;
+        std::cout << "Creating default subscriber info: " << UserInfo_.userinfo.id << std::endl;
         StorageService()->SubInfoDB().CreateDefaultSubscriberInfo(UserInfo_, SI, DeviceIds);
+        std::cout << "Creating default subscriber info: " << SI.id << std::endl;
         StorageService()->SubInfoDB().CreateRecord(SI);
+        std::cout << "Creating default subscriber info: " << SI.id << std::endl;
 
         std::cout << "Creating default config..." << std::endl;
-        ConfigMaker     InitialConfig(UserInfo_.userinfo.id);
+        ConfigMaker     InitialConfig(SI.id);
         InitialConfig.Prepare();
 
-        StorageService()->SubInfoDB().GetRecord("id", UserInfo_.userinfo.id, SI);
+        StorageService()->SubInfoDB().GetRecord("id", SI.id, SI);
 
         Poco::JSON::Object  Answer;
         SI.to_json(Answer);
