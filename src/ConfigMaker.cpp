@@ -242,7 +242,7 @@ namespace OpenWifi {
                     .name = "metrics",
                     .description = "default metrics",
                     .weight = 0,
-                    .configuration = metrics
+                    .configuration = to_string(metrics)
             };
             std::cout << "Prepare " << __LINE__ << std::endl;
 
@@ -250,7 +250,7 @@ namespace OpenWifi {
                     .name = "services",
                     .description = "default services",
                     .weight = 0,
-                    .configuration = services
+                    .configuration = to_string(services)
             };
             std::cout << "Prepare " << __LINE__ << std::endl;
 
