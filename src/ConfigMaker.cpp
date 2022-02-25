@@ -13,6 +13,21 @@ namespace OpenWifi {
         return false;
     }
 
+    static std::string ConvertBand(const std::string &B) {
+        if(B=="2G") return "2G";
+        if(B=="6G") return "6G";
+        if(B=="5GU") return "5G-upper";
+        if(B=="5GL") return "5G-lower";
+        return B;
+    }
+
+    static std::vector<std::string> ConvertBands(const std::vector<std::string> &Bs) {
+        std::vector<std::string> R;
+        for(const auto &i:Bs)
+            R.emplace_back(ConvertBand(i));
+        return R;
+    }
+
     bool ConfigMaker::Prepare() {
         SubObjects::SubscriberInfo  SI;
 
@@ -105,7 +120,7 @@ namespace OpenWifi {
 
             std::vector<std::string>    AllBands;
             for(const auto &rr:i.radios)
-                AllBands.emplace_back(rr.band);
+                AllBands.emplace_back(ConvertBand(rr.band));
             std::cout << "Prepare " << __LINE__ << std::endl;
 
             if(i.internetConnection.type=="manual") {
@@ -146,7 +161,7 @@ namespace OpenWifi {
                     if(j.bands[0]=="all") {
                         ssid["wifi-bands"] = AllBands;
                     } else {
-                        ssid["wifi-bands"] = j.bands;
+                        ssid["wifi-bands"] = ConvertBands(j.bands);
                     }
                     ssid["bss-mode"] = "ap";
                     if(j.encryption.empty()) {
@@ -211,7 +226,7 @@ namespace OpenWifi {
                     if(j.bands[0]=="all") {
                         ssid["wifi-bands"] = AllBands;
                     } else {
-                        ssid["wifi-bands"] = j.bands;
+                        ssid["wifi-bands"] = ConvertBands(j.bands);
                     }
                     ssid["bss-mode"] = "ap";
                     if(j.encryption=="wpa1-personal") {
@@ -241,7 +256,7 @@ namespace OpenWifi {
             for(const auto &k:i.radios) {
                 nlohmann::json radio;
 
-                radio["band"] = k.band;
+                radio["band"] = ConvertBand(k.band);
                 radio["bandwidth"] = k.bandwidth;
                 std::cout << "Prepare " << __LINE__ << std::endl;
 
