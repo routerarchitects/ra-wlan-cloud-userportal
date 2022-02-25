@@ -80,6 +80,9 @@ namespace OpenWifi::SDK::Prov {
             CallResponse->clear();
             ResponseStatus = API2.Do(CallResponse, client->UserInfo_.webtoken.access_token_);
             if(ResponseStatus != Poco::Net::HTTPResponse::HTTP_OK) {
+                std::ostringstream OS;
+                CallResponse->stringify(OS);
+                std::cout << "ASSIGN: " << OS.str() << std::endl;
                 return false;
             }
             return true;

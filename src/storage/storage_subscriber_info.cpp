@@ -90,7 +90,6 @@ namespace OpenWifi {
             AP.wifiNetworks.created = AP.wifiNetworks.modified = Now;
             AP.wifiNetworks.wifiNetworks.push_back(WN);
 
-            std::vector<SubObjects::RadioInformation> Radios;
             for(const auto &b:WN.bands) {
                 SubObjects::RadioInformation    RI;
 
@@ -135,7 +134,7 @@ namespace OpenWifi {
                     RI.channelMode = "HE";
                     RI.requireMode = "HT";
                 }
-                Radios.emplace_back(RI);
+                AP.radios.emplace_back(RI);
             }
             SI.accessPoints.list.push_back(AP);
         }

@@ -53,6 +53,7 @@ namespace OpenWifi {
             }
         } )"_json;
 
+        std::cout << "Generating configs" << std::endl;
         for(auto &i:SI.accessPoints.list) {
 
             nlohmann::json Interfaces;
@@ -60,6 +61,7 @@ namespace OpenWifi {
             nlohmann::json DownstreamInterface;
             nlohmann::json radios;
 
+            std::cout << "Generating configs: " << i.macAddress << std::endl;
             if(i.macAddress.empty())
                 continue;
 
