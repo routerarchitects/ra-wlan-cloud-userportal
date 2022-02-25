@@ -242,7 +242,7 @@ namespace OpenWifi {
                     .name = "metrics",
                     .description = "default metrics",
                     .weight = 0,
-                    .configuration = to_string(metrics)
+                    .configuration = metrics
             };
             std::cout << "Prepare " << __LINE__ << std::endl;
 
@@ -250,7 +250,7 @@ namespace OpenWifi {
                     .name = "services",
                     .description = "default services",
                     .weight = 0,
-                    .configuration = to_string(services)
+                    .configuration = services
             };
             std::cout << "Prepare " << __LINE__ << std::endl;
 
@@ -260,14 +260,14 @@ namespace OpenWifi {
                     .name = "interfaces",
                     .description = "default interfaces",
                     .weight = 0,
-                    .configuration = to_string(Interfaces)
+                    .configuration = Interfaces
             };
             std::cout << "Prepare " << __LINE__ << std::endl;
             ProvObjects::DeviceConfigurationElement RadiosList{
                     .name = "radios",
                     .description = "default radios",
                     .weight = 0,
-                    .configuration = to_string(radios)
+                    .configuration = radios
             };
 
             std::cout << "Prepare " << __LINE__ << std::endl;
