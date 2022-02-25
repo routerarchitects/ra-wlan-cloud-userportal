@@ -262,14 +262,17 @@ namespace OpenWifi {
             ProvObjects::DeviceConfiguration    Cfg;
 
             Cfg.deviceTypes.push_back("*");
+
             Cfg.firmwareRCOnly = true;
-            Cfg.firmwareUpgrade = i.automaticUpgrade;
+            Cfg.firmwareUpgrade = i.automaticUpgrade ? "yes" : "no";
             Cfg.configuration = Configuration;
 
             Cfg.to_json(Answer);
 
             if(i.configurationUUID.empty()) {
                 //  we need to create this configuration and associate it to this device.
+                Cfg.info.name = "sub:" + i.macAddress;
+                Cfg.info.notes.emplace_back(SecurityObjects::NoteInfo{.created=OpenWifi::Now(), .note="Auto-created from subscriber service."});
                 std::string CfgUUID;
                 if(SDK::Prov::Configuration::Create(nullptr, i.macAddress, Cfg, CfgUUID)) {
                     i.configurationUUID = CfgUUID;
@@ -279,6 +282,11 @@ namespace OpenWifi {
                     return false;
                 }
             } else {
+                ProvObjects::DeviceConfiguration    ExistingConfig;
+                if(SDK::Prov::Configuration::Get(nullptr,i.configurationUUID,ExistingConfig)) {
+                    Cfg.info = ExistingConfig.info;
+                }
+
                 if(SDK::Prov::Configuration::Update(nullptr,i.configurationUUID,Cfg)) {
                     std::cout << "Modified configuration: " << i.macAddress << std::endl;
                 } else {
