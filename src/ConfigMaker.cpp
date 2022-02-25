@@ -31,13 +31,10 @@ namespace OpenWifi {
     bool ConfigMaker::Prepare() {
         SubObjects::SubscriberInfo  SI;
 
-        std::cout << "Prepare " << __LINE__ << std::endl;
         if(!StorageService()->SubInfoDB().GetRecord("id", id_, SI)) {
-            std::cout << "Prepare " << __LINE__ << std::endl;
             bad_ = true;
             return false;
         }
-        std::cout << "Prepare " << __LINE__ << std::endl;
 
         //  We need to create the basic sections
         auto  metrics = R"(
@@ -83,7 +80,6 @@ namespace OpenWifi {
             }
          )"_json;
 
-        std::cout << "Prepare " << __LINE__ << std::endl;
         auto services = R"(
         {
             "services": {
@@ -98,9 +94,7 @@ namespace OpenWifi {
                 }
             }
         } )"_json;
-        std::cout << "Prepare " << __LINE__ << std::endl;
 
-        std::cout << "Generating configs" << std::endl;
         for(auto &i:SI.accessPoints.list) {
 
             nlohmann::json Interfaces;
@@ -111,17 +105,14 @@ namespace OpenWifi {
             std::cout << "Generating configs: " << i.macAddress << std::endl;
             if(i.macAddress.empty())
                 continue;
-            std::cout << "Prepare " << __LINE__ << std::endl;
 
             UpstreamInterface["name"] = "WAN";
             UpstreamInterface["role"] = "upstream";
             UpstreamInterface["services"].push_back("lldp");
-            std::cout << "Prepare " << __LINE__ << std::endl;
 
             std::vector<std::string>    AllBands;
             for(const auto &rr:i.radios)
                 AllBands.emplace_back(ConvertBand(rr.band));
-            std::cout << "Prepare " << __LINE__ << std::endl;
 
             if(i.internetConnection.type=="manual") {
                 UpstreamInterface["addressing"] = "static";
@@ -151,7 +142,6 @@ namespace OpenWifi {
                 if(i.internetConnection.ipV6Support)
                     UpstreamInterface["ipv6"]["addressing"] = "dynamic";
             }
-            std::cout << "Prepare " << __LINE__ << std::endl;
 
             if(i.deviceMode.type=="bridge") {
                 nlohmann::json ssids;
@@ -189,7 +179,6 @@ namespace OpenWifi {
                 }
                 UpstreamInterface["ssids"] = ssids;
             } else if(i.deviceMode.type=="manual") {
-                std::cout << "Prepare " << __LINE__ << std::endl;
                 DownstreamInterface["name"] = "LAN";
                 DownstreamInterface["role"] = "downstream";
                 DownstreamInterface["services"].push_back("lldp");
@@ -203,7 +192,6 @@ namespace OpenWifi {
                 DownstreamInterface["ipv4"]["dhcp"]["lease-count"] = 100;
                 DownstreamInterface["ipv4"]["dhcp"]["lease-time"] = "6h";
             } else if(i.deviceMode.type=="nat") {
-                std::cout << "Prepare " << __LINE__ << std::endl;
                 DownstreamInterface["name"] = "LAN";
                 DownstreamInterface["role"] = "downstream";
                 DownstreamInterface["services"].push_back("lldp");
@@ -216,7 +204,6 @@ namespace OpenWifi {
                 DownstreamInterface["ipv4"]["dhcp"]["lease-first"] = 10;
                 DownstreamInterface["ipv4"]["dhcp"]["lease-count"] = 100;
                 DownstreamInterface["ipv4"]["dhcp"]["lease-time"] = "6h";
-                std::cout << "Prepare " << __LINE__ << std::endl;
 
                 nlohmann::json ssids;
                 for(const auto &j:i.wifiNetworks.wifiNetworks) {
@@ -248,17 +235,14 @@ namespace OpenWifi {
                     ssid["encryption"]["key"] = j.password;
                     ssids.push_back(ssid);
                 }
-                std::cout << "Prepare " << __LINE__ << std::endl;
                 DownstreamInterface["ssids"] = ssids;
                 Interfaces.push_back(DownstreamInterface);
             }
-            std::cout << "Prepare " << __LINE__ << std::endl;
             for(const auto &k:i.radios) {
                 nlohmann::json radio;
 
                 radio["band"] = ConvertBand(k.band);
                 radio["bandwidth"] = k.bandwidth;
-                std::cout << "Prepare " << __LINE__ << std::endl;
 
                 if(k.channel==0)
                     radio["channel"] = "auto";
@@ -288,18 +272,13 @@ namespace OpenWifi {
                 radio["he-settings"]["bss-color"] = k.he.bssColor;
                 radios.push_back(radio);
             }
-            std::cout << "Prepare " << __LINE__ << std::endl;
-
             ProvObjects::DeviceConfigurationElementVec Configuration;
-            std::cout << "Prepare " << __LINE__ << std::endl;
-
             ProvObjects::DeviceConfigurationElement Metrics{
                     .name = "metrics",
                     .description = "default metrics",
                     .weight = 0,
                     .configuration = to_string(metrics)
             };
-            std::cout << "Prepare " << __LINE__ << std::endl;
 
             ProvObjects::DeviceConfigurationElement Services{
                     .name = "services",
@@ -307,7 +286,6 @@ namespace OpenWifi {
                     .weight = 0,
                     .configuration = to_string(services)
             };
-            std::cout << "Prepare " << __LINE__ << std::endl;
 
             Interfaces.push_back(UpstreamInterface);
             Interfaces.push_back(DownstreamInterface);
@@ -321,8 +299,6 @@ namespace OpenWifi {
                     .configuration = to_string(InterfaceSection)
             };
 
-            std::cout << "Prepare " << __LINE__ << std::endl;
-
             nlohmann::json RadiosSection;
             RadiosSection["radios"] = radios;
             ProvObjects::DeviceConfigurationElement RadiosList{
@@ -332,30 +308,24 @@ namespace OpenWifi {
                     .configuration = to_string(RadiosSection)
             };
 
-            std::cout << "Prepare " << __LINE__ << std::endl;
             Configuration.push_back(Metrics);
             Configuration.push_back(Services);
             Configuration.push_back(InterfacesList);
             Configuration.push_back(RadiosList);
-            std::cout << "Prepare " << __LINE__ << std::endl;
 
             Poco::JSON::Object  Answer;
 
             ProvObjects::DeviceConfiguration    Cfg;
 
             Cfg.deviceTypes.push_back(i.deviceType);
-            std::cout << "Prepare " << __LINE__ << std::endl;
 
             Cfg.firmwareRCOnly = true;
             Cfg.firmwareUpgrade = i.automaticUpgrade ? "yes" : "no";
 
             Cfg.configuration = Configuration;
 
-            std::cout << "Prepare " << __LINE__ << std::endl;
-
             Cfg.to_json(Answer);
 
-            std::cout << "Prepare " << __LINE__ << std::endl;
             if(i.configurationUUID.empty()) {
                 //  we need to create this configuration and associate it to this device.
                 Cfg.info.name = "sub:" + i.macAddress;
