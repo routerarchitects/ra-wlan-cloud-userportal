@@ -309,28 +309,33 @@ namespace OpenWifi {
             };
             std::cout << "Prepare " << __LINE__ << std::endl;
 
-/*
             Interfaces.push_back(UpstreamInterface);
             Interfaces.push_back(DownstreamInterface);
+
+            nlohmann::json InterfaceSection;
+            InterfaceSection["interfaces"] = Interfaces;
             ProvObjects::DeviceConfigurationElement InterfacesList{
                     .name = "interfaces",
                     .description = "default interfaces",
                     .weight = 0,
-                    .configuration = to_string(Interfaces)
+                    .configuration = to_string(InterfaceSection)
             };
-*/
+
             std::cout << "Prepare " << __LINE__ << std::endl;
+
+            nlohmann::json RadiosSection;
+            RadiosSection["radios"] = radios;
             ProvObjects::DeviceConfigurationElement RadiosList{
                     .name = "radios",
                     .description = "default radios",
                     .weight = 0,
-                    .configuration = to_string(radios)
+                    .configuration = to_string(RadiosSection)
             };
 
             std::cout << "Prepare " << __LINE__ << std::endl;
             Configuration.push_back(Metrics);
             Configuration.push_back(Services);
-//            Configuration.push_back(InterfacesList);
+            Configuration.push_back(InterfacesList);
             Configuration.push_back(RadiosList);
             std::cout << "Prepare " << __LINE__ << std::endl;
 
