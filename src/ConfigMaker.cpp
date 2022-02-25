@@ -334,6 +334,13 @@ namespace OpenWifi {
                 if(SDK::Prov::Configuration::Create(nullptr, i.macAddress, Cfg, CfgUUID)) {
                     i.configurationUUID = CfgUUID;
                     std::cout << "Created and assigned configuration: " << i.macAddress << std::endl;
+                    // now push the configuration to the device...
+                    ProvObjects::InventoryConfigApplyResult Results;
+                    if(SDK::Prov::Configuration::Push(nullptr, i.macAddress, Results)) {
+                        std::cout << "Configuration pushed" << std::endl;
+                    } else {
+                        std::cout << "Configuration was not pushed" << std::endl;
+                    }
                 } else {
                     std::cout << "Failure to create configuration: " << i.macAddress << std::endl;
                     return false;
@@ -346,6 +353,13 @@ namespace OpenWifi {
 
                 if(SDK::Prov::Configuration::Update(nullptr,i.configurationUUID,Cfg)) {
                     std::cout << "Modified configuration: " << i.macAddress << std::endl;
+                    // Now push the configuration...
+                    ProvObjects::InventoryConfigApplyResult Results;
+                    if(SDK::Prov::Configuration::Push(nullptr, i.macAddress, Results)) {
+                        std::cout << "Configuration pushed" << std::endl;
+                    } else {
+                        std::cout << "Configuration was not pushed" << std::endl;
+                    }
                 } else {
                     std::cout << "failure to modify configuration: " << i.macAddress << std::endl;
                     return false;

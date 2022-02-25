@@ -19,6 +19,7 @@ namespace OpenWifi::SDK::Prov {
         bool Delete( RESTAPIHandler *client, const std::string &ConfigUUID);
         bool Create( RESTAPIHandler *client, const std::string & SerialNumber, const ProvObjects::DeviceConfiguration & Config , std::string & ConfigUUID);
         bool Update( RESTAPIHandler *client, const std::string &ConfigUUID, ProvObjects::DeviceConfiguration & Config);
+        bool Push( RESTAPIHandler *client, const std::string &serialNumber, ProvObjects::InventoryConfigApplyResult &Results );
     }
 
     namespace Subscriber {

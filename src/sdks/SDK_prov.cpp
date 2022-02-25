@@ -118,6 +118,26 @@ namespace OpenWifi::SDK::Prov {
             std::cout << __LINE__ << std::endl;
             return true;
         }
+
+        bool Push( RESTAPIHandler *client, const std::string &serialNumber, ProvObjects::InventoryConfigApplyResult &Results ) {
+            std::cout << __LINE__ << std::endl;
+            std::string         EndPoint = "/api/v1/inventory/"+serialNumber ;
+            Poco::JSON::Object  Body;
+            auto API = OpenAPIRequestGet(uSERVICE_PROVISIONING, EndPoint, {
+                    { "applyConfiguration", "true" }
+                }, 10000);
+
+            Poco::JSON::Object::Ptr CallResponse;
+            std::cout << __LINE__ << std::endl;
+            auto ResponseStatus = API.Do(CallResponse, client == nullptr ? "" : client->UserInfo_.webtoken.access_token_);
+            std::cout << __LINE__ << std::endl;
+            if(ResponseStatus == Poco::Net::HTTPResponse::HTTP_OK) {
+                Results.from_json(CallResponse);
+                return true;
+            }
+            std::cout << __LINE__ << std::endl;
+            return false;
+        }
     }
 
     namespace Subscriber {

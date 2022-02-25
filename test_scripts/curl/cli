@@ -37,7 +37,7 @@ target_service_endpoint="${OWSUB}"
 
 token=""
 result_file=result.json
-username="stephane.bourque@subs.com"
+username="stephane.bourque@gmail.com"
 password="NoMoreN00bs!"
 browser_list=(firefox sensible-browser xdg-open w3m links links2 lynx youtube-dl)
 browser=""
@@ -180,8 +180,9 @@ wiredclients() {
 }
 
 signup() {
-    curl ${FLAGS} -X POST "https://${target_service_endpoint}/api/v1/signup?stephane.bourque@gmail.com&serialNumber=24f5a207a130" \
-        -H "Content-Type: application/json" > ${result_file}
+    curl ${FLAGS} -X POST "https://${target_service_endpoint}/api/v1/signup?email=stephane.bourque@gmail.com&serialNumber=24f5a207a130" \
+        -H "Content-Type: application/json" \
+        -d "{}" > ${result_file}
     jq < ${result_file}
 }
 
