@@ -274,7 +274,7 @@ namespace OpenWifi {
                     .name = "interfaces",
                     .description = "default interfaces",
                     .weight = 0,
-                    .configuration = to_string(Interfaces);
+                    .configuration = to_string(Interfaces)
             };
             std::cout << "Prepare " << __LINE__ << std::endl;
             ProvObjects::DeviceConfigurationElement RadiosList{
