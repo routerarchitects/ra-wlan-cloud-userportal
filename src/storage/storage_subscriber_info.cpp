@@ -103,36 +103,31 @@ namespace OpenWifi {
                 RI.he.bssColor = 1;
                 RI.he.ema = false;
                 RI.he.multipleBSSID = false;
-                RI.txpower = 0 ;
                 RI.beaconInterval = 100;
                 RI.dtimPeriod = 2;
                 RI.allowDFS = false;
-                RI.mimo = "2x2";
+                RI.mimo = "";
+                RI.txpower = 24 ;
                 if(b=="2G") {
                     RI.bandwidth = 20;
-                    RI.channelWidth = 40 ;
-                    RI.channelMode = "HT";
-                    RI.requireMode = "HT";
+                    RI.channelWidth = 20 ;
+                    RI.channelMode = "VHT";
                 } else if(b=="5G") {
                     RI.bandwidth = 20;
                     RI.channelWidth = 40 ;
-                    RI.channelMode = "HE";
-                    RI.requireMode = "HT";
+                    RI.channelMode = "VHT";
                 } else if(b=="5GU") {
                     RI.bandwidth = 20;
                     RI.channelWidth = 40 ;
-                    RI.channelMode = "HE";
-                    RI.requireMode = "HT";
+                    RI.channelMode = "VHT";
                 } else if(b=="5GL") {
                     RI.bandwidth = 20;
                     RI.channelWidth = 40 ;
-                    RI.channelMode = "HE";
-                    RI.requireMode = "HT";
+                    RI.channelMode = "VHT";
                 } else if(b=="6G") {
                     RI.bandwidth = 20;
                     RI.channelWidth = 40 ;
                     RI.channelMode = "HE";
-                    RI.requireMode = "HT";
                 }
                 AP.radios.emplace_back(RI);
             }
