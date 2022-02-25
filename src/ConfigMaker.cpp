@@ -44,7 +44,8 @@ namespace OpenWifi {
         } )"_json;
 
         auto services = R"(
-        "services": {
+        {
+            "services": {
             "lldp": {
                 "describe": "uCentral",
                 "location": "universe"

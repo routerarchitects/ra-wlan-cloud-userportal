@@ -17,7 +17,7 @@ namespace OpenWifi {
             return NotFound();
         }
 
-        std::cout << "Creating default subscriber info:" << UserInfo_.userinfo.id << std::endl;
+        std::cout << "Creating default subscriber info: " << UserInfo_.userinfo.id << std::endl;
         SubObjects::SubscriberInfo  SI;
         if(StorageService()->SubInfoDB().GetRecord("id", UserInfo_.userinfo.id,SI)) {
             Poco::JSON::Object  Answer;
