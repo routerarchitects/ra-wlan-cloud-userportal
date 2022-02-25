@@ -43,19 +43,22 @@ namespace OpenWifi {
             }
         } )"_json;
 
+        std::cout << "Prepare " << __LINE__ << std::endl;
         auto services = R"(
         {
             "services": {
-            "lldp": {
-                "describe": "uCentral",
-                "location": "universe"
-            },
-            "ssh": {
-                "authorized-keys": [],
-                "password-authentication": false,
-                "port": 22
+                "lldp": {
+                    "describe": "uCentral",
+                    "location": "universe"
+                },
+                "ssh": {
+                    "authorized-keys": [],
+                    "password-authentication": false,
+                    "port": 22
+                }
             }
         } )"_json;
+        std::cout << "Prepare " << __LINE__ << std::endl;
 
         std::cout << "Generating configs" << std::endl;
         for(auto &i:SI.accessPoints.list) {
