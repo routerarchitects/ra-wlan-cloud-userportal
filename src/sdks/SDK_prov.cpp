@@ -58,6 +58,12 @@ namespace OpenWifi::SDK::Prov {
             std::string         EndPoint = "/api/v1/configurations/0" ;
             Poco::JSON::Object  Body;
             Config.to_json(Body);
+
+            std::stringstream OOS;
+            Body.stringify(OOS);
+
+            std::cout << OOS.str() << std::endl;
+
             auto API = OpenAPIRequestPost(uSERVICE_PROVISIONING, EndPoint, {}, Body, 10000);
             Poco::JSON::Object::Ptr CallResponse;
             auto ResponseStatus = API.Do(CallResponse, client == nullptr ? "" : client->UserInfo_.webtoken.access_token_);

@@ -281,12 +281,14 @@ namespace OpenWifi {
 
             ProvObjects::DeviceConfiguration    Cfg;
 
-            Cfg.deviceTypes.push_back("*");
+            Cfg.deviceTypes.push_back(i.deviceType);
             std::cout << "Prepare " << __LINE__ << std::endl;
 
             Cfg.firmwareRCOnly = true;
             Cfg.firmwareUpgrade = i.automaticUpgrade ? "yes" : "no";
+
             Cfg.configuration = Configuration;
+
             std::cout << "Prepare " << __LINE__ << std::endl;
 
             Cfg.to_json(Answer);
