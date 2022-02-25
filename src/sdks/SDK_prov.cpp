@@ -62,6 +62,9 @@ namespace OpenWifi::SDK::Prov {
             Poco::JSON::Object::Ptr CallResponse;
             auto ResponseStatus = API.Do(CallResponse, client->UserInfo_.webtoken.access_token_);
             if(ResponseStatus != Poco::Net::HTTPResponse::HTTP_OK) {
+                std::ostringstream OS;
+                CallResponse->stringify(OS);
+                std::cout << "CREATE: " << OS.str() << std::endl;
                 return false;
             }
 
@@ -105,23 +108,14 @@ namespace OpenWifi::SDK::Prov {
                 }, 60000);
             Poco::JSON::Object::Ptr CallResponse;
 
-            std::cout << __LINE__ << std::endl;
             auto ResponseStatus = API.Do(CallResponse, client == nullptr ? "" : client->UserInfo_.webtoken.access_token_);
-            std::cout << __LINE__ << std::endl;
             if(ResponseStatus == Poco::Net::HTTPServerResponse::HTTP_OK) {
-                std::cout << __LINE__ << std::endl;
                 try {
-                    std::cout << __LINE__ << std::endl;
-                    std::ostringstream OS;
-                    CallResponse->stringify(OS);
-                    std::cout << "JSON:" << OS.str() << std::endl;
                     return Devices.from_json(CallResponse);
                 } catch (...) {
-                    std::cout << __LINE__ << std::endl;
                     return false;
                 }
             }
-            std::cout << __LINE__ << " : " << ResponseStatus << std::endl;
             return false;
         }
 
