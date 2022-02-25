@@ -189,9 +189,23 @@ namespace OpenWifi {
                         ssid["wifi-bands"] = j.bands;
                     }
                     ssid["bss-mode"] = "ap";
-                    ssid["encryption"]["proto"] = j.encryption;
+                    if(j.encryption=="wpa1-personal") {
+                        ssid["encryption"]["proto"] = "psk";
+                        ssid["encryption"]["ieee80211w"] = "optional";
+                    } else if(j.encryption=="wpa2-personal") {
+                        ssid["encryption"]["proto"] = "psk2";
+                        ssid["encryption"]["ieee80211w"] = "optional";
+                    } else if(j.encryption=="wpa3-personal") {
+                        ssid["encryption"]["proto"] = "sae";
+                        ssid["encryption"]["ieee80211w"] = "required";
+                    } else if (j.encryption=="wpa1/2-personal") {
+                        ssid["encryption"]["proto"] = "psk-mixed";
+                        ssid["encryption"]["ieee80211w"] = "optional";
+                    } else if (j.encryption=="wpa2/3-personal") {
+                        ssid["encryption"]["proto"] = "sae-mixed";
+                        ssid["encryption"]["ieee80211w"] = "optional";
+                    }
                     ssid["encryption"]["key"] = j.password;
-                    ssid["encryption"]["ieee80211w"] = "optional";
                     ssids.push_back(ssid);
                 }
                 std::cout << "Prepare " << __LINE__ << std::endl;
@@ -260,14 +274,14 @@ namespace OpenWifi {
                     .name = "interfaces",
                     .description = "default interfaces",
                     .weight = 0,
-                    .configuration = Interfaces
+                    .configuration = to_string(Interfaces);
             };
             std::cout << "Prepare " << __LINE__ << std::endl;
             ProvObjects::DeviceConfigurationElement RadiosList{
                     .name = "radios",
                     .description = "default radios",
                     .weight = 0,
-                    .configuration = radios
+                    .configuration = to_string(radios)
             };
 
             std::cout << "Prepare " << __LINE__ << std::endl;
