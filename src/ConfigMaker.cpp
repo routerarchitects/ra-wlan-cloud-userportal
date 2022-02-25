@@ -26,22 +26,47 @@ namespace OpenWifi {
 
         //  We need to create the basic sections
         auto  metrics = R"(
-        {
-            "dhcp-snooping": {
-                "filters": [ "ack", "discover", "offer", "request", "solicit", "reply", "renew" ]
-            },
-            "health": {
-                "interval": 120
-            },
-            "statistics": {
-                "interval": 120,
-                "types": [ "ssids", "lldp", "clients" ]
-            },
-            "wifi-frames": {
-                "filters": ["probe", "auth", "assoc", "disassoc", "deauth", "local-deauth",
-                            "inactive-deauth", "key-mismatch", "beacon-report", "radar-detected" ]
+            {
+              "metrics": {
+                "dhcp-snooping": {
+                  "filters": [
+                    "ack",
+                    "discover",
+                    "offer",
+                    "request",
+                    "solicit",
+                    "reply",
+                    "renew"
+                  ]
+                },
+                "health": {
+                  "interval": 60
+                },
+                "statistics": {
+                  "interval": 60,
+                  "types": [
+                    "ssids",
+                    "lldp",
+                    "clients"
+                  ]
+                },
+                "wifi-frames": {
+                  "filters": [
+                    "probe",
+                    "auth",
+                    "assoc",
+                    "disassoc",
+                    "deauth",
+                    "local-deauth",
+                    "inactive-deauth",
+                    "key-mismatch",
+                    "beacon-report",
+                    "radar-detected"
+                  ]
+                }
+              }
             }
-        } )"_json;
+         )"_json;
 
         std::cout << "Prepare " << __LINE__ << std::endl;
         auto services = R"(
