@@ -252,6 +252,7 @@ namespace OpenWifi {
 
             ProvObjects::DeviceConfigurationElementVec Configuration;
             std::cout << "Prepare " << __LINE__ << std::endl;
+
             ProvObjects::DeviceConfigurationElement Metrics{
                     .name = "metrics",
                     .description = "default metrics",
@@ -259,7 +260,7 @@ namespace OpenWifi {
                     .configuration = to_string(metrics)
             };
             std::cout << "Prepare " << __LINE__ << std::endl;
-
+/*
             ProvObjects::DeviceConfigurationElement Services{
                     .name = "services",
                     .description = "default services",
@@ -283,12 +284,12 @@ namespace OpenWifi {
                     .weight = 0,
                     .configuration = to_string(radios)
             };
-
+*/
             std::cout << "Prepare " << __LINE__ << std::endl;
             Configuration.push_back(Metrics);
-            Configuration.push_back(Services);
-            Configuration.push_back(InterfacesList);
-            Configuration.push_back(RadiosList);
+//            Configuration.push_back(Services);
+//            Configuration.push_back(InterfacesList);
+//            Configuration.push_back(RadiosList);
             std::cout << "Prepare " << __LINE__ << std::endl;
 
             Poco::JSON::Object  Answer;
