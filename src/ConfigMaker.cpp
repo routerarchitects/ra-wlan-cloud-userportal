@@ -328,6 +328,7 @@ namespace OpenWifi {
 
             if(i.configurationUUID.empty()) {
                 //  we need to create this configuration and associate it to this device.
+                Cfg.subscriberOnly = true;
                 Cfg.info.name = "sub:" + i.macAddress;
                 Cfg.info.notes.emplace_back(SecurityObjects::NoteInfo{.created=OpenWifi::Now(), .note="Auto-created from subscriber service."});
                 std::string CfgUUID;
