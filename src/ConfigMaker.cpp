@@ -29,8 +29,8 @@ namespace OpenWifi {
     }
 
     bool ConfigMaker::Prepare() {
-        SubObjects::SubscriberInfo  SI;
 
+        SubObjects::SubscriberInfo  SI;
         if(!StorageService()->SubInfoDB().GetRecord("id", id_, SI)) {
             bad_ = true;
             return false;
@@ -95,6 +95,8 @@ namespace OpenWifi {
             }
         } )"_json;
 
+        bool configModified = false;
+
         for(auto &i:SI.accessPoints.list) {
 
             nlohmann::json Interfaces;
@@ -113,6 +115,8 @@ namespace OpenWifi {
             std::vector<std::string>    AllBands;
             for(const auto &rr:i.radios)
                 AllBands.emplace_back(ConvertBand(rr.band));
+
+            nlohmann::json UpstreamPort, DownstreamPort;
 
             if(i.internetConnection.type=="manual") {
                 UpstreamInterface["addressing"] = "static";
@@ -144,100 +148,84 @@ namespace OpenWifi {
             }
 
             if(i.deviceMode.type=="bridge") {
-                nlohmann::json ssids;
-                for(auto &j:i.wifiNetworks.wifiNetworks) {
-                    nlohmann::json ssid;
-                    ssid["name"] = j.name ;
-                    if(j.bands[0]=="all") {
-                        ssid["wifi-bands"] = AllBands;
-                    } else {
-                        ssid["wifi-bands"] = ConvertBands(j.bands);
-                    }
-                    ssid["bss-mode"] = "ap";
-                    if(j.encryption.empty()) {
-                        j.encryption = "wpa2-personal";
-                    }
-
-                    if(j.encryption=="wpa1-personal") {
-                        ssid["encryption"]["proto"] = "psk";
-                        ssid["encryption"]["ieee80211w"] = "optional";
-                    } else if(j.encryption=="wpa2-personal") {
-                        ssid["encryption"]["proto"] = "psk2";
-                        ssid["encryption"]["ieee80211w"] = "optional";
-                    } else if(j.encryption=="wpa3-personal") {
-                        ssid["encryption"]["proto"] = "sae";
-                        ssid["encryption"]["ieee80211w"] = "required";
-                    } else if (j.encryption=="wpa1/2-personal") {
-                        ssid["encryption"]["proto"] = "psk-mixed";
-                        ssid["encryption"]["ieee80211w"] = "optional";
-                    } else if (j.encryption=="wpa2/3-personal") {
-                        ssid["encryption"]["proto"] = "sae-mixed";
-                        ssid["encryption"]["ieee80211w"] = "optional";
-                    }
-                    ssid["encryption"]["key"] = j.password;
-                    ssids.push_back(ssid);
-                }
-                UpstreamInterface["ssids"] = ssids;
+                UpstreamPort["select-ports"].push_back("LAN*");
+                UpstreamPort["select-ports"].push_back("WAN*");
             } else if(i.deviceMode.type=="manual") {
+                UpstreamPort.push_back("WAN*");
+                DownstreamPort.push_back("LAN*");
                 DownstreamInterface["name"] = "LAN";
                 DownstreamInterface["role"] = "downstream";
                 DownstreamInterface["services"].push_back("lldp");
                 DownstreamInterface["services"].push_back("ssh");
-                nlohmann::json Port;
-                Port["select-ports"].push_back("LAN*");
-                DownstreamInterface["ethernet"].push_back(Port);
                 DownstreamInterface["ipv4"]["addressing"] = "static";
                 DownstreamInterface["ipv4"]["subnet"] = i.internetConnection.subnetMask.empty() ? "auto/24" : i.deviceMode.subnet;
                 DownstreamInterface["ipv4"]["dhcp"]["lease-first"] = 10;
                 DownstreamInterface["ipv4"]["dhcp"]["lease-count"] = 100;
                 DownstreamInterface["ipv4"]["dhcp"]["lease-time"] = "6h";
             } else if(i.deviceMode.type=="nat") {
+                UpstreamPort.push_back("WAN*");
+                DownstreamPort.push_back("LAN*");
                 DownstreamInterface["name"] = "LAN";
                 DownstreamInterface["role"] = "downstream";
                 DownstreamInterface["services"].push_back("lldp");
                 DownstreamInterface["services"].push_back("ssh");
-                nlohmann::json Port;
-                Port["select-ports"].push_back("LAN*");
-                DownstreamInterface["ethernet"].push_back(Port);
                 DownstreamInterface["ipv4"]["addressing"] = "static";
                 DownstreamInterface["ipv4"]["subnet"] = "192.168.1.1/24";
                 DownstreamInterface["ipv4"]["dhcp"]["lease-first"] = 10;
                 DownstreamInterface["ipv4"]["dhcp"]["lease-count"] = 100;
                 DownstreamInterface["ipv4"]["dhcp"]["lease-time"] = "6h";
+            }
 
-                nlohmann::json ssids;
-                for(const auto &j:i.wifiNetworks.wifiNetworks) {
-                    nlohmann::json ssid;
-                    ssid["name"] = j.name ;
-                    ssid["role"] = "downstream";
-                    if(j.bands[0]=="all") {
-                        ssid["wifi-bands"] = AllBands;
-                    } else {
-                        ssid["wifi-bands"] = ConvertBands(j.bands);
-                    }
-                    ssid["bss-mode"] = "ap";
-                    if(j.encryption=="wpa1-personal") {
-                        ssid["encryption"]["proto"] = "psk";
-                        ssid["encryption"]["ieee80211w"] = "optional";
-                    } else if(j.encryption=="wpa2-personal") {
-                        ssid["encryption"]["proto"] = "psk2";
-                        ssid["encryption"]["ieee80211w"] = "optional";
-                    } else if(j.encryption=="wpa3-personal") {
-                        ssid["encryption"]["proto"] = "sae";
-                        ssid["encryption"]["ieee80211w"] = "required";
-                    } else if (j.encryption=="wpa1/2-personal") {
-                        ssid["encryption"]["proto"] = "psk-mixed";
-                        ssid["encryption"]["ieee80211w"] = "optional";
-                    } else if (j.encryption=="wpa2/3-personal") {
-                        ssid["encryption"]["proto"] = "sae-mixed";
-                        ssid["encryption"]["ieee80211w"] = "optional";
-                    }
-                    ssid["encryption"]["key"] = j.password;
-                    ssids.push_back(ssid);
+            nlohmann::json main_ssids, guest_ssids;
+            for(const auto &j:i.wifiNetworks.wifiNetworks) {
+                nlohmann::json ssid;
+                ssid["name"] = j.name ;
+                if(j.bands[0]=="all") {
+                    ssid["wifi-bands"] = AllBands;
+                } else {
+                    ssid["wifi-bands"] = ConvertBands(j.bands);
                 }
-                DownstreamInterface["ssids"] = ssids;
+                ssid["bss-mode"] = "ap";
+                if(j.encryption=="wpa1-personal") {
+                    ssid["encryption"]["proto"] = "psk";
+                    ssid["encryption"]["ieee80211w"] = "optional";
+                } else if(j.encryption=="wpa2-personal") {
+                    ssid["encryption"]["proto"] = "psk2";
+                    ssid["encryption"]["ieee80211w"] = "optional";
+                } else if(j.encryption=="wpa3-personal") {
+                    ssid["encryption"]["proto"] = "sae";
+                    ssid["encryption"]["ieee80211w"] = "required";
+                } else if (j.encryption=="wpa1/2-personal") {
+                    ssid["encryption"]["proto"] = "psk-mixed";
+                    ssid["encryption"]["ieee80211w"] = "optional";
+                } else if (j.encryption=="wpa2/3-personal") {
+                    ssid["encryption"]["proto"] = "sae-mixed";
+                    ssid["encryption"]["ieee80211w"] = "optional";
+                }
+                ssid["encryption"]["key"] = j.password;
+                if(j.type=="main")
+                    main_ssids.push_back(ssid);
+                else
+                    guest_ssids.push_back(ssid);
+            }
+
+            if(i.deviceMode.type=="bridge")
+                UpstreamInterface["ssids"] = main_ssids;
+            else
+                DownstreamInterface["ssids"] = main_ssids;
+
+            if(!UpstreamPort.empty())
+                UpstreamInterface["ethernet"] = UpstreamPort;
+            if(!DownstreamPort.empty())
+                DownstreamInterface["ethernet"] = DownstreamPort;
+
+            if(i.deviceMode.type=="bridge") {
+                Interfaces.push_back(UpstreamInterface);
+            } else {
+                Interfaces.push_back(UpstreamInterface);
                 Interfaces.push_back(DownstreamInterface);
             }
+
             for(const auto &k:i.radios) {
                 nlohmann::json radio;
 
@@ -272,6 +260,7 @@ namespace OpenWifi {
                 radio["he-settings"]["bss-color"] = k.he.bssColor;
                 radios.push_back(radio);
             }
+
             ProvObjects::DeviceConfigurationElementVec Configuration;
             ProvObjects::DeviceConfigurationElement Metrics{
                     .name = "metrics",
@@ -286,9 +275,6 @@ namespace OpenWifi {
                     .weight = 0,
                     .configuration = to_string(services)
             };
-
-            Interfaces.push_back(UpstreamInterface);
-            Interfaces.push_back(DownstreamInterface);
 
             nlohmann::json InterfaceSection;
             InterfaceSection["interfaces"] = Interfaces;
