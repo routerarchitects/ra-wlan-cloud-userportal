@@ -175,7 +175,7 @@ namespace OpenWifi {
                 DownstreamInterface["ipv4"]["dhcp"]["lease-count"] = 100;
                 DownstreamInterface["ipv4"]["dhcp"]["lease-time"] = "6h";
             }
-
+            bool hasGuest=false;
             nlohmann::json main_ssids, guest_ssids;
             for(const auto &j:i.wifiNetworks.wifiNetworks) {
                 nlohmann::json ssid;
@@ -203,10 +203,14 @@ namespace OpenWifi {
                     ssid["encryption"]["ieee80211w"] = "optional";
                 }
                 ssid["encryption"]["key"] = j.password;
-                if(j.type=="main")
+                if(j.type=="main") {
                     main_ssids.push_back(ssid);
-                else
+                }
+                else {
+                    hasGuest = true;
+                    ssid["isolate-clients"] = true;
                     guest_ssids.push_back(ssid);
+                }
             }
 
             if(i.deviceMode.type=="bridge")
@@ -224,6 +228,20 @@ namespace OpenWifi {
             } else {
                 Interfaces.push_back(UpstreamInterface);
                 Interfaces.push_back(DownstreamInterface);
+            }
+
+            if(hasGuest) {
+                nlohmann::json GuestInterface;
+                GuestInterface["name"] = "Guest";
+                GuestInterface["role"] = "downstream";
+                GuestInterface["isolate-hosts"] = true;
+                GuestInterface["ipv4"]["addressing"] = "static";
+                GuestInterface["ipv4"]["subnet"] = "192.168.10.1/24";
+                GuestInterface["ipv4"]["subnet"]["lease-first"] = 10;
+                GuestInterface["ipv4"]["subnet"]["lease-count"] = 100;
+                GuestInterface["ipv4"]["subnet"]["lease-time"] = "6h";
+                GuestInterface["ssids"] = guest_ssids;
+                Interfaces.push_back(GuestInterface);
             }
 
             for(const auto &k:i.radios) {
