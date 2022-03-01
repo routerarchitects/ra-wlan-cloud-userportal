@@ -72,6 +72,11 @@ namespace OpenWifi {
             AP.deviceMode.enableLEDS = true;
             AP.internetConnection.modified = AP.internetConnection.created = Now;
             AP.internetConnection.type = "automatic";
+            AP.deviceMode.subnet = "192.168.1./24";
+            AP.deviceMode.subnetMask = "24";
+            AP.deviceMode.startIP = "192.168.1.10";
+            AP.deviceMode.endIP = "192.168.1.100";
+            AP.deviceMode.leaseTime = "24h";
 
             SubObjects::WifiNetwork WN;
             WN.type = "main";

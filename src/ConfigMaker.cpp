@@ -28,6 +28,26 @@ namespace OpenWifi {
         return R;
     }
 
+    void CreateDHCPInfo( std::string &Subnet, const std::string &First, const std::string &Last, std::string & DHCPFirst, uint64_t & HowMany) {
+        Poco::Net::IPAddress    SubnetAddr, FirstAddress, LastAddress;
+        auto Tokens = Poco::StringTokenizer(Subnet,"/");
+        if(!Poco::Net::IPAddress::tryParse(Tokens[0],SubnetAddr) || !Poco::Net::IPAddress::tryParse(First,FirstAddress) || !Poco::Net::IPAddress::tryParse(Last,LastAddress)) {
+            Subnet = "192.168.1.1/24";
+            DHCPFirst = "192.168.1.10";
+            HowMany = 100;
+            return;
+        }
+
+        if(LastAddress<FirstAddress)
+            std::swap(LastAddress,FirstAddress);
+
+        struct in_addr  FA{*static_cast<const in_addr *>(FirstAddress.addr())},
+                LA{*static_cast<const in_addr *>(LastAddress.addr())};
+
+        DHCPFirst = inet_ntoa(FA);
+        HowMany = htonl(LA.s_addr) - htonl(FA.s_addr);
+    }
+
     bool ConfigMaker::Prepare() {
 
         SubObjects::SubscriberInfo  SI;
@@ -158,10 +178,13 @@ namespace OpenWifi {
                 DownstreamInterface["services"].push_back("lldp");
                 DownstreamInterface["services"].push_back("ssh");
                 DownstreamInterface["ipv4"]["addressing"] = "static";
-                DownstreamInterface["ipv4"]["subnet"] = i.internetConnection.subnetMask.empty() ? "auto/24" : i.deviceMode.subnet;
-                DownstreamInterface["ipv4"]["dhcp"]["lease-first"] = 10;
-                DownstreamInterface["ipv4"]["dhcp"]["lease-count"] = 100;
-                DownstreamInterface["ipv4"]["dhcp"]["lease-time"] = "6h";
+                uint64_t HowMany=0;
+                std::string FirstIPInRange;
+                CreateDHCPInfo(i.internetConnection.subnetMask,i.deviceMode.startIP,i.deviceMode.endIP,FirstIPInRange,HowMany);
+                DownstreamInterface["ipv4"]["subnet"] = i.internetConnection.subnetMask;
+                DownstreamInterface["ipv4"]["dhcp"]["lease-first"] = FirstIPInRange;
+                DownstreamInterface["ipv4"]["dhcp"]["lease-count"] = HowMany;
+                DownstreamInterface["ipv4"]["dhcp"]["lease-time"] = i.deviceMode.leaseTime.empty() ? "24h" : i.deviceMode.leaseTime;
             } else if(i.deviceMode.type=="nat") {
                 UpstreamPort.push_back("WAN*");
                 DownstreamPort.push_back("LAN*");
@@ -170,10 +193,13 @@ namespace OpenWifi {
                 DownstreamInterface["services"].push_back("lldp");
                 DownstreamInterface["services"].push_back("ssh");
                 DownstreamInterface["ipv4"]["addressing"] = "static";
-                DownstreamInterface["ipv4"]["subnet"] = "192.168.1.1/24";
-                DownstreamInterface["ipv4"]["dhcp"]["lease-first"] = 10;
-                DownstreamInterface["ipv4"]["dhcp"]["lease-count"] = 100;
-                DownstreamInterface["ipv4"]["dhcp"]["lease-time"] = "6h";
+                uint64_t HowMany=0;
+                std::string FirstIPInRange;
+                CreateDHCPInfo(i.internetConnection.subnetMask,i.deviceMode.startIP,i.deviceMode.endIP,FirstIPInRange,HowMany);
+                DownstreamInterface["ipv4"]["subnet"] = i.internetConnection.subnetMask;
+                DownstreamInterface["ipv4"]["dhcp"]["lease-first"] = FirstIPInRange;
+                DownstreamInterface["ipv4"]["dhcp"]["lease-count"] = HowMany;
+                DownstreamInterface["ipv4"]["dhcp"]["lease-time"] = i.deviceMode.leaseTime.empty() ? "24h" : i.deviceMode.leaseTime;
             }
             bool hasGuest=false;
             nlohmann::json main_ssids, guest_ssids;

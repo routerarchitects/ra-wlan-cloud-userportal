@@ -151,6 +151,8 @@ components:
         modified:
           type: integer
           format: int64
+        leaseTime:
+          type: string
 
     IPReservation:
       type: object
