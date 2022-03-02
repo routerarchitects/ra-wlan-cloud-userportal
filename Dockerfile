@@ -10,7 +10,7 @@ RUN apk add --update --no-cache \
     lua-dev librdkafka-dev \
     nlohmann-json
 
-RUN git clone https://github.com/stephb9959/wlan-cloud-sub /owsub
+RUN git clone https://github.com/telecominfraproject/wlan-cloud-userportal /owsub
 RUN git clone https://github.com/stephb9959/poco /poco
 RUN git clone https://github.com/stephb9959/cppkafka /cppkafka
 RUN git clone https://github.com/pboettch/json-schema-validator /json-schema-validator
@@ -36,9 +36,15 @@ RUN cmake ..
 RUN make
 RUN make install
 
+ADD CMakeLists.txt build /owsub/
+ADD cmake /owsub/cmake
+ADD src /owsub/src
+ADD .git /owsub/.git
+
+# Build the service
 WORKDIR /owsub
 RUN mkdir cmake-build
-WORKDIR cmake-build
+WORKDIR /owsub/cmake-build
 RUN cmake ..
 RUN cmake --build . --config Release -j8
 
@@ -52,22 +58,25 @@ RUN addgroup -S "OWSUB_USER" && \
     adduser -S -G "OWSUB_USER" "OWSUB_USER"
 
 RUN mkdir /openwifi
-RUN mkdir -p "OWSUB_ROOT" "$OWGW_CONFIG" && \
-    chown "OWSUB_USER": "OWSUB_ROOT" "$OWGW_CONFIG"
+RUN mkdir -p "OWSUB_ROOT" "OWSUB_CONFIG" && \
+    chown "OWSUB_USER": "OWSUB_ROOT" "OWSUB_CONFIG"
 RUN apk add --update --no-cache librdkafka mariadb-connector-c libpq unixodbc su-exec gettext ca-certificates bash jq curl
 
 COPY --from=builder /owsub/cmake-build/owsub /openwifi/owsub
 COPY --from=builder /cppkafka/cmake-build/src/lib/* /lib/
 COPY --from=builder /poco/cmake-build/lib/* /lib/
 
-COPY --from=builder /owsub/owsub.properties.docker /
+COPY owsub.properties.tmpl /
 COPY docker-entrypoint.sh /
+COPY wait-for-postgres.sh /
+
 RUN wget https://raw.githubusercontent.com/Telecominfraproject/wlan-cloud-ucentral-deploy/main/docker-compose/certs/restapi-ca.pem \
-    -O /usr/local/share/ca-certificates/restapi-ca-selfsigned.pem
+    -O /usr/local/share/ca-certificates/restapi-ca-selfsigned.pem \
 
 COPY readiness_check /readiness_check
+COPY test_scripts/curl/cli /cli
 
-EXPOSE 15002 16002 16003 17002 16102
+EXPOSE 16006
 
 ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["/openwifi/owsub"]
