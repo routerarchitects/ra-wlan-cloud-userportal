@@ -17,6 +17,7 @@ namespace OpenWifi::SDK::GW {
         bool Configure(RESTAPIHandler *client, const std::string &Mac, Poco::JSON::Object::Ptr & Configuration, Poco::JSON::Object::Ptr & Response);
 
         bool SetVenue(RESTAPIHandler *client, const std::string & SerialNumber, const std::string &uuid);
+        bool GetLastStats(RESTAPIHandler *client, const std::string &Mac, Poco::JSON::Object::Ptr & Response);
 
    }
 }

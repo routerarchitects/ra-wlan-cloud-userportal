@@ -117,6 +117,21 @@ namespace OpenWifi::SDK::GW {
             return false;
         }
 
+        bool GetLastStats(RESTAPIHandler *client, const std::string &Mac, Poco::JSON::Object::Ptr & Response) {
+            // "https://${OWGW}/api/v1/device/$1/statistics?lastOnly=true"
+            std::string         EndPoint = "/api/v1/device/" + Mac + "/statistics";
+            auto API = OpenAPIRequestGet(uSERVICE_GATEWAY, EndPoint, { { "lastOnly" , "true" }}, 60000);
+            auto ResponseStatus = API.Do(Response, client == nullptr ? "" : client->UserInfo_.webtoken.access_token_);
+            if(ResponseStatus == Poco::Net::HTTPServerResponse::HTTP_OK) {
+                try {
+                    return true;
+                } catch (...) {
+                    return false;
+                }
+            }
+            return false;
+        }
+
         bool Configure(RESTAPIHandler *client, const std::string &Mac, Poco::JSON::Object::Ptr & Configuration, Poco::JSON::Object::Ptr & Response) {
 
             Poco::JSON::Object      Body;

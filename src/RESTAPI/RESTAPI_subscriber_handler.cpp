@@ -7,6 +7,7 @@
 #include "RESTObjects/RESTAPI_SubObjects.h"
 #include "SubscriberCache.h"
 #include "sdks/SDK_prov.h"
+#include "sdks/SDK_gw.h"
 #include "ConfigMaker.h"
 
 namespace OpenWifi {
@@ -20,6 +21,53 @@ namespace OpenWifi {
         std::cout << "Creating default subscriber info: " << UserInfo_.userinfo.id << std::endl;
         SubObjects::SubscriberInfo  SI;
         if(StorageService()->SubInfoDB().GetRecord("id", UserInfo_.userinfo.id,SI)) {
+
+            //  we need to get the stats for each AP
+            for(auto &i:SI.accessPoints.list) {
+                if(i.macAddress.empty())
+                    continue;
+                Poco::JSON::Object::Ptr LastStats;
+                if(SDK::GW::Device::GetLastStats(nullptr,i.macAddress,LastStats)) {
+                    std::ostringstream OS;
+                    LastStats->stringify(OS);
+                    try {
+                        nlohmann::json LA = nlohmann::json::parse(OS.str());
+                        for (const auto &j: LA["interfaces"]) {
+                            if (j.contains("ipv4")) {
+                                auto IPparts = Poco::StringTokenizer(to_string(j["ipv4"]["addresses"][0]), "/");
+                                i.internetConnection.ipAddress = IPparts[0];
+                                i.internetConnection.subnetMask = IPparts[1];
+                                i.internetConnection.defaultGateway = to_string(j["ipv4"]["dhcp_server"]);
+                            }
+                            if (j.contains("dns_servers") && j["dns_servers"].is_array()) {
+                                auto dns = j["dns_servers"];
+                                if (!dns.empty() > 0)
+                                    i.internetConnection.primaryDns = to_string(dns[0]);
+                                else
+                                    i.internetConnection.primaryDns = "---";
+
+                                if (dns.size() > 1)
+                                    i.internetConnection.secondaryDns = to_string(dns[1]);
+                                else
+                                    i.internetConnection.secondaryDns = "---";
+                            }
+                        }
+                    } catch(...) {
+                        i.internetConnection.ipAddress = "--";
+                        i.internetConnection.subnetMask = "--";
+                        i.internetConnection.defaultGateway = "--";
+                        i.internetConnection.primaryDns = "--";
+                        i.internetConnection.secondaryDns = "--";
+                    }
+                } else {
+                    i.internetConnection.ipAddress = "-";
+                    i.internetConnection.subnetMask = "-";
+                    i.internetConnection.defaultGateway = "-";
+                    i.internetConnection.primaryDns = "-";
+                    i.internetConnection.secondaryDns = "-";
+                }
+            }
+
             Poco::JSON::Object  Answer;
             SI.to_json(Answer);
             return ReturnObject(Answer);
