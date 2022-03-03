@@ -41,12 +41,18 @@ namespace OpenWifi {
                         __DBG__
                         for (const auto &j: LA["interfaces"]) {
                             __DBG__
-                            if (j.contains("ipv4") && j["ipv4"].contains("addresses") && j["ipv4"]["addresses"].is_array()) {
+                            if (j.contains("ipv4") && j["ipv4"].contains("addresses")
+                                && j["ipv4"]["addresses"].is_array()
+                                && j.contains("location") && to_string(j["location"])=="/interfaces/0") {
                                 auto IPparts = Poco::StringTokenizer(to_string(j["ipv4"]["addresses"][0]), "/");
                                 __DBG__
+                                std::cout << "0 " << IPparts[0] << "    1 " << IPparts[1] << std::endl;
                                 i.internetConnection.ipAddress = IPparts[0];
                                 i.internetConnection.subnetMask = IPparts[1];
-                                i.internetConnection.defaultGateway = to_string(j["ipv4"]["dhcp_server"]);
+                                if(j["ipv4"].contains("dhcp_server"))
+                                    i.internetConnection.defaultGateway = to_string(j["ipv4"]["dhcp_server"]);
+                                else
+                                    i.internetConnection.defaultGateway = "-";
                             }
                             __DBG__
                             if (j.contains("dns_servers") && j["dns_servers"].is_array()) {
