@@ -30,7 +30,7 @@ namespace OpenWifi {
                     continue;
                 __DBG__
                 Poco::JSON::Object::Ptr LastStats;
-                if(SDK::GW::Device::GetLastStats(nullptr,i.macAddress,LastStats)) {
+                if(SDK::GW::Device::GetLastStats(nullptr,i.serialNumber,LastStats)) {
                     __DBG__
                     std::ostringstream OS;
                     __DBG__
