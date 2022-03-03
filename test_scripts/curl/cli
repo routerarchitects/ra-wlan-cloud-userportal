@@ -180,7 +180,14 @@ wiredclients() {
 }
 
 signup() {
-    curl ${FLAGS} -X POST "https://${target_service_endpoint}/api/v1/signup?email=stephane.bourque@gmail.com&serialNumber=24f5a207a130" \
+    curl ${FLAGS} -X POST "https://${target_service_endpoint}/api/v1/signup?email=stephane.bourque%40gmail.com&macAddress=04f8f8fc3771" \
+        -H "Content-Type: application/json" \
+        -d "{}" > ${result_file}
+    jq < ${result_file}
+}
+
+getsignup() {
+    curl ${FLAGS} -X POST "https://${target_service_endpoint}/api/v1/signup?signupUUID=$1" \
         -H "Content-Type: application/json" \
         -d "{}" > ${result_file}
     jq < ${result_file}
@@ -200,6 +207,7 @@ case "$1" in
     "wificlients") login; wificlients "$2" ; logout ;;
     "wiredclients") login; wiredclients "$2" ; logout ;;
     "signup") signup ;;
+    "getsignup") getsignup $2 ;;
     *) help ;;
 esac
 

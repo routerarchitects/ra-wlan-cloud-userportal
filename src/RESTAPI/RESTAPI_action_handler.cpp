@@ -44,15 +44,15 @@ namespace OpenWifi {
         for(const auto &i:SubInfo->accessPoints.list) {
             if(i.macAddress == Mac) {
                 if(Command == "reboot") {
-                    return SDK::GW::Device::Reboot(this, Mac, When);
+                    return SDK::GW::Device::Reboot(this, i.serialNumber, When);
                 } else if(Command == "blink") {
-                    return SDK::GW::Device::LEDs(this, Mac, When, Duration, Pattern);
+                    return SDK::GW::Device::LEDs(this, i.serialNumber, When, Duration, Pattern);
                 } else if(Command == "upgrade") {
-                    return SDK::GW::Device::Upgrade(this, Mac, When, ImageName, keepRedirector);
+                    return SDK::GW::Device::Upgrade(this, i.serialNumber, When, ImageName, keepRedirector);
                 } else if(Command == "factory") {
-                    return SDK::GW::Device::Factory(this, Mac, When, keepRedirector);
+                    return SDK::GW::Device::Factory(this, i.serialNumber, When, keepRedirector);
                 } else if(Command == "refresh") {
-                    return SDK::GW::Device::Refresh(this, Mac, When);
+                    return SDK::GW::Device::Refresh(this, i.serialNumber, When);
                 } else {
                     return BadRequest(RESTAPI::Errors::MissingOrInvalidParameters);
                 }

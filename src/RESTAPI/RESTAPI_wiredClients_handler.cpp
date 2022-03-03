@@ -25,7 +25,7 @@ namespace OpenWifi {
                 //  Get the last stats for this device
                 //  https://${OWGW}/api/v1/device/$1/statistics?lastOnly=true
                 Types::StringPairVec QD{{"lastOnly", "true"}};
-                std::string EndPoint{"/api/v1/device/" + SerialNumber + "/statistics"};
+                std::string EndPoint{"/api/v1/device/" + i.serialNumber + "/statistics"};
                 OpenAPIRequestGet Api(uSERVICE_GATEWAY, EndPoint, QD, 20000);
 
                 Poco::JSON::Object::Ptr CallResponse;
