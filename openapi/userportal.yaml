@@ -609,6 +609,8 @@ components:
           format: uuid
         macAddress:
           type: string
+        serialNumber:
+          type: string
         name:
           type: string
         deviceType:
@@ -860,6 +862,8 @@ components:
         userId:
           type: string
           format: uuid
+        macAddress:
+          type: string
         serialNumber:
           type: string
         created:
@@ -873,6 +877,9 @@ components:
           format: int64
         status:
           type: string
+        statusCode:
+          type: integer
+          format: int64
 
 paths:
   /oauth2:
@@ -1177,7 +1184,7 @@ paths:
             format: email
           required: false
         - in: query
-          name: serialNumber
+          name: macAddress
           schema:
             type: string
           required: false
@@ -1186,6 +1193,12 @@ paths:
           schema:
             type: string
             format: uuid
+          required: false
+        - in: query
+          name: dashboard
+          schema:
+            type: boolean
+            default: false
           required: false
         - in: query
           name: deviceID
@@ -1215,7 +1228,7 @@ paths:
             format: email
           required: false
         - in: query
-          name: serialNumber
+          name: macAddress
           schema:
             type: string
           required: false
@@ -1253,7 +1266,7 @@ paths:
             format: email
           required: true
         - in: query
-          name: serialNumber
+          name: macAddress
           schema:
             type: string
           required: true
