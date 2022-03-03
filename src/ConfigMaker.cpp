@@ -28,12 +28,12 @@ namespace OpenWifi {
         return R;
     }
 
-    void CreateDHCPInfo( std::string &Subnet, const std::string &First, const std::string &Last, std::string & DHCPFirst, uint64_t & HowMany) {
+    void CreateDHCPInfo( std::string &Subnet, const std::string &First, const std::string &Last, uint64_t & DHCPFirst, uint64_t & HowMany) {
         Poco::Net::IPAddress    SubnetAddr, FirstAddress, LastAddress;
         auto Tokens = Poco::StringTokenizer(Subnet,"/");
         if(!Poco::Net::IPAddress::tryParse(Tokens[0],SubnetAddr) || !Poco::Net::IPAddress::tryParse(First,FirstAddress) || !Poco::Net::IPAddress::tryParse(Last,LastAddress)) {
             Subnet = "192.168.1.1/24";
-            DHCPFirst = "192.168.1.10";
+            DHCPFirst = 10;
             HowMany = 100;
             return;
         }
@@ -42,10 +42,18 @@ namespace OpenWifi {
             std::swap(LastAddress,FirstAddress);
 
         struct in_addr  FA{*static_cast<const in_addr *>(FirstAddress.addr())},
-                LA{*static_cast<const in_addr *>(LastAddress.addr())};
+                        LA{*static_cast<const in_addr *>(LastAddress.addr())};
 
-        DHCPFirst = inet_ntoa(FA);
         HowMany = htonl(LA.s_addr) - htonl(FA.s_addr);
+        auto SubNetBits = std::stoull(Tokens[1],nullptr,10);
+        uint64_t SubNetBitMask;
+        if(SubNetBits==8)
+            SubNetBitMask =  0x000000ff ;
+        else if(SubNetBits==16)
+            SubNetBitMask =  0x0000ffff ;
+        else
+            SubNetBitMask = 0x000000ff;
+        DHCPFirst = htonl(FA.s_addr) & SubNetBitMask;
     }
 
 #define __DBG__ std::cout << __LINE__ << std::endl ;
@@ -181,7 +189,7 @@ namespace OpenWifi {
                 DownstreamInterface["services"].push_back("ssh");
                 DownstreamInterface["ipv4"]["addressing"] = "static";
                 uint64_t HowMany=0;
-                std::string FirstIPInRange;
+                uint64_t FirstIPInRange;
                 __DBG__
                 CreateDHCPInfo(i.deviceMode.subnet,i.deviceMode.startIP,i.deviceMode.endIP,FirstIPInRange,HowMany);
                 __DBG__
@@ -190,15 +198,15 @@ namespace OpenWifi {
                 DownstreamInterface["ipv4"]["dhcp"]["lease-count"] = HowMany;
                 DownstreamInterface["ipv4"]["dhcp"]["lease-time"] = i.deviceMode.leaseTime.empty() ? "24h" : i.deviceMode.leaseTime;
             } else if(i.deviceMode.type=="nat") {
-                UpstreamPort.push_back("WAN*");
-                DownstreamPort.push_back("LAN*");
+                UpstreamPort["select-ports"].push_back("LAN*");
+                DownstreamPort["select-ports"].push_back("WAN*");
                 DownstreamInterface["name"] = "LAN";
                 DownstreamInterface["role"] = "downstream";
                 DownstreamInterface["services"].push_back("lldp");
                 DownstreamInterface["services"].push_back("ssh");
                 DownstreamInterface["ipv4"]["addressing"] = "static";
                 uint64_t HowMany=0;
-                std::string FirstIPInRange;
+                uint64_t FirstIPInRange;
                 __DBG__
                 std::cout << "subnetmask: " << i.deviceMode.subnet << "  startip:" << i.deviceMode.startIP << "  endip:" << i.deviceMode.endIP << std::endl;
                 CreateDHCPInfo(i.deviceMode.subnet,i.deviceMode.startIP,i.deviceMode.endIP,FirstIPInRange,HowMany);
