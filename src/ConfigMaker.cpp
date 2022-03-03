@@ -363,12 +363,12 @@ namespace OpenWifi {
                 Cfg.info.name = "sub:" + i.macAddress;
                 Cfg.info.notes.emplace_back(SecurityObjects::NoteInfo{.created=OpenWifi::Now(), .note="Auto-created from subscriber service."});
                 std::string CfgUUID;
-                if(SDK::Prov::Configuration::Create(nullptr, i.macAddress, Cfg, CfgUUID)) {
+                if(SDK::Prov::Configuration::Create(nullptr, i.serialNumber, Cfg, CfgUUID)) {
                     i.configurationUUID = CfgUUID;
                     std::cout << "Created and assigned configuration: " << i.macAddress << std::endl;
                     // now push the configuration to the device...
                     ProvObjects::InventoryConfigApplyResult Results;
-                    if(SDK::Prov::Configuration::Push(nullptr, i.macAddress, Results)) {
+                    if(SDK::Prov::Configuration::Push(nullptr, i.serialNumber, Results)) {
                         std::cout << "Configuration pushed" << std::endl;
                     } else {
                         std::cout << "Configuration was not pushed" << std::endl;
@@ -387,7 +387,7 @@ namespace OpenWifi {
                     std::cout << "Modified configuration: " << i.macAddress << std::endl;
                     // Now push the configuration...
                     ProvObjects::InventoryConfigApplyResult Results;
-                    if(SDK::Prov::Configuration::Push(nullptr, i.macAddress, Results)) {
+                    if(SDK::Prov::Configuration::Push(nullptr, i.serialNumber, Results)) {
                         std::cout << "Configuration pushed" << std::endl;
                     } else {
                         std::cout << "Configuration was not pushed" << std::endl;
