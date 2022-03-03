@@ -41,14 +41,16 @@ namespace OpenWifi {
                         __DBG__
                         for (const auto &j: LA["interfaces"]) {
                             __DBG__
-                            if (j.contains("ipv4")) {
+                            if (j.contains("ipv4") && j["ipv4"].contains("addresses") && j["ipv4"]["addresses"].is_array()) {
                                 auto IPparts = Poco::StringTokenizer(to_string(j["ipv4"]["addresses"][0]), "/");
+                                __DBG__
                                 i.internetConnection.ipAddress = IPparts[0];
                                 i.internetConnection.subnetMask = IPparts[1];
                                 i.internetConnection.defaultGateway = to_string(j["ipv4"]["dhcp_server"]);
                             }
                             __DBG__
                             if (j.contains("dns_servers") && j["dns_servers"].is_array()) {
+                                __DBG__
                                 auto dns = j["dns_servers"];
                                 if (!dns.empty() > 0)
                                     i.internetConnection.primaryDns = to_string(dns[0]);
