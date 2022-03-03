@@ -63,7 +63,8 @@ namespace OpenWifi {
         int ap_num=1;
         for(const auto &i:Devices.taglist) {
             SubObjects::AccessPoint AP;
-            AP.macAddress = i.serialNumber;
+            AP.macAddress = i.realMacAddress;
+            AP.serialNumber = i.serialNumber;
             AP.deviceType = i.deviceType;
             AP.id = i.info.id;
             AP.name = "Access Point #" + std::to_string(ap_num++);

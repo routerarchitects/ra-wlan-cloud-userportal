@@ -12,7 +12,7 @@ namespace OpenWifi {
         //  do dome basic checking before we send this over.
         auto UserName = GetParameter("email","");
         Poco::toLowerInPlace(UserName);
-        auto SerialNumber = GetParameter("serialNumber","");
+        auto SerialNumber = GetParameter("macAddress","");
         Poco::toLowerInPlace(SerialNumber);
 
         if(!Utils::ValidSerialNumber(SerialNumber)) {

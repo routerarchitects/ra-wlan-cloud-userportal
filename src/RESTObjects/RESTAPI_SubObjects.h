@@ -250,6 +250,7 @@ namespace OpenWifi::SubObjects {
     struct AccessPoint {
         std::string                 id;
         std::string                 macAddress;
+        std::string                 serialNumber;
         std::string                 name;
         std::string                 deviceType;
         SubscriberDeviceList        subscriberDevices;
