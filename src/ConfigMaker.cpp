@@ -182,8 +182,10 @@ namespace OpenWifi {
                 DownstreamInterface["ipv4"]["addressing"] = "static";
                 uint64_t HowMany=0;
                 std::string FirstIPInRange;
-                CreateDHCPInfo(i.internetConnection.subnetMask,i.deviceMode.startIP,i.deviceMode.endIP,FirstIPInRange,HowMany);
-                DownstreamInterface["ipv4"]["subnet"] = i.internetConnection.subnetMask;
+                __DBG__
+                CreateDHCPInfo(i.deviceMode.subnet,i.deviceMode.startIP,i.deviceMode.endIP,FirstIPInRange,HowMany);
+                __DBG__
+                DownstreamInterface["ipv4"]["subnet"] = i.deviceMode.subnet;
                 DownstreamInterface["ipv4"]["dhcp"]["lease-first"] = FirstIPInRange;
                 DownstreamInterface["ipv4"]["dhcp"]["lease-count"] = HowMany;
                 DownstreamInterface["ipv4"]["dhcp"]["lease-time"] = i.deviceMode.leaseTime.empty() ? "24h" : i.deviceMode.leaseTime;
@@ -197,8 +199,11 @@ namespace OpenWifi {
                 DownstreamInterface["ipv4"]["addressing"] = "static";
                 uint64_t HowMany=0;
                 std::string FirstIPInRange;
-                CreateDHCPInfo(i.internetConnection.subnetMask,i.deviceMode.startIP,i.deviceMode.endIP,FirstIPInRange,HowMany);
-                DownstreamInterface["ipv4"]["subnet"] = i.internetConnection.subnetMask;
+                __DBG__
+                std::cout << "subnetmask: " << i.deviceMode.subnet << "  startip:" << i.deviceMode.startIP << "  endip:" << i.deviceMode.endIP << std::endl;
+                CreateDHCPInfo(i.deviceMode.subnet,i.deviceMode.startIP,i.deviceMode.endIP,FirstIPInRange,HowMany);
+                __DBG__
+                DownstreamInterface["ipv4"]["subnet"] = i.deviceMode.subnet;
                 DownstreamInterface["ipv4"]["dhcp"]["lease-first"] = FirstIPInRange;
                 DownstreamInterface["ipv4"]["dhcp"]["lease-count"] = HowMany;
                 DownstreamInterface["ipv4"]["dhcp"]["lease-time"] = i.deviceMode.leaseTime.empty() ? "24h" : i.deviceMode.leaseTime;
