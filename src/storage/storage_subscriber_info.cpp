@@ -82,7 +82,7 @@ namespace OpenWifi {
             SubObjects::WifiNetwork WN;
             WN.type = "main";
             WN.name = "OpenWifi-" + AP.macAddress.substr(6);
-            WN.password = Poco::toUpper(i.serialNumber);
+            WN.password = Poco::toUpper(AP.macAddress);
             WN.encryption = "wpa2-personal";
             if(AP.deviceType=="linksys_ea8300") {
                 WN.bands.emplace_back("2G");
