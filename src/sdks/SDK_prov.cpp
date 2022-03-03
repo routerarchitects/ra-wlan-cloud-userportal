@@ -125,7 +125,7 @@ namespace OpenWifi::SDK::Prov {
             Poco::JSON::Object  Body;
             auto API = OpenAPIRequestGet(uSERVICE_PROVISIONING, EndPoint, {
                     { "applyConfiguration", "true" }
-                }, 10000);
+                }, 30000);
 
             Poco::JSON::Object::Ptr CallResponse;
             std::cout << __LINE__ << std::endl;
