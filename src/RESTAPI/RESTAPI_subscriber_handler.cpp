@@ -43,14 +43,14 @@ namespace OpenWifi {
                             __DBG__
                             if (j.contains("ipv4") && j["ipv4"].contains("addresses")
                                 && j["ipv4"]["addresses"].is_array()
-                                && j.contains("location") && to_string(j["location"])=="/interfaces/0") {
+                                && j.contains("location") && j["location"]=="/interfaces/0") {
                                 auto IPparts = Poco::StringTokenizer(to_string(j["ipv4"]["addresses"][0]), "/");
                                 __DBG__
                                 std::cout << "0 " << IPparts[0] << "    1 " << IPparts[1] << std::endl;
                                 i.internetConnection.ipAddress = IPparts[0];
                                 i.internetConnection.subnetMask = IPparts[1];
-                                if(j["ipv4"].contains("dhcp_server"))
-                                    i.internetConnection.defaultGateway = to_string(j["ipv4"]["dhcp_server"]);
+                                if(j.contains("dhcp_server"))
+                                    i.internetConnection.defaultGateway = j["dhcp_server"];
                                 else
                                     i.internetConnection.defaultGateway = "-";
                             }
@@ -59,13 +59,13 @@ namespace OpenWifi {
                                 __DBG__
                                 auto dns = j["dns_servers"];
                                 if (!dns.empty() > 0)
-                                    i.internetConnection.primaryDns = to_string(dns[0]);
+                                    i.internetConnection.primaryDns = dns[0];
                                 else
                                     i.internetConnection.primaryDns = "---";
 
                                 __DBG__
                                 if (dns.size() > 1)
-                                    i.internetConnection.secondaryDns = to_string(dns[1]);
+                                    i.internetConnection.secondaryDns = dns[1];
                                 else
                                     i.internetConnection.secondaryDns = "---";
                             }
