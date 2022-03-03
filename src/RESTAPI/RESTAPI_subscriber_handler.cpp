@@ -71,12 +71,6 @@ namespace OpenWifi {
                                     else
                                         i.internetConnection.secondaryDns = "---";
                                 }
-                            } else {
-                                i.internetConnection.ipAddress = "----";
-                                i.internetConnection.subnetMask = "----";
-                                i.internetConnection.defaultGateway = "----";
-                                i.internetConnection.primaryDns = "----";
-                                i.internetConnection.secondaryDns = "----";
                             }
                         }
                     } catch(...) {
