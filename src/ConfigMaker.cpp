@@ -198,8 +198,8 @@ namespace OpenWifi {
                 DownstreamInterface["ipv4"]["dhcp"]["lease-count"] = HowMany;
                 DownstreamInterface["ipv4"]["dhcp"]["lease-time"] = i.deviceMode.leaseTime.empty() ? "24h" : i.deviceMode.leaseTime;
             } else if(i.deviceMode.type=="nat") {
-                UpstreamPort["select-ports"].push_back("LAN*");
-                DownstreamPort["select-ports"].push_back("WAN*");
+                UpstreamPort["select-ports"].push_back("WAN*");
+                DownstreamPort["select-ports"].push_back("LAN*");
                 DownstreamInterface["name"] = "LAN";
                 DownstreamInterface["role"] = "downstream";
                 DownstreamInterface["services"].push_back("lldp");
