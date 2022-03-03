@@ -48,7 +48,7 @@ namespace OpenWifi {
         HowMany = htonl(LA.s_addr) - htonl(FA.s_addr);
     }
 
-#define __DBG__ std::cout << __LINE__ << std::cout ;
+#define __DBG__ std::cout << __LINE__ << std::endl ;
     bool ConfigMaker::Prepare() {
 
         SubObjects::SubscriberInfo  SI;
