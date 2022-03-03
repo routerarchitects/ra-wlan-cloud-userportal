@@ -263,15 +263,22 @@ namespace OpenWifi {
                 DownstreamInterface["ssids"] = main_ssids;
             __DBG__
 
-            if(!UpstreamPort.empty())
-                UpstreamInterface["ethernet"] = UpstreamPort;
-            if(!DownstreamPort.empty())
-                DownstreamInterface["ethernet"] = DownstreamPort;
+            nlohmann::json  UpStreamEthernet,
+                            DownStreamEthernet;
+            if(!UpstreamPort.empty()) {
+                UpStreamEthernet.push_back(UpstreamPort);
+            }
+            if(!DownstreamPort.empty()) {
+                DownStreamEthernet.push_back(DownstreamPort);
+            }
             __DBG__
 
             if(i.deviceMode.type=="bridge") {
+                UpstreamInterface["ethernet"] = UpStreamEthernet;
                 Interfaces.push_back(UpstreamInterface);
             } else {
+                UpstreamInterface["ethernet"] = UpStreamEthernet;
+                DownstreamInterface["ethernet"] = DownStreamEthernet;
                 Interfaces.push_back(UpstreamInterface);
                 Interfaces.push_back(DownstreamInterface);
             }
