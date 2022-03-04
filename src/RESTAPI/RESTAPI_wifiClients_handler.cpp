@@ -57,16 +57,16 @@ namespace OpenWifi {
                                                 cur_client["ipv6_addresses"].is_array() &&
                                                 !cur_client["ipv6_addresses"].empty()) {
                                                 __DBG__
-                                                ipv6 = cur_client["ipv6_addresses"][0];
+                                                ipv6 = cur_client["ipv6_addresses"][0].get<std::string>();
                                             }
                                             if( cur_client.contains("ipv4_addresses") &&
                                                 cur_client["ipv4_addresses"].is_array() &&
                                                 !cur_client["ipv4_addresses"].empty()) {
                                                 __DBG__
-                                                ipv4 = cur_client["ipv4_addresses"][0];
+                                                ipv4 = cur_client["ipv4_addresses"][0].get<std::string>();
                                             }
                                             __DBG__
-                                            IPs[cur_client["mac"]] = std::make_pair(ipv4,ipv6);
+                                            IPs[cur_client["mac"].get<std::string>()] = std::make_pair(ipv4,ipv6);
                                             __DBG__
                                         }
                                     }
@@ -82,13 +82,13 @@ namespace OpenWifi {
                                             for (const auto &cur_client: cur_ssid["associations"]) {
                                                 SubObjects::Association Assoc;
                                                 __DBG__
-                                                Assoc.ssid = cur_ssid["ssid"];
-                                                Assoc.macAddress = cur_client["station"];
-                                                Assoc.rssi = cur_client["rssi"];
-                                                Assoc.rx = cur_client["rx_bytes"];
-                                                Assoc.tx = cur_client["tx_bytes"];
+                                                Assoc.ssid = cur_ssid["ssid"].get<std::string>();
+                                                Assoc.macAddress = cur_client["station"].get<std::string>();
+                                                Assoc.rssi = cur_client["rssi"].get<int32_t>();
+                                                Assoc.rx = cur_client["rx_bytes"].get<uint64_t>();
+                                                Assoc.tx = cur_client["tx_bytes"].get<uint64_t>();
                                                 Assoc.power = 0;
-                                                Assoc.name = cur_client["station"];
+                                                Assoc.name = cur_client["station"].get<std::string>();
                                                 __DBG__
                                                 auto which_ips = IPs.find(Assoc.macAddress);
                                                 __DBG__

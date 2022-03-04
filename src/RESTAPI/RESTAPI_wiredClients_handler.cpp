@@ -43,20 +43,20 @@ namespace OpenWifi {
                         if(Stats.contains("interfaces") && Stats["interfaces"].is_array()) {
                             auto interfaces = Stats["interfaces"];
                             for (const auto &cur_interface: interfaces) {
-                                if(cur_interface.contains("clients") && cur_interface["clients"].is_array()) {
+                                if(cur_interface.contains("clients") && cur_interface["clients"].is_array() && !cur_interface["clients"].empty()) {
                                     auto clients = cur_interface["clients"];
                                     for (const auto &cur_client: clients) {
                                         SubObjects::Client C;
 
                                         C.macAddress = cur_client["mac"];
-                                        if (cur_client.contains("ipv6_addresses") && cur_client["ipv6_addresses"].is_array()) {
+                                        if (cur_client.contains("ipv6_addresses") && cur_client["ipv6_addresses"].is_array() && !cur_client["ipv6_addresses"].empty()) {
                                             auto ipv6addresses = cur_client["ipv6_addresses"];
                                             for (const auto &cur_addr: ipv6addresses) {
                                                 C.ipv6 = cur_addr;
                                                 break;
                                             }
                                         }
-                                        if (cur_client.contains("ipv4_addresses") && cur_client["ipv4_addresses"].is_array()) {
+                                        if (cur_client.contains("ipv4_addresses") && cur_client["ipv4_addresses"].is_array() && !cur_client["ipv4_addresses"].empty()) {
                                             auto ipv4addresses = cur_client["ipv4_addresses"];
                                             for (const auto &cur_addr: ipv4addresses) {
                                                 C.ipv4 = cur_addr;

@@ -45,7 +45,7 @@ namespace OpenWifi {
 
                                 if( j["ipv4"]["addresses"].is_array()
                                     && !j["ipv4"]["addresses"].empty() ) {
-                                    auto IPparts = Poco::StringTokenizer(j["ipv4"]["addresses"][0], "/");
+                                    auto IPparts = Poco::StringTokenizer(j["ipv4"]["addresses"][0].get<std::string>(), "/");
                                     __DBG__
                                     std::cout << "0 " << IPparts[0] << "    1 " << IPparts[1] << std::endl;
                                     i.internetConnection.ipAddress = IPparts[0];
@@ -53,7 +53,7 @@ namespace OpenWifi {
                                 }
 
                                 if (j["ipv4"].contains("dhcp_server"))
-                                    i.internetConnection.defaultGateway = j["ipv4"]["dhcp_server"];
+                                    i.internetConnection.defaultGateway = j["ipv4"]["dhcp_server"].get<std::string>();
                                 else
                                     i.internetConnection.defaultGateway = "---";
 
@@ -62,13 +62,13 @@ namespace OpenWifi {
                                     __DBG__
                                     auto dns = j["dns_servers"];
                                     if (!dns.empty())
-                                        i.internetConnection.primaryDns = dns[0];
+                                        i.internetConnection.primaryDns = dns[0].get<std::string>();
                                     else
                                         i.internetConnection.primaryDns = "---";
 
                                     __DBG__
                                     if (dns.size() > 1)
-                                        i.internetConnection.secondaryDns = dns[1];
+                                        i.internetConnection.secondaryDns = dns[1].get<std::string>();
                                     else
                                         i.internetConnection.secondaryDns = "---";
                                 }
