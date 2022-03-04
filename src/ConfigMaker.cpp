@@ -9,10 +9,6 @@
 
 namespace OpenWifi {
 
-    bool ConfigMaker::Push() {
-        return false;
-    }
-
     static std::string ConvertBand(const std::string &B) {
         if(B=="2G") return "2G";
         if(B=="6G") return "6G";
@@ -56,7 +52,8 @@ namespace OpenWifi {
         DHCPFirst = htonl(FA.s_addr) & SubNetBitMask;
     }
 
-#define __DBG__ std::cout << __LINE__ << std::endl ;
+// #define __DBG__ std::cout << __LINE__ << std::endl ;
+#define __DBG__
     bool ConfigMaker::Prepare() {
 
         SubObjects::SubscriberInfo  SI;
@@ -133,9 +130,10 @@ namespace OpenWifi {
             nlohmann::json DownstreamInterface;
             nlohmann::json radios;
 
-            std::cout << "Generating configs: " << i.macAddress << std::endl;
             if(i.macAddress.empty())
                 continue;
+
+            Logger_.information(Poco::format("%s: Generating configuration.",i.macAddress));
 
             UpstreamInterface["name"] = "WAN";
             UpstreamInterface["role"] = "upstream";
@@ -406,16 +404,16 @@ namespace OpenWifi {
                 __DBG__
                 if(SDK::Prov::Configuration::Create(nullptr, i.serialNumber, Cfg, CfgUUID)) {
                     i.configurationUUID = CfgUUID;
-                    std::cout << "Created and assigned configuration: " << i.macAddress << std::endl;
+                    Logger_.information(Poco::format("%s: Created and assigned configuration.", i.macAddress ));
                     // now push the configuration to the device...
                     ProvObjects::InventoryConfigApplyResult Results;
                     if(SDK::Prov::Configuration::Push(nullptr, i.serialNumber, Results)) {
-                        std::cout << "Configuration pushed" << std::endl;
+                        Logger_.information(Poco::format("%s: Pushed configuration to device.", i.macAddress ));
                     } else {
-                        std::cout << "Configuration was not pushed" << std::endl;
+                        Logger_.information(Poco::format("%s: Could not push configuration to device.", i.macAddress ));
                     }
                 } else {
-                    std::cout << "Failure to create configuration: " << i.macAddress << std::endl;
+                    Logger_.information(Poco::format("%s: Could not create configuration for device.", i.macAddress ));
                     return false;
                 }
             } else {
@@ -428,16 +426,16 @@ namespace OpenWifi {
 
                 __DBG__
                 if(SDK::Prov::Configuration::Update(nullptr,i.configurationUUID,Cfg)) {
-                    std::cout << "Modified configuration: " << i.macAddress << std::endl;
+                    Logger_.information(Poco::format("%s: Configuration modified for device.", i.macAddress ));
                     // Now push the configuration...
                     ProvObjects::InventoryConfigApplyResult Results;
                     if(SDK::Prov::Configuration::Push(nullptr, i.serialNumber, Results)) {
-                        std::cout << "Configuration pushed" << std::endl;
+                        Logger_.information(Poco::format("%s: Pushed configuration to device.", i.macAddress ));
                     } else {
-                        std::cout << "Configuration was not pushed" << std::endl;
+                        Logger_.information(Poco::format("%s: Could not push configuration to device.", i.macAddress ));
                     }
                 } else {
-                    std::cout << "failure to modify configuration: " << i.macAddress << std::endl;
+                    Logger_.information(Poco::format("%s: Could not modify configuration for device.", i.macAddress ));
                     return false;
                 }
             }

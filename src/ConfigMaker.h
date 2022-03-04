@@ -10,12 +10,14 @@
 namespace OpenWifi {
     class ConfigMaker {
     public:
-        explicit ConfigMaker(const std::string &Id) :
+        explicit ConfigMaker(Poco::Logger &L, const std::string &Id):
+                Logger_(L),
                 id_(Id) {
         }
         bool Prepare();
         bool Push();
     private:
+        Poco::Logger        &Logger_;
         const std::string   id_;
         bool                bad_=false;
     };

@@ -10,8 +10,8 @@
 #include "sdks/SDK_gw.h"
 #include "ConfigMaker.h"
 
-#define __DBG__ std::cout << __LINE__ << std::endl ;
-
+// #define __DBG__ std::cout << __LINE__ << std::endl ;
+#define __DBG__
 namespace OpenWifi {
 
     void RESTAPI_subscriber_handler::DoGet() {
@@ -20,7 +20,7 @@ namespace OpenWifi {
             return NotFound();
         }
 
-        std::cout << "Getting default subscriber info: " << UserInfo_.userinfo.id << std::endl;
+        Logger().information(Poco::format("%s: Get basic info.", UserInfo_.userinfo.email));
         SubObjects::SubscriberInfo  SI;
         if(StorageService()->SubInfoDB().GetRecord("id", UserInfo_.userinfo.id,SI)) {
             __DBG__
@@ -41,13 +41,13 @@ namespace OpenWifi {
                         __DBG__
                         for (const auto &j: LA["interfaces"]) {
                             __DBG__
-                            if (j.contains("location") && j["location"]=="/interfaces/0" && j.contains("ipv4")) {
+                            if (j.contains("location") && j["location"].get<std::string>()=="/interfaces/0" && j.contains("ipv4")) {
 
                                 if( j["ipv4"]["addresses"].is_array()
                                     && !j["ipv4"]["addresses"].empty() ) {
                                     auto IPparts = Poco::StringTokenizer(j["ipv4"]["addresses"][0].get<std::string>(), "/");
                                     __DBG__
-                                    std::cout << "0 " << IPparts[0] << "    1 " << IPparts[1] << std::endl;
+//                                    std::cout << "0 " << IPparts[0] << "    1 " << IPparts[1] << std::endl;
                                     i.internetConnection.ipAddress = IPparts[0];
                                     i.internetConnection.subnetMask = IPparts[1];
                                 }
@@ -107,16 +107,16 @@ namespace OpenWifi {
             return BadRequest("No devices activated yet.");
         }
 
-        std::cout << "Creating default subscriber info: " << UserInfo_.userinfo.id << std::endl;
+        // std::cout << "Creating default subscriber info: " << UserInfo_.userinfo.id << std::endl;
+        Logger().information(Poco::format("%s: Creating default user information.", UserInfo_.userinfo.email));
         StorageService()->SubInfoDB().CreateDefaultSubscriberInfo(UserInfo_, SI, DeviceIds);
-        std::cout << "Creating default subscriber info: " << SI.id << std::endl;
+        // std::cout << "Creating default subscriber info: " << SI.id << std::endl;
+        Logger().information(Poco::format("%s: Creating default configuration.", UserInfo_.userinfo.email));
         StorageService()->SubInfoDB().CreateRecord(SI);
-        std::cout << "Creating default subscriber info: " << SI.id << std::endl;
 
-        std::cout << "Creating default config..." << std::endl;
-        ConfigMaker     InitialConfig(SI.id);
+        Logger().information(Poco::format("%s: Generating initial configuration.", UserInfo_.userinfo.email));
+        ConfigMaker     InitialConfig(Logger(),SI.id);
         InitialConfig.Prepare();
-
         StorageService()->SubInfoDB().GetRecord("id", SI.id, SI);
 
         Poco::JSON::Object  Answer;
@@ -139,7 +139,7 @@ namespace OpenWifi {
         }
 
         if(ApplyConfigOnly) {
-            ConfigMaker     InitialConfig(UserInfo_.userinfo.id);
+            ConfigMaker     InitialConfig(Logger(),UserInfo_.userinfo.id);
             if(InitialConfig.Prepare())
                 return OK();
             else
@@ -186,7 +186,7 @@ namespace OpenWifi {
 
         if(StorageService()->SubInfoDB().UpdateRecord("id",UserInfo_.userinfo.id, Existing)) {
             if(ConfigChanged) {
-                ConfigMaker     InitialConfig(UserInfo_.userinfo.id);
+                ConfigMaker     InitialConfig(Logger(),UserInfo_.userinfo.id);
                 InitialConfig.Prepare();
             }
             SubObjects::SubscriberInfo  Modified;

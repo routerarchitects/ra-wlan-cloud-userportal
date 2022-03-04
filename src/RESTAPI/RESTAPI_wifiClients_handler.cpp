@@ -7,8 +7,8 @@
 #include "StorageService.h"
 #include "sdks/SDK_gw.h"
 
-#define __DBG__ std::cout << __LINE__ << std::endl ;
-
+// #define __DBG__ std::cout << __LINE__ << std::endl ;
+#define __DBG__
 namespace OpenWifi {
 
     void RESTAPI_wifiClients_handler::DoGet() {
@@ -16,6 +16,8 @@ namespace OpenWifi {
         if(SerialNumber.empty()) {
             return BadRequest(RESTAPI::Errors::MissingSerialNumber);
         }
+
+        Logger().information(Poco::format("%s: Getting list of wireless clients.",SerialNumber));
 
         SubObjects::SubscriberInfo  SI;
         if(!StorageService()->SubInfoDB().GetRecord("id",UserInfo_.userinfo.id,SI)) {
