@@ -61,7 +61,7 @@ namespace OpenWifi {
                                 if (j.contains("dns_servers") && j["dns_servers"].is_array()) {
                                     __DBG__
                                     auto dns = j["dns_servers"];
-                                    if (!dns.empty() > 0)
+                                    if (!dns.empty())
                                         i.internetConnection.primaryDns = dns[0];
                                     else
                                         i.internetConnection.primaryDns = "---";

@@ -6,6 +6,7 @@
 #include "RESTObjects/RESTAPI_SubObjects.h"
 #include "nlohmann/json.hpp"
 #include "StorageService.h"
+#include "sdks/SDK_gw.h"
 
 namespace OpenWifi {
 
@@ -22,51 +23,50 @@ namespace OpenWifi {
 
         for (const auto &i: SI.accessPoints.list) {
             if (SerialNumber == i.macAddress) {
-                //  Get the last stats for this device
-                //  https://${OWGW}/api/v1/device/$1/statistics?lastOnly=true
-                Types::StringPairVec QD{{"lastOnly", "true"}};
-                std::string EndPoint{"/api/v1/device/" + i.serialNumber + "/statistics"};
-                OpenAPIRequestGet Api(uSERVICE_GATEWAY, EndPoint, QD, 20000);
 
-                Poco::JSON::Object::Ptr CallResponse;
-                auto ResponseStatus = Api.Do(CallResponse, UserInfo_.webtoken.access_token_);
                 Poco::JSON::Object Answer;
-                uint64_t Now = std::time(nullptr);
+                uint64_t Now = OpenWifi::Now();
                 Answer.set("created", Now);
                 Answer.set("modified", Now);
                 SubObjects::ClientList CList;
                 CList.modified = CList.created = Now;
-                if (ResponseStatus == Poco::Net::HTTPServerResponse::HTTP_OK) {
+                Poco::JSON::Object::Ptr LastStats;
+
+                if(SDK::GW::Device::GetLastStats(nullptr,i.serialNumber,LastStats)){
+
+                    SubObjects::AssociationList AssocList;
+                    AssocList.modified = AssocList.created = Now;
                     std::stringstream SS;
-                    Poco::JSON::Stringifier::condense(CallResponse, SS);
+                    LastStats->stringify(SS);
                     try {
-                        auto stats = nlohmann::json::parse(SS.str());
-                        auto ifs = stats["interfaces"];
+                        auto Stats = nlohmann::json::parse(SS.str());
+                        if(Stats.contains("interfaces") && Stats["interfaces"].is_array()) {
+                            auto interfaces = Stats["interfaces"];
+                            for (const auto &cur_interface: interfaces) {
+                                if(cur_interface.contains("clients") && cur_interface["clients"].is_array()) {
+                                    auto clients = cur_interface["clients"];
+                                    for (const auto &cur_client: clients) {
+                                        SubObjects::Client C;
 
-                        for (const auto &i: ifs) {
-                            if (i.contains("clients")) {
-                                auto clients = i["clients"];
-                                for (const auto &i: clients) {
-                                    SubObjects::Client C;
-
-                                    C.macAddress = i["mac"];
-                                    if (i.contains("ipv6_addresses")) {
-                                        auto ipv6addresses = i["ipv6_addresses"];
-                                        for (const auto &j: ipv6addresses) {
-                                            C.ipv6 = j;
-                                            break;
+                                        C.macAddress = cur_client["mac"];
+                                        if (cur_client.contains("ipv6_addresses") && cur_client["ipv6_addresses"].is_array()) {
+                                            auto ipv6addresses = cur_client["ipv6_addresses"];
+                                            for (const auto &cur_addr: ipv6addresses) {
+                                                C.ipv6 = cur_addr;
+                                                break;
+                                            }
                                         }
-                                    }
-                                    if (i.contains("ipv4_addresses")) {
-                                        auto ipv4addresses = i["ipv4_addresses"];
-                                        for (const auto &j: ipv4addresses) {
-                                            C.ipv4 = j;
+                                        if (cur_client.contains("ipv4_addresses") && cur_client["ipv4_addresses"].is_array()) {
+                                            auto ipv4addresses = cur_client["ipv4_addresses"];
+                                            for (const auto &cur_addr: ipv4addresses) {
+                                                C.ipv4 = cur_addr;
+                                            }
                                         }
+                                        C.tx = C.rx = 0;
+                                        C.speed = "auto";
+                                        C.mode = "auto";
+                                        CList.clients.push_back(C);
                                     }
-                                    C.tx = C.rx = 0;
-                                    C.speed = "auto";
-                                    C.mode = "auto";
-                                    CList.clients.push_back(C);
                                 }
                             }
                         }

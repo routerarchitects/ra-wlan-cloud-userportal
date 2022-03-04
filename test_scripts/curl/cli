@@ -148,7 +148,7 @@ getmyinfo() {
 }
 
 reboot() {
-    payload="{ \"mac\" : \"$1\" , \"when\" : 0 }"
+    payload="{ \"mac\" : \"04f8f8fc3771\" , \"when\" : 0 }"
     curl ${FLAGS} -X POST "https://${target_service_endpoint}/api/v1/action?action=reboot" \
         -H "Content-Type: application/json" \
         -H "Authorization: Bearer ${token}" \
