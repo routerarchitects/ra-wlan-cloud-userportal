@@ -8,6 +8,7 @@
 #include "SubscriberCache.h"
 #include "sdks/SDK_prov.h"
 #include "sdks/SDK_gw.h"
+#include "sdks/SDK_fms.h"
 #include "ConfigMaker.h"
 
 // #define __DBG__ std::cout << __LINE__ << std::endl ;
@@ -89,6 +90,16 @@ namespace OpenWifi {
                     i.internetConnection.defaultGateway = "-";
                     i.internetConnection.primaryDns = "-";
                     i.internetConnection.secondaryDns = "-";
+                }
+
+                FMSObjects::DeviceInformation   DI;
+                if(SDK::FMS::Firmware::GetDeviceInformation(nullptr,i.serialNumber,DI)) {
+                    i.currentFirmwareDate = DI.currentFirmwareDate;
+                    i.currentFirmware = DI.currentFirmware;
+                    i.latestFirmwareDate = DI.latestFirmwareDate;
+                    i.latestFirmware = DI.latestFirmware;
+                    i.newFirmwareAvailable = DI.latestFirmwareAvailable;
+                    i.latestFirmwareURI = DI.latestFirmwareURI;
                 }
             }
 

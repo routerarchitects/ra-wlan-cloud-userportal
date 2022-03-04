@@ -263,6 +263,12 @@ namespace OpenWifi::SubObjects {
         std::vector<RadioInformation>   radios;
         bool                        automaticUpgrade = true;
         std::string                 configurationUUID;
+        std::string                 currentFirmware;
+        uint64_t                    currentFirmwareDate;
+        std::string                 latestFirmware;
+        uint64_t                    latestFirmwareDate;
+        bool                        newFirmwareAvailable;
+        std::string                 latestFirmwareURI;
 
         void to_json(Poco::JSON::Object &Obj) const;
         bool from_json(const Poco::JSON::Object::Ptr &Obj);

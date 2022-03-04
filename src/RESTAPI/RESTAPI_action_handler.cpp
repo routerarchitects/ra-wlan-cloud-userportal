@@ -6,6 +6,7 @@
 #include "SubscriberCache.h"
 #include "StorageService.h"
 #include "sdks/SDK_gw.h"
+#include "ConfigMaker.h"
 
 namespace OpenWifi {
 
@@ -48,11 +49,15 @@ namespace OpenWifi {
                 } else if(Command == "blink") {
                     return SDK::GW::Device::LEDs(this, i.serialNumber, When, Duration, Pattern);
                 } else if(Command == "upgrade") {
-                    return SDK::GW::Device::Upgrade(this, i.serialNumber, When, ImageName, keepRedirector);
+                    return SDK::GW::Device::Upgrade(this, i.serialNumber, When, i.latestFirmwareURI, keepRedirector);
                 } else if(Command == "factory") {
                     return SDK::GW::Device::Factory(this, i.serialNumber, When, keepRedirector);
                 } else if(Command == "refresh") {
-                    return SDK::GW::Device::Refresh(this, i.serialNumber, When);
+                    ConfigMaker     InitialConfig(Logger(),UserInfo_.userinfo.id);
+                    if(InitialConfig.Prepare())
+                        return OK();
+                    else
+                        return InternalError("Configuration could not be refreshed.");
                 } else {
                     return BadRequest(RESTAPI::Errors::MissingOrInvalidParameters);
                 }

@@ -478,6 +478,12 @@ namespace OpenWifi::SubObjects {
         field_to_json(Obj, "radios", radios);
         field_to_json(Obj, "automaticUpgrade", automaticUpgrade);
         field_to_json(Obj, "configurationUUID", configurationUUID);
+        field_to_json(Obj, "currentFirmware", currentFirmware);
+        field_to_json(Obj, "currentFirmwareDate", currentFirmwareDate);
+        field_to_json(Obj, "latestFirmware", latestFirmware);
+        field_to_json(Obj, "latestFirmwareDate", latestFirmwareDate);
+        field_to_json(Obj, "newFirmwareAvailable", newFirmwareAvailable);
+        field_to_json(Obj, "latestFirmwareURI", latestFirmwareURI);
     }
 
     bool AccessPoint::from_json(const Poco::JSON::Object::Ptr &Obj) {
@@ -497,6 +503,12 @@ namespace OpenWifi::SubObjects {
             field_from_json(Obj, "radios", radios);
             field_from_json(Obj, "automaticUpgrade", automaticUpgrade);
             field_from_json(Obj, "configurationUUID", configurationUUID);
+            field_from_json(Obj, "currentFirmware", currentFirmware);
+            field_from_json(Obj, "currentFirmwareDate", currentFirmwareDate);
+            field_from_json(Obj, "latestFirmware", latestFirmware);
+            field_from_json(Obj, "latestFirmwareDate", latestFirmwareDate);
+            field_from_json(Obj, "newFirmwareAvailable", newFirmwareAvailable);
+            field_from_json(Obj, "latestFirmwareURI", latestFirmwareURI);
             return true;
         } catch (...) {
         }
