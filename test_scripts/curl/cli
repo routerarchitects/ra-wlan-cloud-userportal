@@ -166,7 +166,7 @@ blink() {
 }
 
 wificlients() {
-    curl ${FLAGS} -X GET "https://${target_service_endpoint}/api/v1/wificlients?serialNumber=$1" \
+    curl ${FLAGS} -X GET "https://${target_service_endpoint}/api/v1/wificlients?serialNumber=04f8f8fc3771" \
         -H "Content-Type: application/json" \
         -H "Authorization: Bearer ${token}" > ${result_file}
     jq < ${result_file}
