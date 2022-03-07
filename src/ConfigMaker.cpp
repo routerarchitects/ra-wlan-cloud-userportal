@@ -401,16 +401,23 @@ namespace OpenWifi {
                 std::string CfgUUID;
                 __DBG__
                 if(SDK::Prov::Configuration::Create(nullptr, i.serialNumber, Cfg, CfgUUID)) {
+                    __DBG__
                     i.configurationUUID = CfgUUID;
+                    __DBG__
                     Logger_.information(Poco::format("%s: Created and assigned configuration.", i.macAddress ));
                     // now push the configuration to the device...
                     ProvObjects::InventoryConfigApplyResult Results;
+                    __DBG__
                     if(SDK::Prov::Configuration::Push(nullptr, i.serialNumber, Results)) {
+                        __DBG__
                         Logger_.information(Poco::format("%s: Pushed configuration to device.", i.macAddress ));
                     } else {
+                        __DBG__
                         Logger_.information(Poco::format("%s: Could not push configuration to device.", i.macAddress ));
                     }
+                    __DBG__
                 } else {
+                    __DBG__
                     Logger_.information(Poco::format("%s: Could not create configuration for device.", i.macAddress ));
                     return false;
                 }
