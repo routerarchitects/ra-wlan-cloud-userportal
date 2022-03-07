@@ -127,7 +127,7 @@ namespace OpenWifi::SDK::Prov {
                     { "applyConfiguration", "true" }
                 }, 30000);
 
-            Poco::JSON::Object::Ptr CallResponse;
+            auto CallResponse = Poco::makeShared<Poco::JSON::Object>();
             std::cout << __LINE__ << std::endl;
             auto ResponseStatus = API.Do(CallResponse, client == nullptr ? "" : client->UserInfo_.webtoken.access_token_);
             std::cout << __LINE__ << std::endl;
