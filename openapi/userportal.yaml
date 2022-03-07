@@ -263,8 +263,11 @@ components:
             - guest
         name:
           type: string
+          maxLength: 32
         password:
           type: string
+          minLength: 8
+          maxLength: 32
         encryption:
           type: string
           enum:

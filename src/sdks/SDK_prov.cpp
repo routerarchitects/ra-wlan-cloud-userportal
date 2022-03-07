@@ -160,7 +160,7 @@ namespace OpenWifi::SDK::Prov {
             return false;
         }
 
-        bool ReturnDeviceToInventory(RESTAPIHandler *client, const std::vector<std::string> &SerialNumbers) {
+        bool ReturnDeviceToInventory(RESTAPIHandler *client, const std::string &SubscriberId, const std::string &SerialNumber) {
             return false;
         }
     }

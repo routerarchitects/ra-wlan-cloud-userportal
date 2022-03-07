@@ -203,21 +203,28 @@ namespace OpenWifi {
             Modified.to_json(Answer);
             return ReturnObject(Answer);
         }
-
         return InternalError("Profile could not be updated. Try again.");
     }
 
     void RESTAPI_subscriber_handler::DoDelete() {
         if(Internal_) {
-            auto email = GetParameter("email","");
-            if(email.empty())
+            auto id = GetParameter("id","");
+            if(id.empty())
                 return BadRequest(RESTAPI::Errors::MissingOrInvalidParameters);
-            StorageService()->SubInfoDB().DeleteRecord("userId",email);
+            StorageService()->SubInfoDB().DeleteRecord("id",id);
             return OK();
         }
 
         //  delete my devices...
-        StorageService()->SubInfoDB().DeleteRecord("userId",UserInfo_.userinfo.email);
-        SDK::Sec::Subscriber::Delete(this,UserInfo_.userinfo.id);
+        SubObjects::SubscriberInfo  SI;
+        if(StorageService()->SubInfoDB().GetRecord("id",UserInfo_.userinfo.id,SI)) {
+            for(const auto &i:SI.accessPoints.list) {
+                SDK::Prov::Subscriber::ReturnDeviceToInventory(this,UserInfo_.userinfo.id,i.serialNumber);
+            }
+            SDK::Sec::Subscriber::Delete(this, UserInfo_.userinfo.id);
+            StorageService()->SubInfoDB().DeleteRecord("id", UserInfo_.userinfo.id);
+            return OK();
+        }
+        return NotFound();
     }
 }
