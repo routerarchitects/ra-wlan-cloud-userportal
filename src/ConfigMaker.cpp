@@ -296,9 +296,9 @@ namespace OpenWifi {
                 __DBG__
                 GuestInterface["ipv4"]["subnet"] = "192.168.10.1/24";
                 __DBG__
-                GuestInterface["ipv4"]["subnet"]["lease-first"] = 10;
+                GuestInterface["ipv4"]["subnet"]["lease-first"] = (uint64_t )10;
                 __DBG__
-                GuestInterface["ipv4"]["subnet"]["lease-count"] = 100;
+                GuestInterface["ipv4"]["subnet"]["lease-count"] = (uint64_t )100;
                 __DBG__
                 GuestInterface["ipv4"]["subnet"]["lease-time"] = "6h";
                 __DBG__
