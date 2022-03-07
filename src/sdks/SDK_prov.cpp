@@ -54,7 +54,7 @@ namespace OpenWifi::SDK::Prov {
             return false;
         }
 
-        bool Create( RESTAPIHandler *client, const std::string & Mac, const ProvObjects::DeviceConfiguration & Config , std::string & ConfigUUID) {
+        bool Create( RESTAPIHandler *client, const std::string & SerialNumber, const ProvObjects::DeviceConfiguration & Config , std::string & ConfigUUID) {
             std::string         EndPoint = "/api/v1/configurations/0" ;
             Poco::JSON::Object  Body;
             Config.to_json(Body);
@@ -83,9 +83,9 @@ namespace OpenWifi::SDK::Prov {
             std::cout << __LINE__ << std::endl;
 
             Body.clear();
-            Body.set("serialNumber", Mac);
-            Body.set("deviceConfiguration", NewConfig.info.id);
-            EndPoint = "/api/v1/inventory/" + Mac ;
+            Body.set("serialNumber", SerialNumber);
+            Body.set("deviceConfiguration", ConfigUUID);
+            EndPoint = "/api/v1/inventory/" + SerialNumber;
             auto API2 = OpenAPIRequestPut(uSERVICE_PROVISIONING, EndPoint, {}, Body, 10000);
             CallResponse->clear();
             ResponseStatus = API2.Do(CallResponse, client == nullptr ? "" : client->UserInfo_.webtoken.access_token_);
@@ -94,7 +94,7 @@ namespace OpenWifi::SDK::Prov {
                 std::cout << __LINE__ << std::endl;
                 std::ostringstream OS;
                 CallResponse->stringify(OS);
-                std::cout << "ASSIGN: " << OS.str() << std::endl;
+                std::cout << "NOT ASSIGN: " << OS.str() << std::endl;
                 return false;
             }
             std::cout << __LINE__ << std::endl;
