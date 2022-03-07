@@ -285,13 +285,21 @@ namespace OpenWifi {
             if(hasGuest) {
                 __DBG__
                 nlohmann::json GuestInterface;
+                __DBG__
                 GuestInterface["name"] = "Guest";
+                __DBG__
                 GuestInterface["role"] = "downstream";
+                __DBG__
                 GuestInterface["isolate-hosts"] = true;
+                __DBG__
                 GuestInterface["ipv4"]["addressing"] = "static";
+                __DBG__
                 GuestInterface["ipv4"]["subnet"] = "192.168.10.1/24";
+                __DBG__
                 GuestInterface["ipv4"]["subnet"]["lease-first"] = 10;
+                __DBG__
                 GuestInterface["ipv4"]["subnet"]["lease-count"] = 100;
+                __DBG__
                 GuestInterface["ipv4"]["subnet"]["lease-time"] = "6h";
                 __DBG__
                 GuestInterface["ssids"] = guest_ssids;
