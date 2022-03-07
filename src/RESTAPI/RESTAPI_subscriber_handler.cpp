@@ -9,10 +9,12 @@
 #include "sdks/SDK_prov.h"
 #include "sdks/SDK_gw.h"
 #include "sdks/SDK_fms.h"
+#include "sdks/SDK_sec.h"
+
 #include "ConfigMaker.h"
 
-// #define __DBG__ std::cout << __LINE__ << std::endl ;
-#define __DBG__
+#define __DBG__ std::cout << __LINE__ << std::endl ;
+// #define __DBG__
 namespace OpenWifi {
 
     void RESTAPI_subscriber_handler::DoGet() {
@@ -24,9 +26,9 @@ namespace OpenWifi {
         Logger().information(Poco::format("%s: Get basic info.", UserInfo_.userinfo.email));
         SubObjects::SubscriberInfo  SI;
         if(StorageService()->SubInfoDB().GetRecord("id", UserInfo_.userinfo.id,SI)) {
-            __DBG__
             //  we need to get the stats for each AP
             for(auto &i:SI.accessPoints.list) {
+                __DBG__
                 if(i.macAddress.empty())
                     continue;
                 __DBG__
@@ -36,22 +38,18 @@ namespace OpenWifi {
                     std::ostringstream OS;
                     __DBG__
                     LastStats->stringify(OS);
-                    __DBG__
                     try {
                         nlohmann::json LA = nlohmann::json::parse(OS.str());
-                        __DBG__
                         for (const auto &j: LA["interfaces"]) {
-                            __DBG__
                             if (j.contains("location") && j["location"].get<std::string>()=="/interfaces/0" && j.contains("ipv4")) {
 
                                 if( j["ipv4"]["addresses"].is_array()
                                     && !j["ipv4"]["addresses"].empty() ) {
                                     auto IPparts = Poco::StringTokenizer(j["ipv4"]["addresses"][0].get<std::string>(), "/");
-                                    __DBG__
-//                                    std::cout << "0 " << IPparts[0] << "    1 " << IPparts[1] << std::endl;
                                     i.internetConnection.ipAddress = IPparts[0];
                                     i.internetConnection.subnetMask = IPparts[1];
                                 }
+                                __DBG__
 
                                 if (j["ipv4"].contains("dhcp_server"))
                                     i.internetConnection.defaultGateway = j["ipv4"]["dhcp_server"].get<std::string>();
@@ -60,14 +58,12 @@ namespace OpenWifi {
 
                                 __DBG__
                                 if (j.contains("dns_servers") && j["dns_servers"].is_array()) {
-                                    __DBG__
                                     auto dns = j["dns_servers"];
+                                    __DBG__
                                     if (!dns.empty())
                                         i.internetConnection.primaryDns = dns[0].get<std::string>();
                                     else
                                         i.internetConnection.primaryDns = "---";
-
-                                    __DBG__
                                     if (dns.size() > 1)
                                         i.internetConnection.secondaryDns = dns[1].get<std::string>();
                                     else
@@ -92,6 +88,7 @@ namespace OpenWifi {
                     i.internetConnection.secondaryDns = "-";
                 }
 
+                __DBG__
                 FMSObjects::DeviceInformation   DI;
                 if(SDK::FMS::Firmware::GetDeviceInformation(nullptr,i.serialNumber,DI)) {
                     i.currentFirmwareDate = DI.currentFirmwareDate;
@@ -101,6 +98,7 @@ namespace OpenWifi {
                     i.newFirmwareAvailable = DI.latestFirmwareAvailable;
                     i.latestFirmwareURI = DI.latestFirmwareURI;
                 }
+                __DBG__
             }
 
             Poco::JSON::Object  Answer;
@@ -209,4 +207,17 @@ namespace OpenWifi {
         return InternalError("Profile could not be updated. Try again.");
     }
 
+    void RESTAPI_subscriber_handler::DoDelete() {
+        if(Internal_) {
+            auto email = GetParameter("email","");
+            if(email.empty())
+                return BadRequest(RESTAPI::Errors::MissingOrInvalidParameters);
+            StorageService()->SubInfoDB().DeleteRecord("userId",email);
+            return OK();
+        }
+
+        //  delete my devices...
+        StorageService()->SubInfoDB().DeleteRecord("userId",UserInfo_.userinfo.email);
+        SDK::Sec::Subscriber::Delete(this,UserInfo_.userinfo.id);
+    }
 }

@@ -1012,6 +1012,17 @@ paths:
           $ref: '#/components/schemas/SubscriberInfo'
         400:
           $ref: '#/components/responses/Error'
+    delete:
+      tags:
+        - Subscriber Information
+      summary: Remove the subscriber from the DB
+      operationId: deleteSubscriberInfo
+      responses:
+        200:
+          $ref: '#/components/responses/Success'
+        400:
+          $ref: '#/components/responses/Error'
+
 
   /wiredclients:
     get:

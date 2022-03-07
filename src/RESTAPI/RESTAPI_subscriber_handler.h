@@ -14,6 +14,7 @@ namespace OpenWifi {
                          std::vector<std::string>{
             Poco::Net::HTTPRequest::HTTP_GET,
             Poco::Net::HTTPRequest::HTTP_PUT,
+            Poco::Net::HTTPRequest::HTTP_DELETE,
             Poco::Net::HTTPRequest::HTTP_OPTIONS},
             Server,
             TransactionId,
@@ -24,7 +25,7 @@ namespace OpenWifi {
         void DoGet() final;
         void DoPost() final {};
         void DoPut() final;
-        void DoDelete() final {};
+        void DoDelete() final;
     private:
     };
 }

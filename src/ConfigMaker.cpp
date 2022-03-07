@@ -52,8 +52,8 @@ namespace OpenWifi {
         DHCPFirst = htonl(FA.s_addr) & SubNetBitMask;
     }
 
-// #define __DBG__ std::cout << __LINE__ << std::endl ;
-#define __DBG__
+#define __DBG__ std::cout << __LINE__ << std::endl ;
+// #define __DBG__
     bool ConfigMaker::Prepare() {
 
         SubObjects::SubscriberInfo  SI;
@@ -396,7 +396,7 @@ namespace OpenWifi {
                 //  we need to create this configuration and associate it to this device.
                 __DBG__
                 Cfg.subscriberOnly = true;
-                Cfg.subscriber = SI.userId;
+                Cfg.subscriber = SI.id;
                 Cfg.info.name = "sub:" + i.macAddress;
                 __DBG__
                 Cfg.info.notes.emplace_back(SecurityObjects::NoteInfo{.created=OpenWifi::Now(), .note="Auto-created from subscriber service."});
@@ -430,11 +430,14 @@ namespace OpenWifi {
                     // Now push the configuration...
                     ProvObjects::InventoryConfigApplyResult Results;
                     if(SDK::Prov::Configuration::Push(nullptr, i.serialNumber, Results)) {
+                        __DBG__
                         Logger_.information(Poco::format("%s: Pushed configuration to device.", i.macAddress ));
                     } else {
+                        __DBG__
                         Logger_.information(Poco::format("%s: Could not push configuration to device.", i.macAddress ));
                     }
                 } else {
+                    __DBG__
                     Logger_.information(Poco::format("%s: Could not modify configuration for device.", i.macAddress ));
                     return false;
                 }

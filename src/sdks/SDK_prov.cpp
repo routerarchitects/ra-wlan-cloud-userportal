@@ -160,18 +160,8 @@ namespace OpenWifi::SDK::Prov {
             return false;
         }
 
-        bool ClaimDevice(RESTAPIHandler *client, const std::string & Mac, ProvObjects::InventoryTag & DeviceInfo) {
-            std::string         EndPoint = "/api/v1/inventory/" + Mac;
-            Poco::JSON::Object  Body;
-
-            auto API = OpenAPIRequestPut(uSERVICE_PROVISIONING, EndPoint, { { "claimer" , client->UserInfo_.userinfo.id } }, Body, 60000);
-            Poco::JSON::Object::Ptr CallResponse;
-            auto ResponseStatus = API.Do(CallResponse, client->UserInfo_.webtoken.access_token_);
-            if(ResponseStatus != Poco::Net::HTTPServerResponse::HTTP_OK) {
-                return false;
-            }
-            DeviceInfo.from_json(CallResponse);
-            return true;
+        bool ReturnDeviceToInventory(RESTAPIHandler *client, const std::vector<std::string> &SerialNumbers) {
+            return false;
         }
     }
 
