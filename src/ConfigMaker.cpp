@@ -283,29 +283,17 @@ namespace OpenWifi {
             __DBG__
 
             if(hasGuest) {
-                __DBG__
                 nlohmann::json GuestInterface;
-                __DBG__
                 GuestInterface["name"] = "Guest";
-                __DBG__
                 GuestInterface["role"] = "downstream";
-                __DBG__
                 GuestInterface["isolate-hosts"] = true;
-                __DBG__
                 GuestInterface["ipv4"]["addressing"] = "static";
-                __DBG__
                 GuestInterface["ipv4"]["subnet"] = "192.168.10.1/24";
-                __DBG__
                 GuestInterface["ipv4"]["dhcp"]["lease-first"] = (uint64_t )10;
-                __DBG__
                 GuestInterface["ipv4"]["dhcp"]["lease-count"] = (uint64_t )100;
-                __DBG__
                 GuestInterface["ipv4"]["dhcp"]["lease-time"] = "6h";
-                __DBG__
                 GuestInterface["ssids"] = guest_ssids;
-                __DBG__
                 Interfaces.push_back(GuestInterface);
-                __DBG__
             }
 
             for(const auto &k:i.radios) {
@@ -431,11 +419,12 @@ namespace OpenWifi {
                 ProvObjects::DeviceConfiguration    ExistingConfig;
                 __DBG__
                 if(SDK::Prov::Configuration::Get(nullptr,i.configurationUUID,ExistingConfig)) {
+                    ExistingConfig.configuration = Cfg.configuration;
                     Cfg.info = ExistingConfig.info;
                 }
 
                 __DBG__
-                if(SDK::Prov::Configuration::Update(nullptr,i.configurationUUID,Cfg)) {
+                if(SDK::Prov::Configuration::Update(nullptr,i.configurationUUID,ExistingConfig)) {
                     Logger_.information(Poco::format("%s: Configuration modified for device.", i.macAddress ));
                     // Now push the configuration...
                     ProvObjects::InventoryConfigApplyResult Results;
