@@ -219,7 +219,8 @@ namespace OpenWifi {
         SubObjects::SubscriberInfo  SI;
         if(StorageService()->SubInfoDB().GetRecord("id",UserInfo_.userinfo.id,SI)) {
             for(const auto &i:SI.accessPoints.list) {
-                SDK::Prov::Subscriber::ReturnDeviceToInventory(this,UserInfo_.userinfo.id,i.serialNumber);
+                if(!i.serialNumber.empty())
+                    SDK::Prov::Subscriber::ReturnDeviceToInventory(this,UserInfo_.userinfo.id,i.serialNumber);
             }
             SDK::Sec::Subscriber::Delete(this, UserInfo_.userinfo.id);
             StorageService()->SubInfoDB().DeleteRecord("id", UserInfo_.userinfo.id);
