@@ -135,7 +135,10 @@ namespace OpenWifi::SDK::Prov {
                 Results.from_json(CallResponse);
                 return true;
             }
-            std::cout << __LINE__ << std::endl;
+            std::ostringstream OO;
+            CallResponse->stringify(OO);
+
+            std::cout << __LINE__ << " : " << OO.str() << std::endl;
             return false;
         }
     }
