@@ -65,7 +65,7 @@ namespace OpenWifi::SDK::Prov {
             std::cout << OOS.str() << std::endl;
 
             auto API = OpenAPIRequestPost(uSERVICE_PROVISIONING, EndPoint, {}, Body, 10000);
-            Poco::JSON::Object::Ptr CallResponse;
+            auto CallResponse = Poco::makeShared<Poco::JSON::Object>();
             auto ResponseStatus = API.Do(CallResponse, client == nullptr ? "" : client->UserInfo_.webtoken.access_token_);
             std::cout << __LINE__ << std::endl;
             if(ResponseStatus != Poco::Net::HTTPResponse::HTTP_OK) {
