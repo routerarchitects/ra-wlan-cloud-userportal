@@ -293,7 +293,9 @@ namespace OpenWifi {
                 GuestInterface["ipv4"]["subnet"]["lease-first"] = 10;
                 GuestInterface["ipv4"]["subnet"]["lease-count"] = 100;
                 GuestInterface["ipv4"]["subnet"]["lease-time"] = "6h";
+                __DBG__
                 GuestInterface["ssids"] = guest_ssids;
+                __DBG__
                 Interfaces.push_back(GuestInterface);
                 __DBG__
             }
