@@ -44,17 +44,21 @@ openwifi.system.uri.ui = ${SYSTEM_URI_UI}
 # NLB Support
 #
 alb.enable = true
-alb.port = 16105
+alb.port = 16106
 
 #
 # Kafka
 #
-openwifi.kafka.group.id = prov
-openwifi.kafka.client.id = prov1
+openwifi.kafka.group.id = sub
+openwifi.kafka.client.id = sub1
 openwifi.kafka.enable = ${KAFKA_ENABLE}
 openwifi.kafka.brokerlist = ${KAFKA_BROKERLIST}
 openwifi.kafka.auto.commit = false
 openwifi.kafka.queue.buffering.max.ms = 50
+openwifi.kafka.ssl.ca.location = ${KAFKA_SSL_CA_LOCATION}
+openwifi.kafka.ssl.certificate.location = ${KAFKA_SSL_CERTIFICATE_LOCATION}
+openwifi.kafka.ssl.key.location = ${KAFKA_SSL_KEY_LOCATION}
+openwifi.kafka.ssl.key.password = ${KAFKA_SSL_KEY_PASSWORD}
 
 #
 # This section select which form of persistence you need
@@ -63,7 +67,7 @@ openwifi.kafka.queue.buffering.max.ms = 50
 #
 storage.type = ${STORAGE_TYPE}
 
-storage.type.sqlite.db = prov.db
+storage.type.sqlite.db = sub.db
 storage.type.sqlite.idletime = 120
 storage.type.sqlite.maxsessions = 128
 
