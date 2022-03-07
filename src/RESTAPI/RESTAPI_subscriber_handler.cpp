@@ -181,16 +181,14 @@ namespace OpenWifi {
         Existing.modified = Now;
 
         //  Look at the access points
-        if(ConfigChanged) {
-            for (auto &New: Changes.accessPoints.list) {
-                for (auto &Old: Existing.accessPoints.list) {
-                    if (New.id == Old.id) {
-                        Old.internetConnection.modified = Now;
-                        Old.deviceMode.modified = Now;
-                        Old.wifiNetworks.modified = Now;
-                        Old.subscriberDevices.modified = Now;
-                        Old = New;
-                    }
+        for (auto &NewAP: Changes.accessPoints.list) {
+            for (auto &ExistingAP: Existing.accessPoints.list) {
+                if (NewAP.macAddress == ExistingAP.macAddress) {
+                    ExistingAP = NewAP;
+                    ExistingAP.internetConnection.modified = Now;
+                    ExistingAP.deviceMode.modified = Now;
+                    ExistingAP.wifiNetworks.modified = Now;
+                    ExistingAP.subscriberDevices.modified = Now;
                 }
             }
         }
