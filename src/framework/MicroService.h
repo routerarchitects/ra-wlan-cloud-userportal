@@ -4306,9 +4306,10 @@ namespace OpenWifi {
                     Request.add("Authorization", "Bearer " + BearerToken);
                 }
 
-                std::ostream & os = Session.sendRequest(Request);
-                os << obody.str();
+                // std::ostream & os = Session.sendRequest(Request);
+                // os << obody.str();
 
+                Session.sendRequest(Request);
                 Poco::Net::HTTPResponse Response;
                 Session.receiveResponse(Response);
                 return Response.getStatus();

@@ -71,7 +71,7 @@ namespace OpenWifi::SDK::Sec {
                                             {},
                                             15000);
 
-            auto StatusCode = Req.Do(client== nullptr ? "" : client->UserInfo_.webtoken.access_token_);
+            auto StatusCode = Req.Do(client == nullptr ? "" : client->UserInfo_.webtoken.access_token_);
             if( StatusCode >=200 && StatusCode <= 204) {
                 return true;
             }
