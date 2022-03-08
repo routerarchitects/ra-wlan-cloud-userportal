@@ -186,9 +186,7 @@ namespace OpenWifi {
                 DownstreamInterface["ipv4"]["addressing"] = "static";
                 uint64_t HowMany=0;
                 uint64_t FirstIPInRange;
-                __DBG__
                 CreateDHCPInfo(i.deviceMode.subnet,i.deviceMode.startIP,i.deviceMode.endIP,FirstIPInRange,HowMany);
-                __DBG__
                 DownstreamInterface["ipv4"]["subnet"] = i.deviceMode.subnet;
                 DownstreamInterface["ipv4"]["dhcp"]["lease-first"] = FirstIPInRange;
                 DownstreamInterface["ipv4"]["dhcp"]["lease-count"] = HowMany;
