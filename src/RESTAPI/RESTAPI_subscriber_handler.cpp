@@ -19,8 +19,6 @@ namespace OpenWifi {
 
     void RESTAPI_subscriber_handler::DoGet() {
 
-        std::cout << "Internal: " << Internal_ << std::endl;
-
         if(UserInfo_.userinfo.id.empty()) {
             return NotFound();
         }
@@ -197,9 +195,6 @@ namespace OpenWifi {
     }
 
     void RESTAPI_subscriber_handler::DoDelete() {
-
-        std::cout << "Internal: " << Internal_ << std::endl;
-
         auto id = GetParameter("id","");
         if(!id.empty()) {
             StorageService()->SubInfoDB().DeleteRecord("id",id);

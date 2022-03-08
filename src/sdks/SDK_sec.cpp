@@ -75,7 +75,7 @@ namespace OpenWifi::SDK::Sec {
             if( StatusCode >=200 && StatusCode <= 204) {
                 return true;
             }
-            std::cout << "DeleteUser: " << StatusCode << std::endl;
+            // std::cout << "DeleteUser: " << StatusCode << std::endl;
             return false;
         }
 

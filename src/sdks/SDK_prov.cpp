@@ -61,7 +61,7 @@ namespace OpenWifi::SDK::Prov {
             std::stringstream OOS;
             Body.stringify(OOS);
 
-            std::cout << OOS.str() << std::endl;
+            // std::cout << OOS.str() << std::endl;
 
             auto API = OpenAPIRequestPost(uSERVICE_PROVISIONING, EndPoint, {}, Body, 10000);
             auto CallResponse = Poco::makeShared<Poco::JSON::Object>();
@@ -69,7 +69,7 @@ namespace OpenWifi::SDK::Prov {
             if(ResponseStatus != Poco::Net::HTTPResponse::HTTP_OK) {
                 std::ostringstream OS;
                 CallResponse->stringify(OS);
-                std::cout << "CREATE: " << OS.str() << std::endl;
+                // std::cout << "CREATE: " << OS.str() << std::endl;
                 return false;
             }
 
@@ -154,7 +154,7 @@ namespace OpenWifi::SDK::Prov {
             auto CallResponse = Poco::makeShared<Poco::JSON::Object>();
             auto ResponseStatus = API.Do(CallResponse, client == nullptr ? "" : client->UserInfo_.webtoken.access_token_);
             if(ResponseStatus != Poco::Net::HTTPResponse::HTTP_OK) {
-                std::cout << "ReturnDeviceToInventory: " << ResponseStatus << std::endl;
+                // std::cout << "ReturnDeviceToInventory: " << ResponseStatus << std::endl;
                 return false;
             }
             return true;

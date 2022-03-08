@@ -21,8 +21,6 @@ namespace OpenWifi::SDK::GW {
             std::string         EndPoint = "/api/v1/device/" + Mac + "/leds";
             Poco::JSON::Object  ObjRequest;
 
-            std::cout << "M:" << Mac << " P:" << Pattern << std::endl;
-
             ObjRequest.set("serialNumber", Mac);
             ObjRequest.set("when",When);
             ObjRequest.set("duration",Duration);
