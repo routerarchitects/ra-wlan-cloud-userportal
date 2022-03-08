@@ -193,15 +193,12 @@ namespace OpenWifi {
     }
 
     void RESTAPI_subscriber_handler::DoDelete() {
-        if(Internal_) {
-            auto id = GetParameter("id","");
-            if(id.empty())
-                return BadRequest(RESTAPI::Errors::MissingOrInvalidParameters);
+        auto id = GetParameter("id","");
+        if(!id.empty()) {
             StorageService()->SubInfoDB().DeleteRecord("id",id);
             return OK();
         }
 
-        //  delete my devices...
         SubObjects::SubscriberInfo  SI;
         if(StorageService()->SubInfoDB().GetRecord("id",UserInfo_.userinfo.id,SI)) {
             for(const auto &i:SI.accessPoints.list) {

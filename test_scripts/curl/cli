@@ -147,6 +147,13 @@ getmyinfo() {
     jq < ${result_file}
 }
 
+removeme() {
+    curl ${FLAGS} -X DELETE "https://${target_service_endpoint}/api/v1/subscriber" \
+        -H "Content-Type: application/json" \
+        -H "Authorization: Bearer ${token}" > ${result_file}
+    jq < ${result_file}
+}
+
 reboot() {
     payload="{ \"mac\" : \"04f8f8fc3771\" , \"when\" : 0 }"
     curl ${FLAGS} -X POST "https://${target_service_endpoint}/api/v1/action?action=reboot" \
@@ -208,6 +215,7 @@ case "$1" in
     "wiredclients") login; wiredclients "$2" ; logout ;;
     "signup") signup ;;
     "getsignup") getsignup $2 ;;
+    "removeme") login; removeme ; logout ;;
     *) help ;;
 esac
 
