@@ -208,10 +208,8 @@ namespace OpenWifi {
 
         SubObjects::SubscriberInfo  SI;
         if(StorageService()->SubInfoDB().GetRecord("id",UserInfo_.userinfo.id,SI)) {
-            std::cout << SI.userId << std::endl;
             for(const auto &i:SI.accessPoints.list) {
                 if(!i.serialNumber.empty()) {
-                    std::cout << i.serialNumber << std::endl;
                     SDK::Prov::Subscriber::ReturnDeviceToInventory(nullptr, UserInfo_.userinfo.id, i.serialNumber);
                 }
             }
