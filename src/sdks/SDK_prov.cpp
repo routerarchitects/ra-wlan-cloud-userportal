@@ -46,7 +46,6 @@ namespace OpenWifi::SDK::Prov {
         bool Delete( RESTAPIHandler *client, const std::string &ConfigUUID) {
             std::string         EndPoint = "/api/v1/configurations/" + ConfigUUID ;
             auto API = OpenAPIRequestDelete(uSERVICE_PROVISIONING, EndPoint, {}, 60000);
-            auto CallResponse = Poco::makeShared<Poco::JSON::Object>();
             auto ResponseStatus = API.Do(client == nullptr ? "" : client->UserInfo_.webtoken.access_token_);
             if(ResponseStatus == Poco::Net::HTTPServerResponse::HTTP_OK) {
                 return true;
@@ -67,20 +66,16 @@ namespace OpenWifi::SDK::Prov {
             auto API = OpenAPIRequestPost(uSERVICE_PROVISIONING, EndPoint, {}, Body, 10000);
             auto CallResponse = Poco::makeShared<Poco::JSON::Object>();
             auto ResponseStatus = API.Do(CallResponse, client == nullptr ? "" : client->UserInfo_.webtoken.access_token_);
-            std::cout << __LINE__ << std::endl;
             if(ResponseStatus != Poco::Net::HTTPResponse::HTTP_OK) {
-                std::cout << __LINE__ << std::endl;
                 std::ostringstream OS;
                 CallResponse->stringify(OS);
                 std::cout << "CREATE: " << OS.str() << std::endl;
                 return false;
             }
 
-            std::cout << __LINE__ << std::endl;
             ProvObjects::DeviceConfiguration    NewConfig;
             NewConfig.from_json(CallResponse);
             ConfigUUID = NewConfig.info.id;
-            std::cout << __LINE__ << std::endl;
 
             Body.clear();
             Body.set("serialNumber", SerialNumber);
@@ -89,38 +84,28 @@ namespace OpenWifi::SDK::Prov {
             auto API2 = OpenAPIRequestPut(uSERVICE_PROVISIONING, EndPoint, {}, Body, 10000);
             CallResponse->clear();
             ResponseStatus = API2.Do(CallResponse, client == nullptr ? "" : client->UserInfo_.webtoken.access_token_);
-            std::cout << __LINE__ << std::endl;
             if(ResponseStatus != Poco::Net::HTTPResponse::HTTP_OK) {
-                std::cout << __LINE__ << std::endl;
                 std::ostringstream OS;
                 CallResponse->stringify(OS);
-                std::cout << "NOT ASSIGN: " << OS.str() << std::endl;
                 return false;
             }
-            std::cout << __LINE__ << std::endl;
             return true;
         }
 
         bool Update( RESTAPIHandler *client, const std::string &ConfigUUID, ProvObjects::DeviceConfiguration & Config) {
-            std::cout << __LINE__ << std::endl;
             std::string         EndPoint = "/api/v1/configurations/"+ConfigUUID ;
             Poco::JSON::Object  Body;
             Config.to_json(Body);
             auto API = OpenAPIRequestPut(uSERVICE_PROVISIONING, EndPoint, {}, Body, 10000);
             auto CallResponse = Poco::makeShared<Poco::JSON::Object>();
-            std::cout << __LINE__ << std::endl;
             auto ResponseStatus = API.Do(CallResponse, client == nullptr ? "" : client->UserInfo_.webtoken.access_token_);
-            std::cout << __LINE__ << std::endl;
             if(ResponseStatus != Poco::Net::HTTPResponse::HTTP_OK) {
-                std::cout << __LINE__ << std::endl;
                 return false;
             }
-            std::cout << __LINE__ << std::endl;
             return true;
         }
 
         bool Push( RESTAPIHandler *client, const std::string &serialNumber, ProvObjects::InventoryConfigApplyResult &Results ) {
-            std::cout << __LINE__ << std::endl;
             std::string         EndPoint = "/api/v1/inventory/"+serialNumber ;
             Poco::JSON::Object  Body;
             auto API = OpenAPIRequestGet(uSERVICE_PROVISIONING, EndPoint, {
@@ -128,19 +113,14 @@ namespace OpenWifi::SDK::Prov {
                 }, 30000);
 
             auto CallResponse = Poco::makeShared<Poco::JSON::Object>();
-            std::cout << __LINE__ << std::endl;
             auto ResponseStatus = API.Do(CallResponse, client == nullptr ? "" : client->UserInfo_.webtoken.access_token_);
-            std::cout << __LINE__ << std::endl;
             if(ResponseStatus == Poco::Net::HTTPResponse::HTTP_OK) {
                 Results.from_json(CallResponse);
                 return true;
             }
-            std::cout << __LINE__ << std::endl;
 
             std::ostringstream OO;
-            std::cout << __LINE__ << std::endl;
             CallResponse->stringify(OO);
-            std::cout << __LINE__ << " : " << OO.str() << std::endl;
             return false;
         }
     }
@@ -165,21 +145,16 @@ namespace OpenWifi::SDK::Prov {
         }
 
         bool ReturnDeviceToInventory(RESTAPIHandler *client, const std::string &SubscriberId, const std::string &SerialNumber) {
-            std::cout << __LINE__ << std::endl;
             std::string         EndPoint = "/api/v1/inventory/"+SerialNumber ;
             Poco::JSON::Object  Body;
             auto API = OpenAPIRequestPut(uSERVICE_PROVISIONING, EndPoint, {
                     { "removeSubscriber", SubscriberId}
                 }, Body, 20000);
             auto CallResponse = Poco::makeShared<Poco::JSON::Object>();
-            std::cout << __LINE__ << std::endl;
             auto ResponseStatus = API.Do(CallResponse, client == nullptr ? "" : client->UserInfo_.webtoken.access_token_);
-            std::cout << __LINE__ << std::endl;
             if(ResponseStatus != Poco::Net::HTTPResponse::HTTP_OK) {
-                std::cout << __LINE__ << std::endl;
                 return false;
             }
-            std::cout << __LINE__ << std::endl;
             return true;
         }
     }

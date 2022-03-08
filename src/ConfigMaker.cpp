@@ -52,7 +52,7 @@ namespace OpenWifi {
         DHCPFirst = htonl(FA.s_addr) & SubNetBitMask;
     }
 
-#define __DBG__ std::cout << __LINE__ << std::endl ;
+// #define __DBG__ std::cout << __LINE__ << std::endl ;
 // #define __DBG__
     bool ConfigMaker::Prepare() {
 
@@ -144,7 +144,6 @@ namespace OpenWifi {
                 AllBands.emplace_back(ConvertBand(rr.band));
 
             nlohmann::json UpstreamPort, DownstreamPort;
-            __DBG__
             if(i.internetConnection.type=="manual") {
                 UpstreamInterface["addressing"] = "static";
                 UpstreamInterface["subnet"] = i.internetConnection.subnetMask;
@@ -173,7 +172,6 @@ namespace OpenWifi {
                 if(i.internetConnection.ipV6Support)
                     UpstreamInterface["ipv6"]["addressing"] = "dynamic";
             }
-            __DBG__
 
             if(i.deviceMode.type=="bridge") {
                 UpstreamPort["select-ports"].push_back("LAN*");
@@ -205,19 +203,14 @@ namespace OpenWifi {
                 DownstreamInterface["ipv4"]["addressing"] = "static";
                 uint64_t HowMany=0;
                 uint64_t FirstIPInRange;
-                __DBG__
-                std::cout << "subnetmask: " << i.deviceMode.subnet << "  startip:" << i.deviceMode.startIP << "  endip:" << i.deviceMode.endIP << std::endl;
                 CreateDHCPInfo(i.deviceMode.subnet,i.deviceMode.startIP,i.deviceMode.endIP,FirstIPInRange,HowMany);
-                __DBG__
                 DownstreamInterface["ipv4"]["subnet"] = i.deviceMode.subnet;
                 DownstreamInterface["ipv4"]["dhcp"]["lease-first"] = FirstIPInRange;
                 DownstreamInterface["ipv4"]["dhcp"]["lease-count"] = HowMany;
                 DownstreamInterface["ipv4"]["dhcp"]["lease-time"] = i.deviceMode.leaseTime.empty() ? "24h" : i.deviceMode.leaseTime;
             }
-            __DBG__
             bool hasGuest=false;
             nlohmann::json main_ssids, guest_ssids;
-            __DBG__
             for(const auto &j:i.wifiNetworks.wifiNetworks) {
                 nlohmann::json ssid;
                 ssid["name"] = j.name ;
@@ -253,13 +246,11 @@ namespace OpenWifi {
                     guest_ssids.push_back(ssid);
                 }
             }
-            __DBG__
 
             if(i.deviceMode.type=="bridge")
                 UpstreamInterface["ssids"] = main_ssids;
             else
                 DownstreamInterface["ssids"] = main_ssids;
-            __DBG__
 
             nlohmann::json  UpStreamEthernet,
                             DownStreamEthernet;
@@ -269,7 +260,6 @@ namespace OpenWifi {
             if(!DownstreamPort.empty()) {
                 DownStreamEthernet.push_back(DownstreamPort);
             }
-            __DBG__
 
             if(i.deviceMode.type=="bridge") {
                 UpstreamInterface["ethernet"] = UpStreamEthernet;
@@ -280,7 +270,6 @@ namespace OpenWifi {
                 Interfaces.push_back(UpstreamInterface);
                 Interfaces.push_back(DownstreamInterface);
             }
-            __DBG__
 
             if(hasGuest) {
                 nlohmann::json GuestInterface;
@@ -298,7 +287,6 @@ namespace OpenWifi {
 
             for(const auto &k:i.radios) {
                 nlohmann::json radio;
-                __DBG__
 
                 radio["band"] = ConvertBand(k.band);
                 radio["bandwidth"] = k.bandwidth;
@@ -331,7 +319,6 @@ namespace OpenWifi {
                 radio["he-settings"]["bss-color"] = k.he.bssColor;
                 radios.push_back(radio);
             }
-            __DBG__
 
             ProvObjects::DeviceConfigurationElementVec Configuration;
             ProvObjects::DeviceConfigurationElement Metrics{
@@ -366,90 +353,67 @@ namespace OpenWifi {
                     .configuration = to_string(RadiosSection)
             };
 
-            __DBG__
             Configuration.push_back(Metrics);
             Configuration.push_back(Services);
             Configuration.push_back(InterfacesList);
             Configuration.push_back(RadiosList);
-            __DBG__
 
             Poco::JSON::Object  Answer;
 
             ProvObjects::DeviceConfiguration    Cfg;
 
             Cfg.deviceTypes.push_back(i.deviceType);
-            __DBG__
 
             Cfg.firmwareRCOnly = true;
             Cfg.firmwareUpgrade = i.automaticUpgrade ? "yes" : "no";
-            __DBG__
 
             Cfg.configuration = Configuration;
-            __DBG__
 
             Cfg.to_json(Answer);
-            __DBG__
 
             if(i.configurationUUID.empty()) {
                 //  we need to create this configuration and associate it to this device.
-                __DBG__
                 Cfg.subscriberOnly = true;
                 Cfg.subscriber = SI.id;
                 Cfg.info.name = "sub:" + i.macAddress;
-                __DBG__
                 Cfg.info.notes.emplace_back(SecurityObjects::NoteInfo{.created=OpenWifi::Now(), .note="Auto-created from subscriber service."});
                 std::string CfgUUID;
-                __DBG__
                 if(SDK::Prov::Configuration::Create(nullptr, i.serialNumber, Cfg, CfgUUID)) {
-                    __DBG__
                     i.configurationUUID = CfgUUID;
-                    __DBG__
                     Logger_.information(Poco::format("%s: Created and assigned configuration.", i.macAddress ));
                     // now push the configuration to the device...
                     ProvObjects::InventoryConfigApplyResult Results;
-                    __DBG__
                     if(SDK::Prov::Configuration::Push(nullptr, i.serialNumber, Results)) {
-                        __DBG__
                         Logger_.information(Poco::format("%s: Pushed configuration to device.", i.macAddress ));
                     } else {
-                        __DBG__
                         Logger_.information(Poco::format("%s: Could not push configuration to device.", i.macAddress ));
                     }
-                    __DBG__
                 } else {
-                    __DBG__
                     Logger_.information(Poco::format("%s: Could not create configuration for device.", i.macAddress ));
                     return false;
                 }
             } else {
-                __DBG__
                 ProvObjects::DeviceConfiguration    ExistingConfig;
-                __DBG__
                 if(SDK::Prov::Configuration::Get(nullptr,i.configurationUUID,ExistingConfig)) {
                     ExistingConfig.configuration = Cfg.configuration;
                     Cfg.info = ExistingConfig.info;
                 }
 
-                __DBG__
                 if(SDK::Prov::Configuration::Update(nullptr,i.configurationUUID,ExistingConfig)) {
                     Logger_.information(Poco::format("%s: Configuration modified for device.", i.macAddress ));
                     // Now push the configuration...
                     ProvObjects::InventoryConfigApplyResult Results;
                     if(SDK::Prov::Configuration::Push(nullptr, i.serialNumber, Results)) {
-                        __DBG__
                         Logger_.information(Poco::format("%s: Pushed configuration to device.", i.macAddress ));
                     } else {
-                        __DBG__
                         Logger_.information(Poco::format("%s: Could not push configuration to device.", i.macAddress ));
                     }
                 } else {
-                    __DBG__
                     Logger_.information(Poco::format("%s: Could not modify configuration for device.", i.macAddress ));
                     return false;
                 }
             }
         }
-        __DBG__
         SI.modified = OpenWifi::Now();
         return StorageService()->SubInfoDB().UpdateRecord("id",id_,SI);
     }
