@@ -13,7 +13,7 @@
 
 #include "ConfigMaker.h"
 
-#define __DBG__ std::cout << __LINE__ << std::endl ;
+// #define __DBG__ std::cout << __LINE__ << std::endl ;
 // #define __DBG__
 namespace OpenWifi {
 
@@ -28,15 +28,11 @@ namespace OpenWifi {
         if(StorageService()->SubInfoDB().GetRecord("id", UserInfo_.userinfo.id,SI)) {
             //  we need to get the stats for each AP
             for(auto &i:SI.accessPoints.list) {
-                __DBG__
                 if(i.macAddress.empty())
                     continue;
-                __DBG__
                 Poco::JSON::Object::Ptr LastStats;
                 if(SDK::GW::Device::GetLastStats(nullptr,i.serialNumber,LastStats)) {
-                    __DBG__
                     std::ostringstream OS;
-                    __DBG__
                     LastStats->stringify(OS);
                     try {
                         nlohmann::json LA = nlohmann::json::parse(OS.str());
@@ -49,17 +45,13 @@ namespace OpenWifi {
                                     i.internetConnection.ipAddress = IPparts[0];
                                     i.internetConnection.subnetMask = IPparts[1];
                                 }
-                                __DBG__
-
                                 if (j["ipv4"].contains("dhcp_server"))
                                     i.internetConnection.defaultGateway = j["ipv4"]["dhcp_server"].get<std::string>();
                                 else
                                     i.internetConnection.defaultGateway = "---";
 
-                                __DBG__
                                 if (j.contains("dns_servers") && j["dns_servers"].is_array()) {
                                     auto dns = j["dns_servers"];
-                                    __DBG__
                                     if (!dns.empty())
                                         i.internetConnection.primaryDns = dns[0].get<std::string>();
                                     else
@@ -72,7 +64,6 @@ namespace OpenWifi {
                             }
                         }
                     } catch(...) {
-                        __DBG__
                         i.internetConnection.ipAddress = "--";
                         i.internetConnection.subnetMask = "--";
                         i.internetConnection.defaultGateway = "--";
@@ -80,7 +71,6 @@ namespace OpenWifi {
                         i.internetConnection.secondaryDns = "--";
                     }
                 } else {
-                    __DBG__
                     i.internetConnection.ipAddress = "-";
                     i.internetConnection.subnetMask = "-";
                     i.internetConnection.defaultGateway = "-";
@@ -88,7 +78,6 @@ namespace OpenWifi {
                     i.internetConnection.secondaryDns = "-";
                 }
 
-                __DBG__
                 FMSObjects::DeviceInformation   DI;
                 if(SDK::FMS::Firmware::GetDeviceInformation(nullptr,i.serialNumber,DI)) {
                     i.currentFirmwareDate = DI.currentFirmwareDate;
@@ -98,7 +87,6 @@ namespace OpenWifi {
                     i.newFirmwareAvailable = DI.latestFirmwareAvailable;
                     i.latestFirmwareURI = DI.latestFirmwareURI;
                 }
-                __DBG__
             }
 
             Poco::JSON::Object  Answer;
@@ -116,10 +104,8 @@ namespace OpenWifi {
             return BadRequest("No devices activated yet.");
         }
 
-        // std::cout << "Creating default subscriber info: " << UserInfo_.userinfo.id << std::endl;
         Logger().information(Poco::format("%s: Creating default user information.", UserInfo_.userinfo.email));
         StorageService()->SubInfoDB().CreateDefaultSubscriberInfo(UserInfo_, SI, DeviceIds);
-        // std::cout << "Creating default subscriber info: " << SI.id << std::endl;
         Logger().information(Poco::format("%s: Creating default configuration.", UserInfo_.userinfo.email));
         StorageService()->SubInfoDB().CreateRecord(SI);
 
