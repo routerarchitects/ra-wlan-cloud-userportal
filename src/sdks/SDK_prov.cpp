@@ -147,12 +147,14 @@ namespace OpenWifi::SDK::Prov {
         bool ReturnDeviceToInventory(RESTAPIHandler *client, const std::string &SubscriberId, const std::string &SerialNumber) {
             std::string         EndPoint = "/api/v1/inventory/"+SerialNumber ;
             Poco::JSON::Object  Body;
+            Body.set("serialNumber",SerialNumber);
             auto API = OpenAPIRequestPut(uSERVICE_PROVISIONING, EndPoint, {
                     { "removeSubscriber", SubscriberId}
                 }, Body, 20000);
             auto CallResponse = Poco::makeShared<Poco::JSON::Object>();
             auto ResponseStatus = API.Do(CallResponse, client == nullptr ? "" : client->UserInfo_.webtoken.access_token_);
             if(ResponseStatus != Poco::Net::HTTPResponse::HTTP_OK) {
+                std::cout << "ReturnDeviceToInventory: " << ResponseStatus << std::endl;
                 return false;
             }
             return true;

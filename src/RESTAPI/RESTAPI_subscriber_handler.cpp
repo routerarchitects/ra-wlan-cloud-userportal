@@ -19,6 +19,8 @@ namespace OpenWifi {
 
     void RESTAPI_subscriber_handler::DoGet() {
 
+        std::cout << "Internal: " << Internal_ << std::endl;
+
         if(UserInfo_.userinfo.id.empty()) {
             return NotFound();
         }
@@ -121,6 +123,8 @@ namespace OpenWifi {
 
     void RESTAPI_subscriber_handler::DoPut() {
 
+        std::cout << "Internal: " << Internal_ << std::endl;
+
         auto ConfigChanged = GetParameter("configChanged","true") == "true";
         auto ApplyConfigOnly = GetParameter("applyConfigOnly","true") == "true";
 
@@ -193,6 +197,9 @@ namespace OpenWifi {
     }
 
     void RESTAPI_subscriber_handler::DoDelete() {
+
+        std::cout << "Internal: " << Internal_ << std::endl;
+
         auto id = GetParameter("id","");
         if(!id.empty()) {
             StorageService()->SubInfoDB().DeleteRecord("id",id);
@@ -201,11 +208,14 @@ namespace OpenWifi {
 
         SubObjects::SubscriberInfo  SI;
         if(StorageService()->SubInfoDB().GetRecord("id",UserInfo_.userinfo.id,SI)) {
+            std::cout << SI.userId << std::endl;
             for(const auto &i:SI.accessPoints.list) {
-                if(!i.serialNumber.empty())
-                    SDK::Prov::Subscriber::ReturnDeviceToInventory(this,UserInfo_.userinfo.id,i.serialNumber);
+                if(!i.serialNumber.empty()) {
+                    std::cout << i.serialNumber << std::endl;
+                    SDK::Prov::Subscriber::ReturnDeviceToInventory(nullptr, UserInfo_.userinfo.id, i.serialNumber);
+                }
             }
-            SDK::Sec::Subscriber::Delete(this, UserInfo_.userinfo.id);
+            SDK::Sec::Subscriber::Delete(nullptr, UserInfo_.userinfo.id);
             StorageService()->SubInfoDB().DeleteRecord("id", UserInfo_.userinfo.id);
             return OK();
         }
