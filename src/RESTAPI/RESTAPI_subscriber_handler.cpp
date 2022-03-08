@@ -215,7 +215,7 @@ namespace OpenWifi {
                     SDK::Prov::Subscriber::ReturnDeviceToInventory(nullptr, UserInfo_.userinfo.id, i.serialNumber);
                 }
             }
-            SDK::Sec::Subscriber::Delete(nullptr, UserInfo_.userinfo.id);
+            SDK::Sec::Subscriber::Delete(this, UserInfo_.userinfo.id);
             StorageService()->SubInfoDB().DeleteRecord("id", UserInfo_.userinfo.id);
             return OK();
         }
