@@ -138,6 +138,54 @@ namespace OpenWifi {
         ReturnObject(Answer);
     }
 
+    static bool ValidIPv4(const std::string &IP) {
+        if(IP.empty())
+            return false;
+        Poco::Net::IPAddress    A;
+
+        if(!Poco::Net::IPAddress::tryParse(IP,A) || A.family()==Poco::Net::AddressFamily::IPv4)
+            return false;
+
+        return true;
+    }
+
+    static bool ValidIPv6(const std::string &IP) {
+        if(IP.empty())
+            return false;
+        Poco::Net::IPAddress    A;
+
+        if(!Poco::Net::IPAddress::tryParse(IP,A) || A.family()==Poco::Net::AddressFamily::IPv6)
+            return false;
+
+        return true;
+    }
+
+    static bool ValidIPv4v6(const std::string &IP) {
+        if(IP.empty())
+            return false;
+        Poco::Net::IPAddress    A;
+
+        if(!Poco::Net::IPAddress::tryParse(IP,A))
+            return false;
+
+        return true;
+    }
+
+    static bool ValidateIPv4Subnet(const std::string &IP) {
+        auto IPParts = Poco::StringTokenizer(IP,"/");
+        if(IPParts.count()!=2) {
+            return false;
+        }
+        if(!ValidIPv4(IPParts[0])) {
+            return false;
+        }
+        auto X=std::atoll(IPParts[1].c_str());
+        if(X<8 || X>24) {
+            return false;
+        }
+        return true;
+    }
+
     void RESTAPI_subscriber_handler::DoPut() {
 
         auto ConfigChanged = GetParameter("configChanged","true") == "true";
@@ -187,6 +235,48 @@ namespace OpenWifi {
         for (auto &NewAP: Changes.accessPoints.list) {
             for (auto &ExistingAP: Existing.accessPoints.list) {
                 if (NewAP.macAddress == ExistingAP.macAddress) {
+                    for(const auto &ssid:NewAP.wifiNetworks.wifiNetworks) {
+                        if( ssid.password.length()<8 ||
+                            ssid.password.length()>32 ) {
+                            return BadRequest("Invalid password length. Must be 8 characters or greater, and a maximum of 32 characters.");
+                        }
+                    }
+                    if(NewAP.deviceMode.type=="nat") {
+                        if(!ValidIPv4(NewAP.deviceMode.startIP) || !ValidIPv4(NewAP.deviceMode.endIP)) {
+                            return BadRequest("Invalid starting/ending IP address.");
+                        }
+                        if(!ValidateIPv4Subnet(NewAP.deviceMode.subnet)) {
+                            return BadRequest("Subnet must be in format like 192.168.1.1/24");
+                        }
+                    } else if(NewAP.deviceMode.type=="bridge") {
+
+                    } else if(NewAP.deviceMode.type=="manual") {
+
+                    } else {
+                        return BadRequest("Mode must be bridge, nat, or manual");
+                    }
+
+                    if(NewAP.internetConnection.type=="manual") {
+                        if(!ValidateIPv4Subnet(NewAP.internetConnection.subnetMask)) {
+                            return BadRequest("Subnet must be in format like 192.168.1.1/24");
+                        }
+                        if(!ValidIPv4(NewAP.internetConnection.defaultGateway)) {
+                            return BadRequest("Default gateway must be in format like 192.168.1.1");
+                        }
+                        if(!ValidIPv4(NewAP.internetConnection.primaryDns)) {
+                            return BadRequest("Primary DNS must be an IP address i.e. 192.168.1.1");
+                        }
+                        if(!NewAP.internetConnection.secondaryDns.empty() && !ValidIPv4(NewAP.internetConnection.secondaryDns)) {
+                            return BadRequest("Secondary DNS must be an IP address i.e. 192.168.1.1");
+                        }
+                    } else if(NewAP.internetConnection.type=="pppoe") {
+
+                    } else if(NewAP.internetConnection.type=="automatic") {
+
+                    } else {
+                        return BadRequest("Internet Connection must be bautomaticridge, pppoe, or manual");
+                    }
+
                     ExistingAP = NewAP;
                     ExistingAP.internetConnection.modified = Now;
                     ExistingAP.deviceMode.modified = Now;
@@ -194,6 +284,7 @@ namespace OpenWifi {
                     ExistingAP.subscriberDevices.modified = Now;
                 }
             }
+            Changes.modified = OpenWifi::Now();
         }
 
         if(StorageService()->SubInfoDB().UpdateRecord("id",UserInfo_.userinfo.id, Existing)) {
