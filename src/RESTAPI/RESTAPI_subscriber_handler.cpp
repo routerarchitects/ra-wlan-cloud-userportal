@@ -17,6 +17,13 @@
 // #define __DBG__
 namespace OpenWifi {
 
+    template <typename T> void AssignIfModified(T & Var, const T & Value, int &Mods) {
+        if(Var!=Value) {
+            Var = Value;
+            Mods++;
+        }
+    }
+
     void RESTAPI_subscriber_handler::DoGet() {
 
         if(UserInfo_.userinfo.id.empty()) {
@@ -26,6 +33,9 @@ namespace OpenWifi {
         Logger().information(Poco::format("%s: Get basic info.", UserInfo_.userinfo.email));
         SubObjects::SubscriberInfo  SI;
         if(StorageService()->SubInfoDB().GetRecord("id", UserInfo_.userinfo.id,SI)) {
+
+            int Mods=0;
+
             //  we need to get the stats for each AP
             for(auto &i:SI.accessPoints.list) {
                 if(i.macAddress.empty())
@@ -41,37 +51,37 @@ namespace OpenWifi {
 
                                 if( j["ipv4"]["addresses"].is_array()
                                     && !j["ipv4"]["addresses"].empty() ) {
-                                    auto IPparts = Poco::StringTokenizer(j["ipv4"]["addresses"][0].get<std::string>(), "/");
-                                    i.internetConnection.ipAddress = IPparts[0];
-                                    i.internetConnection.subnetMask = IPparts[1];
+                                    auto IPParts = Poco::StringTokenizer(j["ipv4"]["addresses"][0].get<std::string>(), "/");
+                                    AssignIfModified(i.internetConnection.ipAddress,IPParts[0],Mods);
+                                    i.internetConnection.subnetMask = IPParts[1];
                                 }
                                 if (j["ipv4"].contains("dhcp_server"))
-                                    i.internetConnection.defaultGateway = j["ipv4"]["dhcp_server"].get<std::string>();
+                                    AssignIfModified(i.internetConnection.defaultGateway,j["ipv4"]["dhcp_server"].get<std::string>(),Mods);
                                 else
-                                    i.internetConnection.defaultGateway = "---";
+                                    AssignIfModified(i.internetConnection.defaultGateway,std::string{"---"},Mods);
 
                                 if (j.contains("dns_servers") && j["dns_servers"].is_array()) {
                                     auto dns = j["dns_servers"];
                                     if (!dns.empty())
-                                        i.internetConnection.primaryDns = dns[0].get<std::string>();
+                                        AssignIfModified(i.internetConnection.primaryDns,dns[0].get<std::string>(),Mods);
                                     else
-                                        i.internetConnection.primaryDns = "---";
+                                        AssignIfModified(i.internetConnection.primaryDns,std::string{"---"},Mods);
                                     if (dns.size() > 1)
-                                        i.internetConnection.secondaryDns = dns[1].get<std::string>();
+                                        AssignIfModified(i.internetConnection.secondaryDns, dns[1].get<std::string>(),Mods);
                                     else
-                                        i.internetConnection.secondaryDns = "---";
+                                        AssignIfModified(i.internetConnection.secondaryDns, std::string{"---"},Mods);
                                 }
                             }
                         }
                     } catch(...) {
-                        i.internetConnection.ipAddress = "--";
+                        AssignIfModified(i.internetConnection.ipAddress, std::string{"--"}, Mods);
                         i.internetConnection.subnetMask = "--";
                         i.internetConnection.defaultGateway = "--";
                         i.internetConnection.primaryDns = "--";
                         i.internetConnection.secondaryDns = "--";
                     }
                 } else {
-                    i.internetConnection.ipAddress = "-";
+                    AssignIfModified(i.internetConnection.ipAddress, std::string{"-"}, Mods);
                     i.internetConnection.subnetMask = "-";
                     i.internetConnection.defaultGateway = "-";
                     i.internetConnection.primaryDns = "-";
@@ -80,13 +90,18 @@ namespace OpenWifi {
 
                 FMSObjects::DeviceInformation   DI;
                 if(SDK::FMS::Firmware::GetDeviceInformation(nullptr,i.serialNumber,DI)) {
-                    i.currentFirmwareDate = DI.currentFirmwareDate;
-                    i.currentFirmware = DI.currentFirmware;
-                    i.latestFirmwareDate = DI.latestFirmwareDate;
-                    i.latestFirmware = DI.latestFirmware;
-                    i.newFirmwareAvailable = DI.latestFirmwareAvailable;
-                    i.latestFirmwareURI = DI.latestFirmwareURI;
+                    AssignIfModified(i.currentFirmwareDate, DI.currentFirmwareDate, Mods);
+                    AssignIfModified(i.currentFirmware, DI.currentFirmware, Mods);
+                    AssignIfModified(i.latestFirmwareDate, DI.latestFirmwareDate, Mods);
+                    AssignIfModified(i.latestFirmware, DI.latestFirmware, Mods);
+                    AssignIfModified(i.newFirmwareAvailable, DI.latestFirmwareAvailable, Mods);
+                    AssignIfModified(i.latestFirmwareURI, DI.latestFirmwareURI, Mods);
                 }
+            }
+
+            if(Mods) {
+                SI.modified = OpenWifi::Now();
+                StorageService()->SubInfoDB().UpdateRecord("id", UserInfo_.userinfo.id,SI);
             }
 
             Poco::JSON::Object  Answer;
@@ -121,8 +136,6 @@ namespace OpenWifi {
 
     void RESTAPI_subscriber_handler::DoPut() {
 
-        std::cout << "Internal: " << Internal_ << std::endl;
-
         auto ConfigChanged = GetParameter("configChanged","true") == "true";
         auto ApplyConfigOnly = GetParameter("applyConfigOnly","true") == "true";
 
@@ -149,7 +162,7 @@ namespace OpenWifi {
             return BadRequest(RESTAPI::Errors::InvalidJSONDocument);
         }
 
-        auto Now = std::time(nullptr);
+        auto Now = OpenWifi::Now();
         if(Body->has("firstName"))
             Existing.firstName = Changes.firstName;
         if(Body->has("initials"))
