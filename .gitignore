@@ -30,3 +30,8 @@
 *.exe
 *.out
 *.app
+
+*.swp
+helm/charts/*
+!helm/charts/.gitkeep
+test_scripts/curl/token.json

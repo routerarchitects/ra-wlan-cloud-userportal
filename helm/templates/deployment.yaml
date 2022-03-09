@@ -1,0 +1,131 @@
+{{- $root := . -}}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "owsub.fullname" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "owsub.name" . }}
+    helm.sh/chart: {{ include "owsub.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  strategy:
+    type: {{ .Values.strategyType }}
+  revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "owsub.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      {{- with .Values.services.owsub.labels }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include "owsub.config" . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        app.kubernetes.io/name: {{ include "owsub.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        {{- with .Values.services.owsub.labels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+
+      initContainers:
+        - name: wait-kafka
+          image: "{{ .Values.images.dockerize.repository }}:{{ .Values.images.dockerize.tag }}"
+          imagePullPolicy: {{ .Values.images.dockerize.pullPolicy }}
+          args:
+            - -wait
+            - tcp://{{ index .Values.configProperties "openwifi.kafka.brokerlist" }}
+            - -timeout
+            - 600s
+
+      containers:
+
+        - name: owsub
+          image: "{{ .Values.images.owsub.repository }}:{{ .Values.images.owsub.tag }}"
+          imagePullPolicy: {{ .Values.images.owsub.pullPolicy }}
+
+          env:
+            - name: KUBERNETES_DEPLOYED
+              value: "{{ now }}"
+          {{- range $key, $value := .Values.public_env_variables }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+          {{- end }}
+          {{- range $key, $value := .Values.secret_env_variables }}
+            - name: {{ $key }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "owsub.fullname" $root }}-env
+                  key: {{ $key }}
+          {{- end }}
+
+          ports:
+          {{- range $port, $portValue := .Values.services.owsub.ports }}
+            - name: {{ $port }}
+              containerPort: {{ $portValue.targetPort }}
+              protocol: {{ $portValue.protocol }}
+          {{- end }}
+
+          volumeMounts:
+          {{- range .Values.volumes.owsub }}
+          - name: {{ .name }}
+            mountPath: {{ .mountPath }}
+            {{- if .subPath }}
+            subPath: {{ .subPath }}
+            {{- end }}
+          {{- end }}
+
+          {{- if .Values.checks.owsub.liveness }}
+          livenessProbe:
+            {{- toYaml .Values.checks.owsub.liveness | nindent 12 }}
+          {{- end }}
+          {{- if .Values.checks.owsub.readiness }}
+          readinessProbe:
+            {{- toYaml .Values.checks.owsub.readiness | nindent 12 }}
+          {{- end }}
+
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+
+      securityContext:
+        fsGroup: 101
+
+      imagePullSecrets:
+      {{- range $image, $imageValue := .Values.images }}
+        {{- if $imageValue.regcred }}
+      - name: {{ include "owsub.fullname" $root }}-{{ $image }}-regcred
+        {{- end }}
+      {{- end }}
+
+      volumes:
+      {{- range $container, $containerVolumes := .Values.volumes }}
+      {{- range $containerVolumes }}
+      - name: {{ .name }}
+        {{- tpl .volumeDefinition $root | nindent 8 }}
+      {{- end }}
+      {{- end }}
+
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
