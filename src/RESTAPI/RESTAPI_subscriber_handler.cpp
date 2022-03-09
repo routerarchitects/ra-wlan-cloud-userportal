@@ -100,7 +100,11 @@ namespace OpenWifi {
             }
 
             if(Mods) {
-                SI.modified = OpenWifi::Now();
+                auto now = OpenWifi::Now();
+                if(SI.modified==now)
+                    SI.modified++;
+                else
+                    SI.modified=now;
                 StorageService()->SubInfoDB().UpdateRecord("id", UserInfo_.userinfo.id,SI);
             }
 
