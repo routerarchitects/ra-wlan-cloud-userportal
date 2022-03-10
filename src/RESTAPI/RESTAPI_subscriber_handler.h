@@ -9,7 +9,8 @@
 namespace OpenWifi {
     class RESTAPI_subscriber_handler : public RESTAPIHandler {
     public:
-        RESTAPI_subscriber_handler(const RESTAPIHandler::BindingMap &bindings, Poco::Logger &L, RESTAPI_GenericServer & Server, uint64_t TransactionId, bool Internal)
+        RESTAPI_subscriber_handler(const RESTAPIHandler::BindingMap &bindings, Poco::Logger &L, RESTAPI_GenericServer & Server,
+                                   uint64_t TransactionId, bool Internal)
         : RESTAPIHandler(bindings, L,
                          std::vector<std::string>{
             Poco::Net::HTTPRequest::HTTP_GET,
