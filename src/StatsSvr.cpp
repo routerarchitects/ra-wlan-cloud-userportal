@@ -33,24 +33,27 @@ namespace OpenWifi {
                     if (msg.contains(uCentralProtocol::PAYLOAD)) {
                         std::cout << __LINE__ << std::endl;
                         auto payload = msg[uCentralProtocol::PAYLOAD];
-                        if (payload.contains("version")) {
-                            std::cout << __LINE__ << std::endl;
-                            if (payload.contains("unit")) {
+                        if (payload.contains("state")) {
+                            auto state = payload["state"];
+                            if (state.contains("version")) {
                                 std::cout << __LINE__ << std::endl;
-                                auto unit = payload["unit"];
-                                if (unit.contains("localtime")) {
+                                if (state.contains("unit")) {
                                     std::cout << __LINE__ << std::endl;
-                                    auto timestamp = unit["localtime"];
-                                    if (payload.contains("interfaces")) {
+                                    auto unit = state["unit"];
+                                    if (unit.contains("localtime")) {
                                         std::cout << __LINE__ << std::endl;
-                                        if (payload["interfaces"].is_array()) {
+                                        auto timestamp = unit["localtime"];
+                                        if (state.contains("interfaces")) {
                                             std::cout << __LINE__ << std::endl;
-                                            auto interfaces = payload["interfaces"];
-                                            std::cout << __LINE__ << std::endl;
-                                            for (const auto &cur_int: interfaces) {
+                                            if (state["interfaces"].is_array()) {
                                                 std::cout << __LINE__ << std::endl;
-                                                if (cur_int.contains("counters")) {
-                                                    std::cout << "We have counters" << std::endl;
+                                                auto interfaces = state["interfaces"];
+                                                std::cout << __LINE__ << std::endl;
+                                                for (const auto &cur_int: interfaces) {
+                                                    std::cout << __LINE__ << std::endl;
+                                                    if (cur_int.contains("counters")) {
+                                                        std::cout << "We have counters" << std::endl;
+                                                    }
                                                 }
                                             }
                                         }
