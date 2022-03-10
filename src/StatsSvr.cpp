@@ -28,6 +28,7 @@ namespace OpenWifi {
             if(Msg!= nullptr) {
                 try {
                     std::cout << "Size:" << Queue_.size() << "  " << Msg->Key() << std::endl;
+                    std::cout << Msg->Payload() << std::endl;
                     nlohmann::json msg = nlohmann::json::parse(Msg->Payload());
                     if (msg.contains(uCentralProtocol::PAYLOAD)) {
                         std::cout << __LINE__ << std::endl;
