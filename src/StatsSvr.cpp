@@ -27,24 +27,29 @@ namespace OpenWifi {
             auto Msg = dynamic_cast<Stats_Msg *>(Note.get());
             if(Msg!= nullptr) {
                 try {
-                    std::cout << Msg->Key() << std::endl;
+                    std::cout << "Size:" << Queue_.size() << "  " << Msg->Key() << std::endl;
                     nlohmann::json msg = nlohmann::json::parse(Msg->Payload());
-                    if (!msg.contains(uCentralProtocol::PAYLOAD))
-                        continue;
-                    auto payload = msg[uCentralProtocol::PAYLOAD];
-                    if(!payload.contains("version"))
-                        continue;
-                    if(!payload.contains("interfaces"))
-                        continue;
-                    if(!payload["interfaces"].is_array())
-                        continue;
-                    auto interfaces = payload["interfaces"];
-                    for(const auto &cur_int:interfaces) {
-                        if(cur_int.contains("counters")) {
+                    if (msg.contains(uCentralProtocol::PAYLOAD)) {
+                        auto payload = msg[uCentralProtocol::PAYLOAD];
+                        if (payload.contains("version")) {
+                            if (payload.contains("unit")) {
+                                auto unit = payload["unit"];
+                                if (unit.contains("localtime")) {
+                                    auto timestamp = unit["localtime"];
+                                    if (payload.contains("interfaces")) {
+                                        if (payload["interfaces"].is_array()) {
+                                            auto interfaces = payload["interfaces"];
+                                            for (const auto &cur_int: interfaces) {
+                                                if (cur_int.contains("counters")) {
 
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
-
                 } catch (const Poco::Exception &E) {
                     Logger().log(E);
                 } catch (...) {
