@@ -11,6 +11,7 @@
 #include "Daemon.h"
 #include "StorageService.h"
 #include "SubscriberCache.h"
+#include "StatsSvr.h"
 
 namespace OpenWifi {
 	class Daemon *Daemon::instance_ = nullptr;
@@ -24,7 +25,8 @@ namespace OpenWifi {
 								   vDAEMON_BUS_TIMER,
 								   SubSystemVec{
 									   StorageService(),
-									   SubscriberCache()
+									   SubscriberCache(),
+                                       StatsSvr()
 								   });
 		}
 		return instance_;
