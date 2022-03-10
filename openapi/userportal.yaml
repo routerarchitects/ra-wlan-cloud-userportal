@@ -894,6 +894,34 @@ components:
           type: integer
           format: int64
 
+    StatsEntry:
+      type: object
+      properties:
+        timestamp:
+          type: integer
+          format: int64
+        tx:
+          type: integer
+          format: int64
+        rx:
+          type: integer
+          format: int64
+
+    StatsBlock:
+      type: object
+      properties:
+        modified:
+          type: integer
+          format: int64
+        external:
+          type: array
+          items:
+            $ref: '#/components/schemas/StatsEntry'
+        internal:
+          type: array
+          items:
+            $ref: '#/components/schemas/StatsEntry'
+
 paths:
   /oauth2:
     post:
@@ -1321,6 +1349,18 @@ paths:
           $ref: '#/components/responses/BadRequest'
         403:
           $ref: '#/components/responses/Unauthorized'
+        404:
+          $ref: '#/components/responses/NotFound'
+
+  /stats/{mac}:
+    get:
+      tags:
+        - Device Statistics
+      summary: Get a list of statistics about the MAC address inout/output in terms of bytes
+      operationId: getStats
+      responses:
+        200:
+          $ref: '#/components/schemas/StatsBlock'
         404:
           $ref: '#/components/responses/NotFound'
 

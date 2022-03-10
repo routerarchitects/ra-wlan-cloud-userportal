@@ -40,11 +40,11 @@ namespace OpenWifi {
                                     auto unit = state["unit"];
                                     if (unit.contains("localtime")) {
                                         uint64_t timestamp = unit["localtime"];
-                                        uint64_t int_rx=0, int_tx=0, ext_rx=0,ext_tx=0;
                                         if (state.contains("interfaces")) {
                                             if (state["interfaces"].is_array()) {
                                                 auto interfaces = state["interfaces"];
                                                 auto serial_int = Utils::SerialNumberToInt(serialNumber);
+                                                uint64_t int_rx=0, int_tx=0, ext_rx=0,ext_tx=0;
                                                 for (const auto &cur_int: interfaces) {
                                                     bool external_stats=true;
                                                     if(cur_int.contains("location")) {
@@ -68,17 +68,22 @@ namespace OpenWifi {
                                                         }
                                                     }
                                                 }
-                                                auto it = DeviceStats_.find(serial_int);
-                                                if(it==end(DeviceStats_)) {
-                                                    DeviceStats D;
-                                                    D.AddValue(timestamp,ext_tx,ext_rx,int_tx,int_rx);
-                                                    DeviceStats_[serial_int]=D;
-                                                    std::cout << "Created device stats entries for " << serialNumber << std::endl;
-                                                } else {
-                                                    it->second.AddValue(timestamp,ext_tx,ext_rx,int_tx,int_rx);
-                                                    std::cout << "Adding device stats entries for " << serialNumber << std::endl;
+                                                {
+                                                    std::lock_guard G(Mutex_);
+                                                    auto it = DeviceStats_.find(serial_int);
+                                                    if (it == end(DeviceStats_)) {
+                                                        DeviceStats D;
+                                                        D.AddValue(timestamp, ext_tx, ext_rx, int_tx, int_rx);
+                                                        DeviceStats_[serial_int] = D;
+                                                        std::cout << "Created device stats entries for " << serialNumber
+                                                                  << std::endl;
+                                                    } else {
+                                                        it->second.AddValue(timestamp, ext_tx, ext_rx, int_tx, int_rx);
+                                                        std::cout << "Adding device stats entries for " << serialNumber
+                                                                  << std::endl;
+                                                    }
+                                                    DeviceStats_[serial_int].print();
                                                 }
-                                                DeviceStats_[serial_int].print();
                                             }
                                         }
                                     }

@@ -298,6 +298,23 @@ namespace OpenWifi::SubObjects {
         void to_json(Poco::JSON::Object &Obj) const;
         bool from_json(const Poco::JSON::Object::Ptr &Obj);
     };
+
+    struct StatsEntry {
+        uint64_t        timestamp=0;
+        uint64_t        tx=0;
+        uint64_t        rx=0;
+
+        void to_json(Poco::JSON::Object &Obj) const;
+        bool from_json(const Poco::JSON::Object::Ptr &Obj);
+    };
+
+    struct StatsBlock {
+        uint64_t                    modified=0;
+        std::vector<StatsEntry>     external, internal;
+
+        void to_json(Poco::JSON::Object &Obj) const;
+        bool from_json(const Poco::JSON::Object::Ptr &Obj);
+    };
 }
 
 #endif //OWSUB_RESTAPI_SUBOBJECTS_H

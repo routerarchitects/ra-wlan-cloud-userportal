@@ -5,6 +5,7 @@
 #pragma once
 
 #include "framework/MicroService.h"
+#include "RESTObjects/RESTAPI_SubObjects.h"
 
 namespace OpenWifi {
 
@@ -21,6 +22,7 @@ namespace OpenWifi {
     };
 
     struct DeviceStats {
+        uint64_t LastUpdate_=0;
         constexpr static const size_t buffer_size = 20;
         std::array<std::uint64_t,buffer_size>    timestamps,ext_txs,ext_rxs,int_txs,int_rxs;
         uint64_t base_int_tx=0,base_int_rx=0,base_ext_tx=0,base_ext_rx=0;
@@ -57,13 +59,21 @@ namespace OpenWifi {
                 std::memmove(&int_rxs[0],&int_rxs[1], sizeof(int_rxs[1])*buffer_size-1);
                 index_--;
             }
-
+            LastUpdate_ = OpenWifi::Now();
         }
 
         void print() {
             for(size_t i=0;i<index_;i++) {
                 std::cout << "TS: " << timestamps[i] << " ext_tx:" << ext_txs[i] << " ext_rx:" << ext_rxs[i] <<
                     " int_tx:" << int_txs[i] << " int_rx:" << int_rxs[i] << std::endl;
+            }
+        }
+
+        void Get(SubObjects::StatsBlock &Stats) {
+            Stats.modified = LastUpdate_;
+            for(size_t i=0;i<index_;i++) {
+                Stats.external.push_back({timestamps[i], ext_txs[i],ext_rxs[i]});
+                Stats.internal.push_back({timestamps[i], int_txs[i],int_rxs[i]});
             }
         }
     };
@@ -79,10 +89,19 @@ namespace OpenWifi {
         void Stop() override;
         void run() override;
 
-        void StatsReceived( const std::string & Key, const std::string & Payload) {
+        inline void StatsReceived( const std::string & Key, const std::string & Payload) {
             std::lock_guard G(Mutex_);
             Logger().information(Poco::format("Device(%s): Connection/Ping message.", Key));
             Queue_.enqueueNotification( new Stats_Msg(Key,Payload));
+        }
+
+        inline void Get(const std::string &SerialNumber, SubObjects::StatsBlock &Stats) {
+            std::lock_guard G(Mutex_);
+
+            auto it = DeviceStats_.find(Utils::SerialNumberToInt(SerialNumber));
+            if(it==end(DeviceStats_))
+                return;
+            it->second.Get(Stats);
         }
 
     private:
