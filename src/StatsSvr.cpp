@@ -27,7 +27,7 @@ namespace OpenWifi {
             auto Msg = dynamic_cast<Stats_Msg *>(Note.get());
             if(Msg!= nullptr) {
                 try {
-                    std::cout << "Size:" << Queue_.size() << "  " << Msg->Key() << std::endl;
+                    // std::cout << "Size:" << Queue_.size() << "  " << Msg->Key() << std::endl;
                     // std::cout << Msg->Payload() << std::endl;
                     nlohmann::json msg = nlohmann::json::parse(Msg->Payload());
                     if (msg.contains(uCentralProtocol::PAYLOAD)) {
@@ -59,7 +59,6 @@ namespace OpenWifi {
                                                     }
 
                                                     if (cur_int.contains("counters")) {
-                                                        std::cout << "We have counters" << std::endl;
                                                         if(external_stats) {
                                                             ext_rx = cur_int["counters"]["rx_bytes"].get<uint64_t>();
                                                             ext_tx = cur_int["counters"]["tx_bytes"].get<uint64_t>();
@@ -79,7 +78,7 @@ namespace OpenWifi {
                                                     it->second.AddValue(timestamp,ext_tx,ext_rx,int_tx,int_rx);
                                                     std::cout << "Adding device stats entries for " << serialNumber << std::endl;
                                                 }
-
+                                                DeviceStats_[serial_int].print();
                                             }
                                         }
                                     }

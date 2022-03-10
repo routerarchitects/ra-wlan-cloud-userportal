@@ -57,6 +57,14 @@ namespace OpenWifi {
                 std::memmove(&int_rxs[0],&int_rxs[1], sizeof(int_rxs[1])*buffer_size-1);
                 index_--;
             }
+
+        }
+
+        void print() {
+            for(size_t i=0;i<index_;i++) {
+                std::cout << "TS: " << timestamps[i] << " ext_tx:" << ext_txs[i] << " ext_rx:" << ext_rxs[i] <<
+                    " int_tx:" << int_txs[i] << " int_rx:" << int_rxs[i] << std::endl;
+            }
         }
     };
 
