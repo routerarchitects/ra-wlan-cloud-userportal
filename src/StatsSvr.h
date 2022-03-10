@@ -10,14 +10,54 @@ namespace OpenWifi {
 
     class Stats_Msg : public Poco::Notification {
     public:
-        explicit Stats_Msg(const std::string &Key, const std::string &Payload ) :
-                Key_(Key),
-                Payload_(Payload) {}
+        explicit Stats_Msg(std::string Key, std::string Payload ) :
+                Key_(std::move(Key)),
+                Payload_(std::move(Payload)) {}
         const std::string & Key() { return Key_; }
         const std::string & Payload() { return Payload_; }
     private:
         std::string     Key_;
         std::string     Payload_;
+    };
+
+    struct DeviceStats {
+        constexpr static const size_t buffer_size = 20;
+        std::array<std::uint64_t,buffer_size>    timestamps,ext_txs,ext_rxs,int_txs,int_rxs;
+        uint64_t base_int_tx=0,base_int_rx=0,base_ext_tx=0,base_ext_rx=0;
+
+        uint32_t                        index_=0;
+        bool                            no_base=true;
+        void AddValue(uint64_t ts, uint32_t ext_tx, uint32_t ext_rx, uint32_t int_tx, uint32_t int_rx ) {
+            if(no_base) {
+                base_int_rx = int_rx;
+                base_int_tx = int_tx;
+                base_ext_rx = ext_rx;
+                base_ext_tx = ext_tx;
+                no_base = false;
+                return;
+            }
+
+            timestamps[index_] = ts;
+            int_txs[index_] = int_tx - base_int_tx;
+            base_int_tx = int_tx;
+            int_rxs[index_] = int_rx - base_int_rx;
+            base_int_rx = int_rx;
+            ext_txs[index_] = ext_tx - base_ext_tx;
+            base_ext_tx = ext_tx;
+            ext_rxs[index_] = ext_rx - base_ext_rx;
+            base_ext_rx = ext_rx;
+            index_++;
+
+            if(index_==buffer_size) {
+                // move everything down by one...
+                std::memmove(&timestamps[0],&timestamps[1], sizeof(timestamps[1])*buffer_size-1);
+                std::memmove(&ext_txs[0],&ext_txs[1], sizeof(ext_txs[1])*buffer_size-1);
+                std::memmove(&ext_rxs[0],&ext_rxs[1], sizeof(ext_rxs[1])*buffer_size-1);
+                std::memmove(&int_txs[0],&int_txs[1], sizeof(int_txs[1])*buffer_size-1);
+                std::memmove(&int_rxs[0],&int_rxs[1], sizeof(int_rxs[1])*buffer_size-1);
+                index_--;
+            }
+        }
     };
 
     class StatsSvr : public SubSystemServer, Poco::Runnable {
@@ -42,6 +82,7 @@ namespace OpenWifi {
         Poco::NotificationQueue                 Queue_;
         Poco::Thread                            Worker_;
         std::atomic_bool                        Running_=false;
+        std::map<std::uint64_t, DeviceStats>    DeviceStats_;
 
         StatsSvr() noexcept:
                 SubSystemServer("StateSvr", "STATS-SVR", "statscache")
