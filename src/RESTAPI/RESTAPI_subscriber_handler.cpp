@@ -251,7 +251,15 @@ namespace OpenWifi {
                     } else if(NewAP.deviceMode.type=="bridge") {
 
                     } else if(NewAP.deviceMode.type=="manual") {
-
+                        if(!ValidateIPv4Subnet(NewAP.deviceMode.subnet)) {
+                            return BadRequest("Device mode subnet must be of the form 192.168.1.1/24");
+                        }
+                        if(!ValidIPv4(NewAP.deviceMode.startIP)) {
+                            return BadRequest("Device mode subnet must be of the form 192.168.1.1/24");
+                        }
+                        if(!ValidIPv4(NewAP.deviceMode.endIP)) {
+                            return BadRequest("Device mode subnet must be of the form 192.168.1.1/24");
+                        }
                     } else {
                         return BadRequest("Mode must be bridge, nat, or manual");
                     }
