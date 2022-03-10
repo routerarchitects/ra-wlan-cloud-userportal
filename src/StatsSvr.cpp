@@ -30,16 +30,24 @@ namespace OpenWifi {
                     std::cout << "Size:" << Queue_.size() << "  " << Msg->Key() << std::endl;
                     nlohmann::json msg = nlohmann::json::parse(Msg->Payload());
                     if (msg.contains(uCentralProtocol::PAYLOAD)) {
+                        std::cout << __LINE__ << std::endl;
                         auto payload = msg[uCentralProtocol::PAYLOAD];
                         if (payload.contains("version")) {
+                            std::cout << __LINE__ << std::endl;
                             if (payload.contains("unit")) {
+                                std::cout << __LINE__ << std::endl;
                                 auto unit = payload["unit"];
                                 if (unit.contains("localtime")) {
+                                    std::cout << __LINE__ << std::endl;
                                     auto timestamp = unit["localtime"];
                                     if (payload.contains("interfaces")) {
+                                        std::cout << __LINE__ << std::endl;
                                         if (payload["interfaces"].is_array()) {
+                                            std::cout << __LINE__ << std::endl;
                                             auto interfaces = payload["interfaces"];
+                                            std::cout << __LINE__ << std::endl;
                                             for (const auto &cur_int: interfaces) {
+                                                std::cout << __LINE__ << std::endl;
                                                 if (cur_int.contains("counters")) {
                                                     std::cout << "We have counters" << std::endl;
                                                 }
