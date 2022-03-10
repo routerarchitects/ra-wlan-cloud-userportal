@@ -41,7 +41,7 @@ namespace OpenWifi {
                                             auto interfaces = payload["interfaces"];
                                             for (const auto &cur_int: interfaces) {
                                                 if (cur_int.contains("counters")) {
-
+                                                    std::cout << "We have counters" << std::endl;
                                                 }
                                             }
                                         }
