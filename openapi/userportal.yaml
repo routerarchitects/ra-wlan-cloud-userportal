@@ -1358,6 +1358,12 @@ paths:
         - Device Statistics
       summary: Get a list of statistics about the MAC address inout/output in terms of bytes
       operationId: getStats
+      parameters:
+        - in: path
+          name: mac
+          schema:
+            type: string
+          required: true
       responses:
         200:
           $ref: '#/components/schemas/StatsBlock'

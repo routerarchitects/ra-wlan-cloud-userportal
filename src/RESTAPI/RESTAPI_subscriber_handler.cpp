@@ -143,7 +143,7 @@ namespace OpenWifi {
             return false;
         Poco::Net::IPAddress    A;
 
-        if(!Poco::Net::IPAddress::tryParse(IP,A) || A.family()==Poco::Net::AddressFamily::IPv4)
+        if(!Poco::Net::IPAddress::tryParse(IP,A) || A.family()!=Poco::Net::AddressFamily::IPv4)
             return false;
 
         return true;
@@ -154,7 +154,7 @@ namespace OpenWifi {
             return false;
         Poco::Net::IPAddress    A;
 
-        if(!Poco::Net::IPAddress::tryParse(IP,A) || A.family()==Poco::Net::AddressFamily::IPv6)
+        if(!Poco::Net::IPAddress::tryParse(IP,A) || A.family()!=Poco::Net::AddressFamily::IPv6)
             return false;
 
         return true;
