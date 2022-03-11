@@ -11,7 +11,7 @@ namespace OpenWifi {
     void RESTAPI_stats_handler::DoGet() {
         auto MAC = GetBinding("mac","");
 
-        if(MAC.empty() || Utils::ValidSerialNumber(MAC)) {
+        if(MAC.empty() || !Utils::ValidSerialNumber(MAC)) {
             return BadRequest(RESTAPI::Errors::InvalidSerialNumber);
         }
 
