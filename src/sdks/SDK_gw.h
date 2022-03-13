@@ -18,6 +18,7 @@ namespace OpenWifi::SDK::GW {
 
         bool SetVenue(RESTAPIHandler *client, const std::string & SerialNumber, const std::string &uuid);
         bool GetLastStats(RESTAPIHandler *client, const std::string &Mac, Poco::JSON::Object::Ptr & Response);
+        bool SetSubscriber(RESTAPIHandler *client, const std::string & SerialNumber, const std::string &uuid);
 
    }
 }

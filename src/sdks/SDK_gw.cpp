@@ -159,5 +159,23 @@ namespace OpenWifi::SDK::GW {
             return false;
         }
 
+        bool SetSubscriber(RESTAPIHandler *client, const std::string & SerialNumber, const std::string &uuid) {
+            Poco::JSON::Object      Body;
+
+            Body.set("serialNumber", SerialNumber);
+            Body.set("subscriber", uuid);
+            OpenWifi::OpenAPIRequestPut R(OpenWifi::uSERVICE_GATEWAY,
+                                          "/api/v1/device/" +SerialNumber,
+                                          {},
+                                          Body,
+                                          10000);
+            auto CallResponse = Poco::makeShared<Poco::JSON::Object>();
+            auto ResponseStatus = R.Do(CallResponse, client ? client->UserInfo_.webtoken.access_token_ : "");
+            if(ResponseStatus == Poco::Net::HTTPResponse::HTTP_OK) {
+                return true;
+            }
+            return false;
+        }
+
     }
 }

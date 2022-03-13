@@ -6,6 +6,7 @@
 #include "RESTObjects/RESTAPI_SubObjects.h"
 #include "StorageService.h"
 #include "sdks/SDK_prov.h"
+#include "sdks/SDK_gw.h"
 
 namespace OpenWifi {
 
@@ -411,6 +412,7 @@ namespace OpenWifi {
                     return false;
                 }
             }
+            SDK::GW::Device::SetSubscriber(nullptr, i.serialNumber, SI.id);
         }
         SI.modified = OpenWifi::Now();
         return StorageService()->SubInfoDB().UpdateRecord("id",id_,SI);
