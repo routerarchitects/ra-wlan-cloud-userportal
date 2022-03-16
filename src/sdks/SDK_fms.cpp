@@ -9,7 +9,7 @@ namespace OpenWifi::SDK::FMS {
     namespace Firmware {
         bool GetDeviceInformation(RESTAPIHandler *client, const Types::UUID_t & SerialNumber, FMSObjects::DeviceInformation & DI) {
             OpenAPIRequestGet	Req(    uSERVICE_FIRMWARE,
-                                        "/api/v1//deviceInformation/" + SerialNumber,
+                                        "/api/v1/deviceInformation/" + SerialNumber,
                                          {},
                                          10000);
 
