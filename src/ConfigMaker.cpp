@@ -134,7 +134,7 @@ namespace OpenWifi {
             if(i.macAddress.empty())
                 continue;
 
-            Logger_.information(Poco::format("%s: Generating configuration.",i.macAddress));
+            Logger_.information(fmt::format("{}: Generating configuration.",i.macAddress));
 
             UpstreamInterface["name"] = "WAN";
             UpstreamInterface["role"] = "upstream";
@@ -379,16 +379,16 @@ namespace OpenWifi {
                 std::string CfgUUID;
                 if(SDK::Prov::Configuration::Create(nullptr, i.serialNumber, Cfg, CfgUUID)) {
                     i.configurationUUID = CfgUUID;
-                    Logger_.information(Poco::format("%s: Created and assigned configuration.", i.macAddress ));
+                    Logger_.information(fmt::format("{}: Created and assigned configuration.", i.macAddress ));
                     // now push the configuration to the device...
                     ProvObjects::InventoryConfigApplyResult Results;
                     if(SDK::Prov::Configuration::Push(nullptr, i.serialNumber, Results)) {
-                        Logger_.information(Poco::format("%s: Pushed configuration to device.", i.macAddress ));
+                        Logger_.information(fmt::format("{}: Pushed configuration to device.", i.macAddress ));
                     } else {
-                        Logger_.information(Poco::format("%s: Could not push configuration to device.", i.macAddress ));
+                        Logger_.information(fmt::format("{}: Could not push configuration to device.", i.macAddress ));
                     }
                 } else {
-                    Logger_.information(Poco::format("%s: Could not create configuration for device.", i.macAddress ));
+                    Logger_.information(fmt::format("{}: Could not create configuration for device.", i.macAddress ));
                     return false;
                 }
             } else {
@@ -399,16 +399,16 @@ namespace OpenWifi {
                 }
 
                 if(SDK::Prov::Configuration::Update(nullptr,i.configurationUUID,ExistingConfig)) {
-                    Logger_.information(Poco::format("%s: Configuration modified for device.", i.macAddress ));
+                    Logger_.information(fmt::format("{}: Configuration modified for device.", i.macAddress ));
                     // Now push the configuration...
                     ProvObjects::InventoryConfigApplyResult Results;
                     if(SDK::Prov::Configuration::Push(nullptr, i.serialNumber, Results)) {
-                        Logger_.information(Poco::format("%s: Pushed configuration to device.", i.macAddress ));
+                        Logger_.information(fmt::format("{}: Pushed configuration to device.", i.macAddress ));
                     } else {
-                        Logger_.information(Poco::format("%s: Could not push configuration to device.", i.macAddress ));
+                        Logger_.information(fmt::format("{}: Could not push configuration to device.", i.macAddress ));
                     }
                 } else {
-                    Logger_.information(Poco::format("%s: Could not modify configuration for device.", i.macAddress ));
+                    Logger_.information(fmt::format("{}: Could not modify configuration for device.", i.macAddress ));
                     return false;
                 }
             }

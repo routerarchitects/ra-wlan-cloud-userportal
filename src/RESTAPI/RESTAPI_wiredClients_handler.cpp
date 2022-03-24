@@ -16,7 +16,7 @@ namespace OpenWifi {
             return BadRequest(RESTAPI::Errors::MissingSerialNumber);
         }
 
-        Logger().information(Poco::format("%s: Getting list of wired clients.",SerialNumber));
+        Logger().information(fmt::format("{}: Getting list of wired clients.",SerialNumber));
 
         SubObjects::SubscriberInfo SI;
         if (!StorageService()->SubInfoDB().GetRecord("id", UserInfo_.userinfo.id, SI)) {

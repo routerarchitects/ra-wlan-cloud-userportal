@@ -6,6 +6,18 @@ RUN apk add --update --no-cache \
     librdkafka-dev boost-dev openssl-dev \
     zlib-dev nlohmann-json
 
+FROM build-base AS fmtlib-build
+
+ADD https://api.github.com/repos/fmtlib/fmt/git/refs/heads/master version.json
+RUN git clone https://github.com/fmtlib/fmt /fmtlib
+
+WORKDIR /fmtlib
+RUN mkdir cmake-build
+WORKDIR cmake-build
+RUN cmake ..
+RUN make
+RUN make install
+
 FROM build-base AS poco-build
 
 ADD https://api.github.com/repos/stephb9959/poco/git/refs/heads/master version.json
@@ -55,6 +67,8 @@ COPY --from=cppkafka-build /usr/local/include /usr/local/include
 COPY --from=cppkafka-build /usr/local/lib /usr/local/lib
 COPY --from=json-schema-validator-build /usr/local/include /usr/local/include
 COPY --from=json-schema-validator-build /usr/local/lib /usr/local/lib
+COPY --from=fmtlib-build /usr/local/include /usr/local/include
+COPY --from=fmtlib-build /usr/local/lib /usr/local/lib
 
 WORKDIR /owsub
 RUN mkdir cmake-build

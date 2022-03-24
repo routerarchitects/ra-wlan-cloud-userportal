@@ -30,7 +30,7 @@ namespace OpenWifi {
             return NotFound();
         }
 
-        Logger().information(Poco::format("%s: Get basic info.", UserInfo_.userinfo.email));
+        Logger().information(fmt::format("{}: Get basic info.", UserInfo_.userinfo.email));
         SubObjects::SubscriberInfo  SI;
         if(StorageService()->SubInfoDB().GetRecord("id", UserInfo_.userinfo.id,SI)) {
 
@@ -123,12 +123,12 @@ namespace OpenWifi {
             return BadRequest("No devices activated yet.");
         }
 
-        Logger().information(Poco::format("%s: Creating default user information.", UserInfo_.userinfo.email));
+        Logger().information(fmt::format("{}: Creating default user information.", UserInfo_.userinfo.email));
         StorageService()->SubInfoDB().CreateDefaultSubscriberInfo(UserInfo_, SI, DeviceIds);
-        Logger().information(Poco::format("%s: Creating default configuration.", UserInfo_.userinfo.email));
+        Logger().information(fmt::format("{}: Creating default configuration.", UserInfo_.userinfo.email));
         StorageService()->SubInfoDB().CreateRecord(SI);
 
-        Logger().information(Poco::format("%s: Generating initial configuration.", UserInfo_.userinfo.email));
+        Logger().information(fmt::format("{}: Generating initial configuration.", UserInfo_.userinfo.email));
         ConfigMaker     InitialConfig(Logger(),SI.id);
         InitialConfig.Prepare();
         StorageService()->SubInfoDB().GetRecord("id", SI.id, SI);
