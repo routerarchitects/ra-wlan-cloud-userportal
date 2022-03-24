@@ -202,6 +202,34 @@ namespace OpenWifi::RESTAPI_utils {
         Obj.set(Field,S);
     }
 
+    inline void field_to_json(Poco::JSON::Object &Obj, const char *Field, const char * S) {
+        Obj.set(Field,S);
+    }
+
+    inline void field_to_json(Poco::JSON::Object &Obj, const char *Field, int16_t Value) {
+        Obj.set(Field, Value);
+    }
+
+    inline void field_to_json(Poco::JSON::Object &Obj, const char *Field, int32_t Value) {
+        Obj.set(Field, Value);
+    }
+
+    inline void field_to_json(Poco::JSON::Object &Obj, const char *Field, int64_t Value) {
+        Obj.set(Field, Value);
+    }
+
+    inline void field_to_json(Poco::JSON::Object &Obj, const char *Field, uint16_t Value) {
+        Obj.set(Field, Value);
+    }
+
+    inline void field_to_json(Poco::JSON::Object &Obj, const char *Field, uint32_t Value) {
+        Obj.set(Field, Value);
+    }
+
+    inline void field_to_json(Poco::JSON::Object &Obj, const char *Field, uint64_t Value) {
+        Obj.set(Field,Value);
+    }
+
     inline void field_to_json(Poco::JSON::Object &Obj, const char *Field, const Types::StringPairVec & S) {
         Poco::JSON::Array   Array;
         for(const auto &i:S) {
@@ -211,14 +239,6 @@ namespace OpenWifi::RESTAPI_utils {
             Array.add(O);
         }
         Obj.set(Field,Array);
-    }
-
-    inline void field_to_json(Poco::JSON::Object &Obj, const char *Field, const char * S) {
-        Obj.set(Field,S);
-    }
-
-    inline void field_to_json(Poco::JSON::Object &Obj, const char *Field, uint64_t V) {
-        Obj.set(Field,V);
     }
 
     inline void field_to_json(Poco::JSON::Object &Obj, const char *Field, const Types::StringVec &V) {
@@ -271,35 +291,85 @@ namespace OpenWifi::RESTAPI_utils {
         Obj.set(Field, F(V));
     }
 
-    template<typename T> bool field_from_json(Poco::JSON::Object::Ptr Obj, const char *Field, T & V,
+    template<class T> void field_to_json(Poco::JSON::Object &Obj, const char *Field, const std::vector<T> &Value) {
+        Poco::JSON::Array Arr;
+        for(const auto &i:Value) {
+            Poco::JSON::Object	AO;
+            i.to_json(AO);
+            Arr.add(AO);
+        }
+        Obj.set(Field, Arr);
+    }
+
+    template<class T> void field_to_json(Poco::JSON::Object Obj, const char *Field, const T &Value) {
+        Poco::JSON::Object  Answer;
+        Value.to_json(Answer);
+        Obj.set(Field, Answer);
+    }
+
+    ///////////////////////////
+    ///////////////////////////
+    ///////////////////////////
+    ///////////////////////////
+
+    template<typename T> bool field_from_json(const Poco::JSON::Object::Ptr &Obj, const char *Field, T & V,
             std::function<T(const std::string &)> F) {
         if(Obj->has(Field))
             V = F(Obj->get(Field).toString());
         return true;
     }
 
-    inline void field_from_json(Poco::JSON::Object::Ptr Obj, const char *Field, std::string &S) {
+    inline void field_from_json(const Poco::JSON::Object::Ptr &Obj, const char *Field, std::string &S) {
         if(Obj->has(Field))
             S = Obj->get(Field).toString();
     }
 
-    inline void field_from_json(Poco::JSON::Object::Ptr Obj, const char *Field, double & V) {
+    inline void field_from_json(const Poco::JSON::Object::Ptr &Obj, const char *Field, double & V) {
         if(Obj->has(Field))
-            V = Obj->get(Field);
+            V = Obj->get(Field).extract<double>();
     }
 
-    inline void field_from_json(Poco::JSON::Object::Ptr Obj, const char *Field, uint64_t &V) {
+    inline void field_from_json(const Poco::JSON::Object::Ptr &Obj, const char *Field, float & V) {
         if(Obj->has(Field))
-            V = Obj->get(Field);
+            V = Obj->get(Field).extract<float>();
     }
 
-    inline void field_from_json(Poco::JSON::Object::Ptr Obj, const char *Field, bool &V) {
+    inline void field_from_json(const Poco::JSON::Object::Ptr &Obj, const char *Field, bool &V) {
         if(Obj->has(Field))
             V = (Obj->get(Field).toString() == "true");
     }
 
+    inline void field_from_json(const Poco::JSON::Object::Ptr &Obj, const char *Field, int16_t &Value) {
+        if(Obj->has(Field))
+            Value = (int16_t)Obj->get(Field).extract<long long>();
+    }
 
-    inline void field_from_json(Poco::JSON::Object::Ptr Obj, const char *Field, Types::StringPairVec &Vec) {
+    inline void field_from_json(const Poco::JSON::Object::Ptr &Obj, const char *Field, int32_t &Value) {
+        if(Obj->has(Field))
+            Value = (int32_t) Obj->get(Field).extract<long long>();
+    }
+
+    inline void field_from_json(const Poco::JSON::Object::Ptr &Obj, const char *Field, int64_t &Value) {
+        if(Obj->has(Field))
+            Value = (int64_t)Obj->get(Field).extract<long long>();
+    }
+
+    inline void field_from_json(const Poco::JSON::Object::Ptr &Obj, const char *Field, uint16_t &Value) {
+        if(Obj->has(Field))
+            Value = (uint16_t)Obj->get(Field).extract<long long>();
+    }
+
+    inline void field_from_json(const Poco::JSON::Object::Ptr &Obj, const char *Field, uint32_t &Value) {
+        if(Obj->has(Field))
+            Value = (uint32_t)Obj->get(Field).extract<long long>();
+    }
+
+    inline void field_from_json(const Poco::JSON::Object::Ptr &Obj, const char *Field, uint64_t &Value) {
+        if(Obj->has(Field))
+            Value = (uint64_t ) Obj->get(Field).extract<long long>();
+    }
+
+    inline void field_from_json(const Poco::JSON::Object::Ptr &Obj, const char *Field, Types::StringPairVec &Vec) {
         if(Obj->isArray(Field)) {
             auto O = Obj->getArray(Field);
             for(const auto &i:*O) {
@@ -315,7 +385,7 @@ namespace OpenWifi::RESTAPI_utils {
         }
     }
 
-    inline void field_from_json(Poco::JSON::Object::Ptr Obj, const char *Field, Types::StringVec &V) {
+    inline void field_from_json(const Poco::JSON::Object::Ptr &Obj, const char *Field, Types::StringVec &V) {
         if(Obj->isArray(Field)) {
             V.clear();
             Poco::JSON::Array::Ptr A = Obj->getArray(Field);
@@ -325,7 +395,7 @@ namespace OpenWifi::RESTAPI_utils {
         }
     }
 
-    inline void field_from_json(Poco::JSON::Object::Ptr Obj, const char *Field, Types::TagList &V) {
+    inline void field_from_json(const Poco::JSON::Object::Ptr &Obj, const char *Field, Types::TagList &V) {
         if(Obj->isArray(Field)) {
             V.clear();
             Poco::JSON::Array::Ptr A = Obj->getArray(Field);
@@ -333,35 +403,6 @@ namespace OpenWifi::RESTAPI_utils {
                 V.push_back(i);
             }
         }
-    }
-
-    template<class T> void field_to_json(Poco::JSON::Object &Obj, const char *Field, const std::vector<T> &Value) {
-        Poco::JSON::Array Arr;
-        for(const auto &i:Value) {
-            Poco::JSON::Object	AO;
-            i.to_json(AO);
-            Arr.add(AO);
-        }
-        Obj.set(Field, Arr);
-    }
-
-    inline void field_to_json(Poco::JSON::Object &Obj, const char *Field, int Value) {
-        Obj.set(Field, Value);
-    }
-
-    inline void field_to_json(Poco::JSON::Object &Obj, const char *Field, int64_t Value) {
-        Obj.set(Field, Value);
-    }
-
-    inline void field_to_json(Poco::JSON::Object &Obj, const char *Field, uint Value) {
-        Obj.set(Field, Value);
-    }
-
-
-    template<class T> void field_to_json(Poco::JSON::Object &Obj, const char *Field, const T &Value) {
-        Poco::JSON::Object  Answer;
-        Value.to_json(Answer);
-        Obj.set(Field, Answer);
     }
 
     template<class T> void field_from_json(const Poco::JSON::Object::Ptr &Obj, const char *Field, std::vector<T> &Value) {
@@ -373,18 +414,6 @@ namespace OpenWifi::RESTAPI_utils {
                 NewItem.from_json(InnerObj);
                 Value.push_back(NewItem);
             }
-        }
-    }
-
-    inline void field_from_json(const Poco::JSON::Object::Ptr &Obj, const char *Field, int &Value) {
-        if(Obj->isObject(Field)) {
-            Value = Obj->get(Field);
-        }
-    }
-
-    inline void field_from_json(const Poco::JSON::Object::Ptr &Obj, const char *Field, int64_t &Value) {
-        if(Obj->isObject(Field)) {
-            Value = Obj->get(Field);
         }
     }
 
