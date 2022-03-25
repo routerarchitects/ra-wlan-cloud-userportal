@@ -45,7 +45,7 @@ namespace OpenWifi {
         SI.userId = UI.userinfo.email;
         const auto NameParts = Poco::StringTokenizer(UI.userinfo.name.empty() ? SI.userId : UI.userinfo.name," @._-");
         if(NameParts.count()>0) {
-            for(auto i=0; i<NameParts.count();++i) {
+            for(size_t i=0; i<NameParts.count();++i) {
                 if(i==0)
                     SI.firstName = NameParts[0];
                 else

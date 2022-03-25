@@ -149,7 +149,7 @@ namespace OpenWifi {
         return true;
     }
 
-    static bool ValidIPv6(const std::string &IP) {
+    [[maybe_unused]] static bool ValidIPv6(const std::string &IP) {
         if(IP.empty())
             return false;
         Poco::Net::IPAddress    A;
@@ -160,7 +160,7 @@ namespace OpenWifi {
         return true;
     }
 
-    static bool ValidIPv4v6(const std::string &IP) {
+    [[maybe_unused]] static bool ValidIPv4v6(const std::string &IP) {
         if(IP.empty())
             return false;
         Poco::Net::IPAddress    A;

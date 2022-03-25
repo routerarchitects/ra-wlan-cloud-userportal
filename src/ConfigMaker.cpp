@@ -122,8 +122,6 @@ namespace OpenWifi {
             }
         } )"_json;
 
-        bool configModified = false;
-
         for(auto &i:SI.accessPoints.list) {
 
             nlohmann::json Interfaces;
