@@ -373,7 +373,10 @@ namespace OpenWifi {
                 Cfg.subscriberOnly = true;
                 Cfg.subscriber = SI.id;
                 Cfg.info.name = "sub:" + i.macAddress;
-                Cfg.info.notes.emplace_back(SecurityObjects::NoteInfo{.created=OpenWifi::Now(), .note="Auto-created from subscriber service."});
+                Cfg.info.notes.emplace_back(SecurityObjects::NoteInfo{
+                    .created=OpenWifi::Now(),
+                    .createdBy="system",
+                    .note="Auto-created from subscriber service."});
                 std::string CfgUUID;
                 if(SDK::Prov::Configuration::Create(nullptr, i.serialNumber, Cfg, CfgUUID)) {
                     i.configurationUUID = CfgUUID;
