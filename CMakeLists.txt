@@ -40,11 +40,6 @@ add_definitions(-DAWS_CUSTOM_MEMORY_MANAGEMENT)
 
 set(BUILD_SHARED_LIBS 1)
 
-set(Boost_USE_STATIC_LIBS OFF)
-set(Boost_USE_MULTITHREADED ON)
-set(Boost_USE_STATIC_RUNTIME OFF)
-
-find_package(Boost      REQUIRED system)
 find_package(OpenSSL    REQUIRED)
 find_package(fmt    REQUIRED)
 find_package(Poco       REQUIRED COMPONENTS Crypto JWT Net Util NetSSL Data DataSQLite)
@@ -104,9 +99,10 @@ add_executable(owsub
         src/RESTAPI/RESTAPI_signup_handler.cpp src/RESTAPI/RESTAPI_signup_handler.h src/sdks/SDK_fms.cpp src/sdks/SDK_fms.h src/StatsSvr.cpp src/StatsSvr.h src/RESTAPI/RESTAPI_stats_handler.cpp src/RESTAPI/RESTAPI_stats_handler.h)
 
 target_link_libraries(owsub PUBLIC
-        ${Poco_LIBRARIES} ${MySQL_LIBRARIES}
-        ${Boost_LIBRARIES}
-        ${ZLIB_LIBRARIES} ${AWSSDK_LINK_LIBRARIES}
+        ${Poco_LIBRARIES}
+        ${MySQL_LIBRARIES}
+        ${ZLIB_LIBRARIES}
+        ${AWSSDK_LINK_LIBRARIES}
         fmt::fmt
         CppKafka::cppkafka nlohmann_json_schema_validator)
 
