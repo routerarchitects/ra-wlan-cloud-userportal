@@ -36,7 +36,6 @@ if(GIT_FOUND AND EXISTS "${PROJECT_SOURCE_DIR}/.git")
     endif()
     string(REGEX REPLACE "\n$" "" GIT_HASH "${GIT_HASH}")
 endif()
-add_definitions(-DAWS_CUSTOM_MEMORY_MANAGEMENT)
 
 set(BUILD_SHARED_LIBS 1)
 
@@ -104,7 +103,6 @@ target_link_libraries(owsub PUBLIC
         ${Poco_LIBRARIES}
         ${MySQL_LIBRARIES}
         ${ZLIB_LIBRARIES}
-        ${AWSSDK_LINK_LIBRARIES}
         fmt::fmt
         CppKafka::cppkafka nlohmann_json_schema_validator)
 
