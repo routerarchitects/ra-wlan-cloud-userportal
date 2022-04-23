@@ -1286,6 +1286,11 @@ paths:
           schema:
             type: string
           required: false
+        - in: query
+          name: registrationId
+          schema:
+            type: string
+          required: true
       responses:
         200:
           $ref: '#/components/schemas/SignupEntry'

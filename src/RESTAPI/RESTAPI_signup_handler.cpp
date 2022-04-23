@@ -14,6 +14,8 @@ namespace OpenWifi {
         Poco::toLowerInPlace(UserName);
         auto SerialNumber = GetParameter("macAddress","");
         Poco::toLowerInPlace(SerialNumber);
+        auto registrationId = GetParameter("registrationId","");
+        Poco::toLowerInPlace(registrationId);
 
         if(!Utils::ValidSerialNumber(SerialNumber)) {
             return BadRequest(RESTAPI::Errors::InvalidSerialNumber);
@@ -23,6 +25,9 @@ namespace OpenWifi {
             return BadRequest(RESTAPI::Errors::InvalidEmailAddress);
         }
 
+        if(registrationId.empty()) {
+            return BadRequest(RESTAPI::Errors::InvalidRegistrationOperatorName);
+        }
         return API_Proxy(Logger(), Request, Response, uSERVICE_PROVISIONING.c_str(), "/api/v1/signup", 60000);
     }
 

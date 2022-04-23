@@ -33,12 +33,43 @@ is a sample
       "org_color_1" : "#3399ff",
       "access_policy" : "https://www.example.com/policies/selfcare_program_policy.html",
       "password_policy_regex" : "^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$%^&*-]).{8,}$",
-      "password_policy" : "https://www.example.com/policies/selfcare_password_policy.html"
-    },
+      "password_policy" : "https://www.example.com/policies/selfcare_password_policy.html",
+      "operator_id" : "oper1"
+    }
     ...    
   ]
 }
 ```
+
+#### `org_uri`
+The URI the subscriber can use to visit a website describing the operator
+
+#### `org_name`
+The legal name of the operator.
+
+#### `subscriber_portal`
+The location of the subscriber self-care service
+
+#### `small_org_logo`
+URL of a small logo to be used for branding the mobile app.
+
+#### `large_org_logo`
+URL of a larger logo to be used for branding the mobile app.
+
+#### `org_color_1`
+A color to be used for branding
+
+#### `access_policy`
+URL of the system access policy
+
+#### `password_policy_regex`
+The regex of the password requirement
+
+#### `password_policy`
+URL of the description of what the password policy is
+
+#### `operator_id`
+A single word to link the registration with an existing Operator in the Operator DB.
 
 ### The SelfCare application
 The application is available on AppCenter by following this link.
