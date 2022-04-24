@@ -22,7 +22,7 @@ namespace OpenWifi {
                                  TransactionId,
                                  Internal, true, false, RateLimit{.Interval=1000,.MaxCalls=10}, true){}
 
-        static const std::list<const char *> PathName() { return std::list<const char *>{"/api/v1/stats/{mac}"}; };
+        static auto PathName() { return std::list<std::string>{"/api/v1/stats/{mac}"}; };
 
     private:
         void DoGet() final;

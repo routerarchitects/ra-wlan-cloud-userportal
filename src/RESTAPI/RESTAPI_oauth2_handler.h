@@ -20,7 +20,7 @@ namespace OpenWifi {
                                                   Server,
                                                   TransactionId,
                                                   Internal, false, true , RateLimit{.Interval=1000,.MaxCalls=10}) {}
-        static const std::list<const char *> PathName() { return std::list<const char *>{"/api/v1/oauth2/{token}","/api/v1/oauth2"}; };
+        static auto PathName() { return std::list<std::string>{"/api/v1/oauth2/{token}","/api/v1/oauth2"}; };
 
         void DoGet() final;
         void DoPost() final;
