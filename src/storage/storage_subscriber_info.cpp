@@ -36,7 +36,7 @@ namespace OpenWifi {
     SubscriberInfoDB::SubscriberInfoDB( OpenWifi::DBType T, Poco::Data::SessionPool & P, Poco::Logger &L) :
         DB(T, "subscriberinfo", SubInfoDBDB_Fields, SubInfoDBDB_Fields_Indexes, P, L, "sui") {}
 
-    void SubscriberInfoDB::CreateDefaultSubscriberInfo(const SecurityObjects::UserInfoAndPolicy & UI, SubObjects::SubscriberInfo &SI, const ProvObjects::InventoryTagList & Devices) {
+    void SubscriberInfoDB::CreateDefaultSubscriberInfo(const SecurityObjects::UserInfoAndPolicy & UI, SubObjects::SubscriberInfo &SI, const ProvObjects::SubscriberDeviceList & Devices) {
         auto Now = std::time(nullptr);
 
         //  ok, we need to generate a default record and store it...
@@ -61,7 +61,7 @@ namespace OpenWifi {
             SI.phoneNumber = UI.userinfo.userTypeProprietaryInfo.mobiles[0].number;
 
         int ap_num=1;
-        for(const auto &i:Devices.taglist) {
+        for(const auto &i:Devices.subscriberDevices) {
             SubObjects::AccessPoint AP;
             AP.macAddress = i.realMacAddress;
             AP.serialNumber = i.serialNumber;

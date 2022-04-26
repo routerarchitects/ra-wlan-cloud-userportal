@@ -114,17 +114,17 @@ namespace OpenWifi {
         }
 
         //  if the user does not have a device, we cannot continue.
-        ProvObjects::InventoryTagList DeviceIds;
-        if(!SDK::Prov::Subscriber::GetDevices(this,UserInfo_.userinfo.id,DeviceIds)) {
+        ProvObjects::SubscriberDeviceList Devices;
+        if(!SDK::Prov::Subscriber::GetDevices(this,UserInfo_.userinfo.id,Devices)) {
             return BadRequest("Provisioning service not available yet.");
         }
 
-        if(DeviceIds.taglist.empty() ) {
+        if(Devices.subscriberDevices.empty() ) {
             return BadRequest("No devices activated yet.");
         }
 
         Logger().information(fmt::format("{}: Creating default user information.", UserInfo_.userinfo.email));
-        StorageService()->SubInfoDB().CreateDefaultSubscriberInfo(UserInfo_, SI, DeviceIds);
+        StorageService()->SubInfoDB().CreateDefaultSubscriberInfo(UserInfo_, SI, Devices);
         Logger().information(fmt::format("{}: Creating default configuration.", UserInfo_.userinfo.email));
         StorageService()->SubInfoDB().CreateRecord(SI);
 

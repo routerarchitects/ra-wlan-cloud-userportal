@@ -30,7 +30,7 @@ namespace OpenWifi {
     public:
         SubscriberInfoDB( OpenWifi::DBType T, Poco::Data::SessionPool & P, Poco::Logger &L);
         virtual ~SubscriberInfoDB() {};
-        void CreateDefaultSubscriberInfo(const SecurityObjects::UserInfoAndPolicy & UI, SubObjects::SubscriberInfo &SI,const ProvObjects::InventoryTagList &Devices);
+        void CreateDefaultSubscriberInfo(const SecurityObjects::UserInfoAndPolicy & UI, SubObjects::SubscriberInfo &SI,const ProvObjects::SubscriberDeviceList &Devices);
     private:
     };
 }
