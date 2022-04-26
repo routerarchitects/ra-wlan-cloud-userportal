@@ -317,7 +317,6 @@ namespace OpenWifi {
                 radios.push_back(radio);
             }
 
-            ProvObjects::DeviceConfigurationElementVec Configuration;
             ProvObjects::DeviceConfigurationElement Metrics{
                     .name = "metrics",
                     .description = "default metrics",
@@ -350,24 +349,24 @@ namespace OpenWifi {
                     .configuration = to_string(RadiosSection)
             };
 
-            Configuration.push_back(Metrics);
-            Configuration.push_back(Services);
-            Configuration.push_back(InterfacesList);
-            Configuration.push_back(RadiosList);
+            ProvObjects::SubscriberDevice SubDevice;
 
-            Poco::JSON::Object  Answer;
+            if(SDK::Prov::Subscriber::GetDevice(nullptr,i.serialNumber, SubDevice)) {
+                SubDevice.configuration.clear();
+                SubDevice.configuration.push_back(Metrics);
+                SubDevice.configuration.push_back(Services);
+                SubDevice.configuration.push_back(InterfacesList);
+                SubDevice.configuration.push_back(RadiosList);
+                SubDevice.firmwareUpgrade = i.automaticUpgrade ? "yes" : "no";
+                if(SDK::Prov::Subscriber::SetDevice(nullptr, SubDevice)) {
+                    Logger_.information(fmt::format("Updating configuration for {}", i.serialNumber));
+                } else {
+                    Logger_.information(fmt::format("Cannot update configuration for {}", i.serialNumber));
+                }
+            }
 
-            ProvObjects::DeviceConfiguration    Cfg;
-
-            Cfg.deviceTypes.push_back(i.deviceType);
-
-            Cfg.firmwareRCOnly = true;
-            Cfg.firmwareUpgrade = i.automaticUpgrade ? "yes" : "no";
-
-            Cfg.configuration = Configuration;
-
-            Cfg.to_json(Answer);
-
+            SDK::GW::Device::SetSubscriber(nullptr, i.serialNumber, SI.id);
+/*
             if(i.configurationUUID.empty()) {
                 //  we need to create this configuration and associate it to this device.
                 Cfg.subscriberOnly = true;
@@ -413,7 +412,7 @@ namespace OpenWifi {
                     return false;
                 }
             }
-            SDK::GW::Device::SetSubscriber(nullptr, i.serialNumber, SI.id);
+  */
         }
         SI.modified = OpenWifi::Now();
         return StorageService()->SubInfoDB().UpdateRecord("id",id_,SI);

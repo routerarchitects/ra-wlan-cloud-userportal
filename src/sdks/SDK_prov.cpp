@@ -159,6 +159,31 @@ namespace OpenWifi::SDK::Prov {
             }
             return true;
         }
+
+        bool SetDevice(RESTAPIHandler *client, const ProvObjects::SubscriberDevice &D) {
+            std::string         EndPoint = "/api/v1/subscriberDevice/"+D.info.id ;
+            Poco::JSON::Object  Body;
+            D.to_json(Body);
+            auto API = OpenAPIRequestPut(uSERVICE_PROVISIONING, EndPoint, {}, Body, 20000);
+            auto CallResponse = Poco::makeShared<Poco::JSON::Object>();
+            auto ResponseStatus = API.Do(CallResponse, client == nullptr ? "" : client->UserInfo_.webtoken.access_token_);
+            if(ResponseStatus != Poco::Net::HTTPResponse::HTTP_OK) {
+                return false;
+            }
+            return true;
+        }
+
+        bool GetDevice(RESTAPIHandler *client, const std::string &SerialNumber, ProvObjects::SubscriberDevice &D) {
+            std::string         EndPoint = "/api/v1/subscriberDevice/"+SerialNumber ;
+            Poco::JSON::Object  Body;
+            auto API = OpenAPIRequestGet(uSERVICE_PROVISIONING, EndPoint, {}, 20000);
+            auto CallResponse = Poco::makeShared<Poco::JSON::Object>();
+            auto ResponseStatus = API.Do(CallResponse, client == nullptr ? "" : client->UserInfo_.webtoken.access_token_);
+            if(ResponseStatus != Poco::Net::HTTPResponse::HTTP_OK) {
+                return false;
+            }
+            return D.from_json(CallResponse);
+        }
     }
 
 }
