@@ -128,19 +128,27 @@ namespace OpenWifi::SDK::Prov {
     namespace Subscriber {
         bool GetDevices(RESTAPIHandler *client, const std::string &SubscriberId, ProvObjects::SubscriberDeviceList &devList) {
 
+            std::cout << __LINE__ << std::endl;
+
             std::string         EndPoint = "/api/v1/subscriberDevice";
+            std::cout << __LINE__ << std::endl;
             auto API = OpenAPIRequestGet(uSERVICE_PROVISIONING, EndPoint, {
                     {"subscriberId", SubscriberId}
                 }, 60000);
+            std::cout << __LINE__ << std::endl;
             auto CallResponse = Poco::makeShared<Poco::JSON::Object>();
             auto ResponseStatus = API.Do(CallResponse, client == nullptr ? "" : client->UserInfo_.webtoken.access_token_);
+            std::cout << __LINE__ << std::endl;
             if(ResponseStatus == Poco::Net::HTTPServerResponse::HTTP_OK) {
                 try {
+                    std::cout << __LINE__ << std::endl;
                     return devList.from_json(CallResponse);
                 } catch (...) {
+                    std::cout << __LINE__ << std::endl;
                     return false;
                 }
             }
+            std::cout << __LINE__ << std::endl;
             return false;
         }
 
