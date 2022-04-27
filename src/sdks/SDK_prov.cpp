@@ -126,14 +126,15 @@ namespace OpenWifi::SDK::Prov {
     }
 
     namespace Subscriber {
-        bool GetDevices(RESTAPIHandler *client, const std::string &SubscriberId, ProvObjects::SubscriberDeviceList &devList) {
+        bool GetDevices(RESTAPIHandler *client, const std::string &SubscriberId, const std::string &OperatorId, ProvObjects::SubscriberDeviceList &devList) {
 
             std::cout << __LINE__ << std::endl;
 
             std::string         EndPoint = "/api/v1/subscriberDevice";
             std::cout << __LINE__ << std::endl;
             auto API = OpenAPIRequestGet(uSERVICE_PROVISIONING, EndPoint, {
-                    {"subscriberId", SubscriberId}
+                    {"subscriberId", SubscriberId},
+                    {"operatorId", OperatorId}
                 }, 60000);
             std::cout << __LINE__ << std::endl;
             auto CallResponse = Poco::makeShared<Poco::JSON::Object>();

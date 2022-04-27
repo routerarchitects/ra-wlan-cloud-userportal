@@ -23,7 +23,7 @@ namespace OpenWifi::SDK::Prov {
     }
 
     namespace Subscriber {
-        bool GetDevices(RESTAPIHandler *client, const std::string &SubscriberId, ProvObjects::SubscriberDeviceList &devList);
+        bool GetDevices(RESTAPIHandler *client, const std::string &SubscriberId, const std::string &OperatorId, ProvObjects::SubscriberDeviceList &devList);
         bool ReturnDeviceToInventory(RESTAPIHandler *client, const std::string &SubscriberId, const std::string &SerialNumber);
         bool SetDevice(RESTAPIHandler *client, const ProvObjects::SubscriberDevice &D);
         bool GetDevice(RESTAPIHandler *client, const std::string &SerialNumber, ProvObjects::SubscriberDevice &D);
