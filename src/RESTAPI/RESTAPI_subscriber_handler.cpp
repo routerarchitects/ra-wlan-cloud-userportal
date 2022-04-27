@@ -120,7 +120,7 @@ namespace OpenWifi {
 
         std::cout << "Owner: " << UserInfo_.userinfo.owner << std::endl;
 
-        if(!SDK::Prov::Subscriber::GetDevices(this,UserInfo_.userinfo.id,Devices)) {
+        if(!SDK::Prov::Subscriber::GetDevices(this,UserInfo_.userinfo.id,UserInfo_.userinfo.owner,Devices)) {
             std::cout << __LINE__ << std::endl;
             return BadRequest("Provisioning service not available yet.");
         }
