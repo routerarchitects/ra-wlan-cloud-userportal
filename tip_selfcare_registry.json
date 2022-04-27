@@ -11,7 +11,7 @@
            "access_policy":"https://14oranges.arilia.com:16001/wwwassets/access_policy.html",
            "password_policy_regex":"^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$%^&*-]).{8,}$",
            "password_policy":"https://14oranges.arilia.com:16001/wwwassets/password_policy.html",
-           "operator_id" : "14oranges"
+           "registrationId" : "14oranges"
         },
         {
           "org_uri" : "https://www.arilia.com" ,
@@ -23,7 +23,7 @@
           "access_policy" : "https://ucentral.dpaas.arilia.com:16001/wwwassets/access_policy.html",
           "password_policy_regex" : "^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$%^&*-]).{8,}$",
           "password_policy" : "https://ucentral.dpaas.arilia.com:16001/wwwassets/password_policy.html",
-          "operator_id" : "arilia"
+          "registrationId" : "arilia"
         },
         {
           "org_uri" : "https://www.arilia.com" ,
@@ -35,7 +35,7 @@
           "access_policy" : "https://livinglab.arilia.com:16001/wwwassets/access_policy.html",
           "password_policy_regex" : "^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$%^&*-]).{8,}$",
           "password_policy" : "https://livinglab.arilia.com:16001/wwwassets/password_policy.html",
-          "operator_id" : "livinglab"
+          "registrationId" : "livinglab"
         }
       ]
 }
