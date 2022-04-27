@@ -10,12 +10,17 @@ namespace OpenWifi {
 
     void RESTAPI_signup_handler::DoPost() {
         //  do dome basic checking before we send this over.
-        auto UserName = GetParameter("email","");
+        auto UserName = GetParameter("email");
         Poco::toLowerInPlace(UserName);
-        auto SerialNumber = GetParameter("macAddress","");
+        Poco::trimInPlace(UserName);
+
+        auto SerialNumber = GetParameter("macAddress");
         Poco::toLowerInPlace(SerialNumber);
-        auto registrationId = GetParameter("registrationId","");
+        Poco::trimInPlace(SerialNumber);
+
+        auto registrationId = GetParameter("registrationId");
         Poco::toLowerInPlace(registrationId);
+        Poco::trimInPlace(registrationId);
 
         if(!Utils::ValidSerialNumber(SerialNumber)) {
             return BadRequest(RESTAPI::Errors::InvalidSerialNumber);
@@ -28,6 +33,7 @@ namespace OpenWifi {
         if(registrationId.empty()) {
             return BadRequest(RESTAPI::Errors::InvalidRegistrationOperatorName);
         }
+
         return API_Proxy(Logger(), Request, Response, uSERVICE_PROVISIONING.c_str(), "/api/v1/signup", 60000);
     }
 
