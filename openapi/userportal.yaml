@@ -62,6 +62,7 @@ components:
                   - 11    # BAD_MFA_TRANSACTION
                   - 12    # MFA_FAILURE
                   - 13    # SECURITY_SERVICE_UNREACHABLE
+                  - 14    # CANNOT REFRESH TOKEN
               ErrorDetails:
                 type: string
               ErrorDescription:
@@ -739,6 +740,15 @@ components:
         answer:
           type: string
 
+    WebTokenRefreshRequest:
+      type: object
+      properties:
+        userId:
+          type: string
+          default: support@example.com
+        refresh_token:
+          type: string
+
     WebTokenRequest:
       description: User Id and password.
       type: object
@@ -958,6 +968,12 @@ paths:
           schema:
             type: boolean
           required: false
+        - in: query
+          name: grant_type
+          schema:
+            type: string
+            example: refresh_token
+          required: false
       requestBody:
         description: User id and password
         required: true
@@ -967,6 +983,7 @@ paths:
               oneOf:
                 - $ref: '#/components/schemas/WebTokenRequest'
                 - $ref: '#/components/schemas/MFAChallengeResponse'
+                - $ref: '#/components/schemas/WebTokenRefreshRequest'
       responses:
         200:
           description: successful operation
