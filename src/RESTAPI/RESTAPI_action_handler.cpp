@@ -17,7 +17,7 @@ namespace OpenWifi {
             return BadRequest(RESTAPI::Errors::MissingOrInvalidParameters);
         }
 
-        auto Body = ParseStream();
+        const auto & Body = ParsedBody_;
         std::string Mac, ImageName,Pattern{"blink"};
         AssignIfPresent(Body,"mac",Mac);
 
@@ -39,7 +39,7 @@ namespace OpenWifi {
         if(!UserFound) {
             SubObjects::SubscriberInfo  SI;
             if(!StorageService()->SubInfoDB().GetRecord("id",UserInfo_.userinfo.id,SI))
-                return BadRequest("No devices activated yet.");
+                return BadRequest(RESTAPI::Errors::SubNoDeviceActivated);
         }
 
         for(const auto &i:SubInfo->accessPoints.list) {
@@ -57,7 +57,7 @@ namespace OpenWifi {
                     if(InitialConfig.Prepare())
                         return OK();
                     else
-                        return InternalError("Configuration could not be refreshed.");
+                        return InternalError(RESTAPI::Errors::SubConfigNotRefreshed);
                 } else {
                     return BadRequest(RESTAPI::Errors::MissingOrInvalidParameters);
                 }

@@ -117,11 +117,11 @@ namespace OpenWifi {
         ProvObjects::SubscriberDeviceList Devices;
 
         if(!SDK::Prov::Subscriber::GetDevices(this,UserInfo_.userinfo.id,UserInfo_.userinfo.owner,Devices)) {
-            return BadRequest("Provisioning service not available yet.");
+            return BadRequest(RESTAPI::Errors::ProvServiceNotAvailable);
         }
 
         if(Devices.subscriberDevices.empty() ) {
-            return BadRequest("No devices activated yet.");
+            return BadRequest(RESTAPI::Errors::SubNoDeviceActivated);
         }
 
         Logger().information(fmt::format("{}: Creating default user information.", UserInfo_.userinfo.email));
@@ -206,10 +206,10 @@ namespace OpenWifi {
             if(InitialConfig.Prepare())
                 return OK();
             else
-                return InternalError("Configuration could not be refreshed.");
+                return InternalError(RESTAPI::Errors::SubConfigNotRefreshed);
         }
 
-        auto Body = ParseStream();
+        const auto & Body = ParsedBody_;
         SubObjects::SubscriberInfo  Changes;
         if(!Changes.from_json(Body)) {
             return BadRequest(RESTAPI::Errors::InvalidJSONDocument);
@@ -239,51 +239,51 @@ namespace OpenWifi {
                     for(const auto &ssid:NewAP.wifiNetworks.wifiNetworks) {
                         if( ssid.password.length()<8 ||
                             ssid.password.length()>32 ) {
-                            return BadRequest("Invalid password length. Must be 8 characters or greater, and a maximum of 32 characters.");
+                            return BadRequest(RESTAPI::Errors::SSIDInvalidPassword);
                         }
                     }
                     if(NewAP.deviceMode.type=="nat") {
                         if(!ValidIPv4(NewAP.deviceMode.startIP) || !ValidIPv4(NewAP.deviceMode.endIP)) {
-                            return BadRequest("Invalid starting/ending IP address.");
+                            return BadRequest(RESTAPI::Errors::InvalidStartingIPAddress);
                         }
                         if(!ValidateIPv4Subnet(NewAP.deviceMode.subnet)) {
-                            return BadRequest("Subnet must be in format like 192.168.1.1/24");
+                            return BadRequest(RESTAPI::Errors::SubnetFormatError);
                         }
                     } else if(NewAP.deviceMode.type=="bridge") {
 
                     } else if(NewAP.deviceMode.type=="manual") {
                         if(!ValidateIPv4Subnet(NewAP.deviceMode.subnet)) {
-                            return BadRequest("Device mode subnet must be of the form 192.168.1.1/24");
+                            return BadRequest(RESTAPI::Errors::DeviceModeError);
                         }
                         if(!ValidIPv4(NewAP.deviceMode.startIP)) {
-                            return BadRequest("Device mode subnet must be of the form 192.168.1.1/24");
+                            return BadRequest(RESTAPI::Errors::DeviceModeError);
                         }
                         if(!ValidIPv4(NewAP.deviceMode.endIP)) {
-                            return BadRequest("Device mode subnet must be of the form 192.168.1.1/24");
+                            return BadRequest(RESTAPI::Errors::DeviceModeError);
                         }
                     } else {
-                        return BadRequest("Mode must be bridge, nat, or manual");
+                        return BadRequest(RESTAPI::Errors::BadDeviceMode);
                     }
 
                     if(NewAP.internetConnection.type=="manual") {
                         if(!ValidateIPv4Subnet(NewAP.internetConnection.subnetMask)) {
-                            return BadRequest("Subnet must be in format like 192.168.1.1/24");
+                            return BadRequest(RESTAPI::Errors::SubnetFormatError);
                         }
                         if(!ValidIPv4(NewAP.internetConnection.defaultGateway)) {
-                            return BadRequest("Default gateway must be in format like 192.168.1.1");
+                            return BadRequest(RESTAPI::Errors::DefaultGatewayFormat);
                         }
                         if(!ValidIPv4(NewAP.internetConnection.primaryDns)) {
-                            return BadRequest("Primary DNS must be an IP address i.e. 192.168.1.1");
+                            return BadRequest(RESTAPI::Errors::PrimaryDNSFormat);
                         }
                         if(!NewAP.internetConnection.secondaryDns.empty() && !ValidIPv4(NewAP.internetConnection.secondaryDns)) {
-                            return BadRequest("Secondary DNS must be an IP address i.e. 192.168.1.1");
+                            return BadRequest(RESTAPI::Errors::SecondaryDNSFormat);
                         }
                     } else if(NewAP.internetConnection.type=="pppoe") {
 
                     } else if(NewAP.internetConnection.type=="automatic") {
 
                     } else {
-                        return BadRequest("Internet Connection must be bautomaticridge, pppoe, or manual");
+                        return BadRequest(RESTAPI::Errors::BadConnectionType);
                     }
 
                     ExistingAP = NewAP;
@@ -308,7 +308,7 @@ namespace OpenWifi {
             Modified.to_json(Answer);
             return ReturnObject(Answer);
         }
-        return InternalError("Profile could not be updated. Try again.");
+        return InternalError(RESTAPI::Errors::RecordNotUpdated);
     }
 
     void RESTAPI_subscriber_handler::DoDelete() {
