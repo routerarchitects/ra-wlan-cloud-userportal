@@ -91,7 +91,7 @@ namespace OpenWifi {
 
         inline void StatsReceived( const std::string & Key, const std::string & Payload) {
             std::lock_guard G(Mutex_);
-            Logger().information(fmt::format("Device({}): Connection/Ping message.", Key));
+            // Logger().information(fmt::format("Device({}): Connection/Ping message.", Key));
             Queue_.enqueueNotification( new Stats_Msg(Key,Payload));
         }
 

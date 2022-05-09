@@ -11,6 +11,7 @@ namespace OpenWifi {
     inline void API_Proxy( Poco::Logger &Logger,
                     Poco::Net::HTTPServerRequest *Request,
                     Poco::Net::HTTPServerResponse *Response,
+                    const Poco::JSON::Object::Ptr & Body,
                     const char * ServiceType,
                     const char * PathRewrite,
                     uint64_t msTimeout_ = 10000 ) {
@@ -49,8 +50,9 @@ namespace OpenWifi {
                     Poco::JSON::Parser P;
                     std::stringstream SS;
                     try {
-                        auto Body = P.parse(Request->stream()).extract<Poco::JSON::Object::Ptr>();
-                        Poco::JSON::Stringifier::condense(Body,SS);
+                        // auto Body = P.parse(Request->stream()).extract<Poco::JSON::Object::Ptr>();
+                        if(Body!= nullptr)
+                            Poco::JSON::Stringifier::condense(Body,SS);
                         SS << "\r\n\r\n";
                     } catch(const Poco::Exception &E) {
                         Logger.log(E);
