@@ -37,7 +37,7 @@ namespace OpenWifi {
         DB(T, "subscriberinfo", SubInfoDBDB_Fields, SubInfoDBDB_Fields_Indexes, P, L, "sui") {}
 
     void SubscriberInfoDB::CreateDefaultSubscriberInfo(const SecurityObjects::UserInfoAndPolicy & UI, SubObjects::SubscriberInfo &SI, const ProvObjects::SubscriberDeviceList & Devices) {
-        auto Now = std::time(nullptr);
+        auto Now = OpenWifi::Now();
 
         //  ok, we need to generate a default record and store it...
         SI.id = UI.userinfo.id;

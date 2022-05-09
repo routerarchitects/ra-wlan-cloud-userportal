@@ -31,7 +31,7 @@ namespace OpenWifi {
                 Poco::JSON::Object::Ptr LastStats;
                 Poco::JSON::Object  Answer;
                 if(SDK::GW::Device::GetLastStats(nullptr,i.serialNumber,LastStats)){
-                    uint64_t    Now = std::time(nullptr);
+                    uint64_t    Now = OpenWifi::Now();
                     SubObjects::AssociationList AssocList;
                     AssocList.modified = AssocList.created = Now;
                     std::stringstream SS;

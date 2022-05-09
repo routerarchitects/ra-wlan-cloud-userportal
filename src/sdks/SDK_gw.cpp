@@ -135,7 +135,7 @@ namespace OpenWifi::SDK::GW {
             Poco::JSON::Object      Body;
 
             Poco::JSON::Parser P;
-            uint64_t Now = std::time(nullptr);
+            uint64_t Now = OpenWifi::Now();
 
             Configuration->set("uuid", Now);
             Body.set("serialNumber", Mac);
