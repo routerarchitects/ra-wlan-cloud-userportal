@@ -20,7 +20,7 @@ namespace OpenWifi {
             for(const auto &i:MacList)
                 for(auto &j:List.clients)
                     if(j.macAddress==i.first) {
-                        std::cout << i.first <<  " :: " << i.second << std::endl;
+                        // std::cout << i.first <<  " :: " << i.second << std::endl;
                         j.manufacturer = i.second;
                     }
         }
