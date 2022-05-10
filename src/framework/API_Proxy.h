@@ -65,8 +65,7 @@ namespace OpenWifi {
                             Poco::JSON::Stringifier::condense(Body, SS);
                             std::cout << __LINE__ << std::endl;
                         }
-                            std::cout << __LINE__ << std::endl;
-                        SS << "Body: " << std::endl;
+                        std::cout << __LINE__ << std::endl;
                     } catch(const Poco::Exception &E) {
                         std::cout << __LINE__ << std::endl;
                         Logger.log(E);
