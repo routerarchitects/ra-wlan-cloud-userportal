@@ -10,11 +10,8 @@
 #include "sdks/SDK_gw.h"
 #include "sdks/SDK_fms.h"
 #include "sdks/SDK_sec.h"
-
 #include "ConfigMaker.h"
 
-// #define __DBG__ std::cout << __LINE__ << std::endl ;
-// #define __DBG__
 namespace OpenWifi {
 
     template <typename T> void AssignIfModified(T & Var, const T & Value, int &Mods) {
