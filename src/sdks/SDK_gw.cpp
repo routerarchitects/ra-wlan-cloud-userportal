@@ -177,5 +177,62 @@ namespace OpenWifi::SDK::GW {
             return false;
         }
 
+        struct Tag {
+            std::string tag, value;
+            bool from_json(const Poco::JSON::Object::Ptr &Obj) {
+                try {
+                    OpenWifi::RESTAPI_utils::field_from_json(Obj, "tag", tag);
+                    OpenWifi::RESTAPI_utils::field_from_json(Obj, "value", value);
+                    return true;
+                } catch (...) {
+                }
+                return false;
+            }
+        };
+
+        struct TagList {
+            std::vector<Tag>    tagList;
+            bool from_json(const Poco::JSON::Object::Ptr &Obj) {
+                try {
+                    OpenWifi::RESTAPI_utils::field_from_json(Obj, "tagList", tagList);
+                    return true;
+                } catch (...) {
+                }
+                return false;
+            }
+        };
+
+        bool GetOUIs(RESTAPIHandler *client, Types::StringPairVec &MacListPair) {
+            std::string         EndPoint = "/api/v1/ouis";
+
+            std::string MacList;
+            for(const auto &i:MacListPair) {
+                if(MacList.empty())
+                    MacList = i.first;
+                else
+                    MacList += "," + i.first;
+            }
+
+            auto API = OpenAPIRequestGet(uSERVICE_GATEWAY, EndPoint, { { "macList" , MacList }}, 60000);
+            Poco::JSON::Object::Ptr Response;
+            auto ResponseStatus = API.Do(Response, client == nullptr ? "" : client->UserInfo_.webtoken.access_token_);
+            if(ResponseStatus == Poco::Net::HTTPServerResponse::HTTP_OK) {
+                try {
+                    TagList TL;
+                    TL.from_json(Response);
+                    for(const auto &i:TL.tagList) {
+                        for(auto &j:MacListPair)
+                            if(j.first==i.tag)
+                                j.second=i.value;
+                    }
+                    return true;
+                } catch (...) {
+                    return false;
+                }
+            }
+            return false;
+
+        }
+
     }
 }

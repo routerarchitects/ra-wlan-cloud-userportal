@@ -10,6 +10,22 @@
 
 namespace OpenWifi {
 
+    static void AddManufacturers(SubObjects::ClientList &List) {
+        std::vector<std::pair<std::string,std::string>> MacList;
+        for(const auto &i:List.clients) {
+            MacList.push_back(std::make_pair(i.macAddress,""));
+        }
+
+        if(SDK::GW::Device::GetOUIs(nullptr,MacList)) {
+            for(const auto &i:MacList)
+                for(auto &j:List.clients)
+                    if(j.macAddress==i.first) {
+                        std::cout << i.first <<  " :: " << i.second << std::endl;
+                        j.manufacturer = i.second;
+                    }
+        }
+    }
+
     void RESTAPI_wiredClients_handler::DoGet() {
         auto SerialNumber = GetParameter("serialNumber", "");
         if (SerialNumber.empty()) {
@@ -45,33 +61,55 @@ namespace OpenWifi {
                         if(Stats.contains("interfaces") && Stats["interfaces"].is_array()) {
                             auto interfaces = Stats["interfaces"];
                             for (const auto &cur_interface: interfaces) {
+                                std::set<std::string>   WifiMacs;
+                                if (cur_interface.contains("ssids") && cur_interface["ssids"].is_array() && !cur_interface["ssids"].empty()) {
+                                    for (const auto &cur_ssid: cur_interface["ssids"]) {
+                                        if (cur_ssid.contains("associations") && cur_ssid["associations"].is_array() && !cur_ssid["associations"].empty()) {
+                                            for (const auto &cur_client: cur_ssid["associations"]) {
+                                                WifiMacs.insert(cur_client["station"].get<std::string>());
+                                            }
+                                        }
+                                    }
+                                }
+
                                 if(cur_interface.contains("clients") && cur_interface["clients"].is_array() && !cur_interface["clients"].empty()) {
                                     auto clients = cur_interface["clients"];
                                     for (const auto &cur_client: clients) {
-                                        SubObjects::Client C;
 
-                                        C.macAddress = cur_client["mac"];
-                                        if (cur_client.contains("ipv6_addresses") && cur_client["ipv6_addresses"].is_array() && !cur_client["ipv6_addresses"].empty()) {
-                                            auto ipv6addresses = cur_client["ipv6_addresses"];
-                                            for (const auto &cur_addr: ipv6addresses) {
-                                                C.ipv6 = cur_addr;
-                                                break;
+                                        std::string Mac = to_string(cur_client["mac"]);
+
+                                        if(WifiMacs.find(Mac)==WifiMacs.end()) {
+
+                                            SubObjects::Client C;
+
+                                            C.macAddress = Mac;
+                                            if (cur_client.contains("ipv6_addresses") &&
+                                                cur_client["ipv6_addresses"].is_array() &&
+                                                !cur_client["ipv6_addresses"].empty()) {
+                                                auto ipv6addresses = cur_client["ipv6_addresses"];
+                                                for (const auto &cur_addr: ipv6addresses) {
+                                                    C.ipv6 = cur_addr;
+                                                    break;
+                                                }
                                             }
-                                        }
-                                        if (cur_client.contains("ipv4_addresses") && cur_client["ipv4_addresses"].is_array() && !cur_client["ipv4_addresses"].empty()) {
-                                            auto ipv4addresses = cur_client["ipv4_addresses"];
-                                            for (const auto &cur_addr: ipv4addresses) {
-                                                C.ipv4 = cur_addr;
+                                            if (cur_client.contains("ipv4_addresses") &&
+                                                cur_client["ipv4_addresses"].is_array() &&
+                                                !cur_client["ipv4_addresses"].empty()) {
+                                                auto ipv4addresses = cur_client["ipv4_addresses"];
+                                                for (const auto &cur_addr: ipv4addresses) {
+                                                    C.ipv4 = cur_addr;
+                                                }
                                             }
+                                            C.tx = C.rx = 0;
+                                            C.speed = "auto";
+                                            C.mode = "auto";
+                                            CList.clients.push_back(C);
                                         }
-                                        C.tx = C.rx = 0;
-                                        C.speed = "auto";
-                                        C.mode = "auto";
-                                        CList.clients.push_back(C);
                                     }
                                 }
                             }
                         }
+                        AddManufacturers(CList);
                         CList.to_json(Answer);
                     } catch (...) {
                     }

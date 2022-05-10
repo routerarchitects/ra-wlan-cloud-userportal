@@ -402,6 +402,8 @@ components:
           type: integer
         rx:
           type: integer
+        manufacturer:
+          type: string
 
     AssociationList:
       type: object
@@ -434,6 +436,8 @@ components:
           type: integer
         rx:
           type: integer
+        manufacturer:
+          type: string
 
     ClientList:
       type: object

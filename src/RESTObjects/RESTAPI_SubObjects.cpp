@@ -280,6 +280,7 @@ namespace OpenWifi::SubObjects {
         field_to_json(Obj, "ipv6", ipv6);
         field_to_json(Obj, "tx", tx);
         field_to_json(Obj, "rx", rx);
+        field_to_json(Obj, "manufacturer", manufacturer);
     }
 
     bool Association::from_json(const Poco::JSON::Object::Ptr &Obj) {
@@ -293,6 +294,7 @@ namespace OpenWifi::SubObjects {
             field_from_json(Obj, "ipv6", ipv6);
             field_from_json(Obj, "tx", tx);
             field_from_json(Obj, "rx", rx);
+            field_from_json(Obj, "manufacturer", manufacturer);
             return true;
         } catch (...) {
         }
@@ -324,6 +326,7 @@ namespace OpenWifi::SubObjects {
         field_to_json(Obj, "ipv6", ipv6);
         field_to_json(Obj, "tx", tx);
         field_to_json(Obj, "rx", rx);
+        field_to_json(Obj, "manufacturer", manufacturer);
     }
 
     bool Client::from_json(const Poco::JSON::Object::Ptr &Obj) {
@@ -335,6 +338,7 @@ namespace OpenWifi::SubObjects {
             field_from_json(Obj, "ipv6", ipv6);
             field_from_json(Obj, "tx", tx);
             field_from_json(Obj, "rx", rx);
+            field_from_json(Obj, "manufacturer", manufacturer);
             return true;
         } catch (...) {
         }
