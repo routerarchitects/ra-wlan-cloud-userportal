@@ -53,7 +53,7 @@ namespace OpenWifi {
                         // auto Body = P.parse(Request->stream()).extract<Poco::JSON::Object::Ptr>();
                         if(Body!= nullptr)
                             Poco::JSON::Stringifier::condense(Body,SS);
-                        SS << "\r\n\r\n";
+                        SS << "Body: " << std::endl;
                     } catch(const Poco::Exception &E) {
                         Logger.log(E);
                     }
