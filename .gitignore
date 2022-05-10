@@ -31,6 +31,9 @@
 *.out
 *.app
 
+# Generated version info
+src/ow_version.h
+
 *.swp
 helm/charts/*
 !helm/charts/.gitkeep
