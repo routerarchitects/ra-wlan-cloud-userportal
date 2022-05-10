@@ -26,20 +26,27 @@ namespace OpenWifi {
                 // std::cout << "     Source: " << SourceURI.toString() << std::endl;
                 // std::cout << "Destination: " << DestinationURI.toString() << std::endl;
 
+                std::cout << __LINE__ << std::endl;
+
                 Poco::Net::HTTPSClientSession Session(DestinationURI.getHost(), DestinationURI.getPort());
                 Session.setKeepAlive(true);
                 Session.setTimeout(Poco::Timespan(msTimeout_/1000, msTimeout_ % 1000));
                 Poco::Net::HTTPRequest ProxyRequest(Request->getMethod(),
                                                     DestinationURI.getPathAndQuery(),
                                                     Poco::Net::HTTPMessage::HTTP_1_1);
+
+                std::cout << __LINE__ << std::endl;
                 if(Request->has("Authorization")) {
+                    std::cout << __LINE__ << std::endl;
                     ProxyRequest.add("Authorization", Request->get("Authorization"));
                 } else {
+                    std::cout << __LINE__ << std::endl;
                     ProxyRequest.add("X-API-KEY", Svc.AccessKey);
                     ProxyRequest.add("X-INTERNAL-NAME", MicroService::instance().PublicEndPoint());
                 }
 
                 if(Request->getMethod() == Poco::Net::HTTPRequest::HTTP_DELETE) {
+                    std::cout << __LINE__ << std::endl;
                     Session.sendRequest(ProxyRequest);
                     Poco::Net::HTTPResponse ProxyResponse;
                     Session.receiveResponse(ProxyResponse);
@@ -47,43 +54,60 @@ namespace OpenWifi {
                     Response->send();
                     return;
                 } else {
+                    std::cout << __LINE__ << std::endl;
                     Poco::JSON::Parser P;
+                    std::cout << __LINE__ << std::endl;
                     std::stringstream SS;
                     try {
                         // auto Body = P.parse(Request->stream()).extract<Poco::JSON::Object::Ptr>();
-                        if(Body!= nullptr)
-                            Poco::JSON::Stringifier::condense(Body,SS);
+                        std::cout << __LINE__ << std::endl;
+                        if(Body!= nullptr) {
+                            Poco::JSON::Stringifier::condense(Body, SS);
+                            std::cout << __LINE__ << std::endl;
+                        }
+                            std::cout << __LINE__ << std::endl;
                         SS << "Body: " << std::endl;
                     } catch(const Poco::Exception &E) {
+                        std::cout << __LINE__ << std::endl;
                         Logger.log(E);
                     }
 
                     if(SS.str().empty()) {
+                        std::cout << __LINE__ << std::endl;
                         Session.sendRequest(ProxyRequest);
                     } else {
+                        std::cout << __LINE__ << std::endl;
                         ProxyRequest.setContentType("application/json");
                         ProxyRequest.setContentLength(SS.str().size());
+                        std::cout << __LINE__ << std::endl;
                         std::ostream & os = Session.sendRequest(ProxyRequest);
                         os << SS.str() ;
+                        std::cout << __LINE__ << std::endl;
                     }
 
+                    std::cout << __LINE__ << std::endl;
                     Poco::Net::HTTPResponse ProxyResponse;
                     std::stringstream SSR;
                     try {
+                        std::cout << __LINE__ << std::endl;
                         std::istream &ProxyResponseStream = Session.receiveResponse(ProxyResponse);
                         Poco::JSON::Parser  P2;
+                        std::cout << __LINE__ << std::endl;
                         auto ProxyResponseBody = P2.parse(ProxyResponseStream).extract<Poco::JSON::Object::Ptr>();
                         Poco::JSON::Stringifier::condense(ProxyResponseBody,SSR);
                         Response->setContentType("application/json");
                         Response->setContentLength(SSR.str().size());
                         Response->setStatus(ProxyResponse.getStatus());
                         Response->sendBuffer(SSR.str().c_str(),SSR.str().size());
+                        std::cout << __LINE__ << std::endl;
                         return;
                     } catch( const Poco::Exception & E) {
+                        std::cout << __LINE__ << std::endl;
 
                     }
                     Response->setStatus(ProxyResponse.getStatus());
                     Response->send();
+                    std::cout << __LINE__ << std::endl;
                     return;
                 }
             }
