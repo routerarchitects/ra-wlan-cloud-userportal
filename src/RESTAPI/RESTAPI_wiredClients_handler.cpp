@@ -76,8 +76,7 @@ namespace OpenWifi {
                                     auto clients = cur_interface["clients"];
                                     for (const auto &cur_client: clients) {
 
-                                        std::string Mac = to_string(cur_client["mac"]);
-
+                                        std::string Mac = cur_client["mac"];
                                         if(WifiMacs.find(Mac)==WifiMacs.end()) {
 
                                             SubObjects::Client C;
