@@ -4,8 +4,8 @@
         {
            "org_uri":"https://www.14oranges.com/",
            "org_name":"14 Oranges Software Inc.",
-           "small_org_logo":"https://14oranges-ui.arilia.com/assets/14Oranges_Logo.png",
-           "large_org_logo":"https://14oranges-ui.arilia.com/assets/14Oranges_Logo.png",
+           "small_org_logo":"https://14oranges-gw.arilia.com/assets/14Oranges_Logo.png",
+           "large_org_logo":"https://14oranges-gw.arilia.com/assets/14Oranges_Logo.png",
            "subscriber_portal":"https://14oranges.arilia.com:16006",
            "org_color_1":"#0f5eaa",
            "access_policy":"https://14oranges.arilia.com:16001/wwwassets/access_policy.html",
