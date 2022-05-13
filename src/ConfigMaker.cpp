@@ -357,62 +357,14 @@ namespace OpenWifi {
                 SubDevice.configuration.push_back(Services);
                 SubDevice.configuration.push_back(InterfacesList);
                 SubDevice.configuration.push_back(RadiosList);
-                SubDevice.firmwareUpgrade = i.automaticUpgrade ? "yes" : "no";
+                SubDevice.deviceRules.firmwareUpgrade = i.automaticUpgrade ? "yes" : "no";
                 if(SDK::Prov::Subscriber::SetDevice(nullptr, SubDevice)) {
                     Logger_.information(fmt::format("Updating configuration for {}", i.serialNumber));
                 } else {
                     Logger_.information(fmt::format("Cannot update configuration for {}", i.serialNumber));
                 }
             }
-
             SDK::GW::Device::SetSubscriber(nullptr, i.serialNumber, SI.id);
-/*
-            if(i.configurationUUID.empty()) {
-                //  we need to create this configuration and associate it to this device.
-                Cfg.subscriberOnly = true;
-                Cfg.subscriber = SI.id;
-                Cfg.info.name = "sub:" + i.macAddress;
-                Cfg.info.notes.emplace_back(SecurityObjects::NoteInfo{
-                    .created=OpenWifi::Now(),
-                    .createdBy="system",
-                    .note="Auto-created from subscriber service."});
-                std::string CfgUUID;
-                if(SDK::Prov::Configuration::Create(nullptr, i.serialNumber, Cfg, CfgUUID)) {
-                    i.configurationUUID = CfgUUID;
-                    Logger_.information(fmt::format("{}: Created and assigned configuration.", i.macAddress ));
-                    // now push the configuration to the device...
-                    ProvObjects::InventoryConfigApplyResult Results;
-                    if(SDK::Prov::Configuration::Push(nullptr, i.serialNumber, Results)) {
-                        Logger_.information(fmt::format("{}: Pushed configuration to device.", i.macAddress ));
-                    } else {
-                        Logger_.information(fmt::format("{}: Could not push configuration to device.", i.macAddress ));
-                    }
-                } else {
-                    Logger_.information(fmt::format("{}: Could not create configuration for device.", i.macAddress ));
-                    return false;
-                }
-            } else {
-                ProvObjects::DeviceConfiguration    ExistingConfig;
-                if(SDK::Prov::Configuration::Get(nullptr,i.configurationUUID,ExistingConfig)) {
-                    ExistingConfig.configuration = Cfg.configuration;
-                    Cfg.info = ExistingConfig.info;
-                }
-
-                if(SDK::Prov::Configuration::Update(nullptr,i.configurationUUID,ExistingConfig)) {
-                    Logger_.information(fmt::format("{}: Configuration modified for device.", i.macAddress ));
-                    // Now push the configuration...
-                    ProvObjects::InventoryConfigApplyResult Results;
-                    if(SDK::Prov::Configuration::Push(nullptr, i.serialNumber, Results)) {
-                        Logger_.information(fmt::format("{}: Pushed configuration to device.", i.macAddress ));
-                    } else {
-                        Logger_.information(fmt::format("{}: Could not push configuration to device.", i.macAddress ));
-                    }
-                } else {
-                    Logger_.information(fmt::format("{}: Could not modify configuration for device.", i.macAddress ));
-                    return false;
-                }
-            }
-  */
         }
         SI.modified = OpenWifi::Now();
         return StorageService()->SubInfoDB().UpdateRecord("id",id_,SI);
