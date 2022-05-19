@@ -75,12 +75,12 @@ namespace OpenWifi {
                                                         DeviceStats D;
                                                         D.AddValue(timestamp, ext_tx, ext_rx, int_tx, int_rx);
                                                         DeviceStats_[serial_int] = D;
-                                                        // std::cout << "Created device stats entries for " << serialNumber
-                                                        //          << std::endl;
+                                                        std::cout << "Created device stats entries for " << serialNumber
+                                                                  << std::endl;
                                                     } else {
                                                         it->second.AddValue(timestamp, ext_tx, ext_rx, int_tx, int_rx);
-                                                        //std::cout << "Adding device stats entries for " << serialNumber
-                                                        //          << std::endl;
+                                                        std::cout << "Adding device stats entries for " << serialNumber
+                                                                  << std::endl;
                                                     }
                                                     // DeviceStats_[serial_int].print();
                                                 }
