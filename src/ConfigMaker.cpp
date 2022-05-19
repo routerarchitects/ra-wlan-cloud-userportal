@@ -363,6 +363,8 @@ namespace OpenWifi {
                 } else {
                     Logger_.information(fmt::format("Cannot update configuration for {}", i.serialNumber));
                 }
+            } else {
+                Logger_.information(fmt::format("Could not find Subscriber device in provisioning for {}", i.serialNumber));
             }
             SDK::GW::Device::SetSubscriber(nullptr, i.serialNumber, SI.id);
         }
