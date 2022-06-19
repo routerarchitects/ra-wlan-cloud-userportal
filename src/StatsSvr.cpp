@@ -22,6 +22,7 @@ namespace OpenWifi {
     }
 
     void StatsSvr::run() {
+        Utils::SetThreadName("stats-svr");
         Poco::AutoPtr<Poco::Notification>	Note(Queue_.waitDequeueNotification());
         while(Note && Running_) {
             auto Msg = dynamic_cast<Stats_Msg *>(Note.get());
