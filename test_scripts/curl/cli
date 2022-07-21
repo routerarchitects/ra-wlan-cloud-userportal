@@ -20,11 +20,12 @@ then
   exit 1
 fi
 
-if [[ "${OWSUB}" == "" ]]
+if [[ "${OWSEC}" == "" ]] && [[ "${OWSUB}" == "" ]]
 then
-    echo "You must set the variable OWSUB in order to use this script. Something like"
-    echo "OWSUB=security.isp.com:16006"
-    exit 1
+  echo "You must set the variable OWSEC OR OWSUB in order to use this script. Something like"
+  echo "OWSEC=security.isp.com:16001"
+  echo "OWSUB=subscription.isp.com:16006"
+  exit 1
 fi
 
 if [[ "${FLAGS}" == "" ]]
@@ -32,10 +33,8 @@ then
 	FLAGS="-s"
 fi
 
-target_servicetype=owsub
-target_service_endpoint="${OWSUB}"
-
-token=""
+token_sec=""
+token_sub=""
 result_file=result.json
 browser_list=(firefox sensible-browser xdg-open w3m links links2 lynx youtube-dl)
 browser=""
@@ -53,9 +52,21 @@ fi
 
 login() {
   payload="{ \"userId\" : \"$username\" , \"password\" : \"$password\" }"
-  curl ${FLAGS} -X POST -H "Content-Type: application/json" -d "$payload" "https://${target_service_endpoint}/api/v1/oauth2" > ${result_file}
-  token=$(cat ${result_file} | jq -r '.access_token' )
-  if [[ "${token}" == "null" ]]
+  curl ${FLAGS} -X POST -H "Content-Type: application/json" -d "$payload" "https://${OWSEC}/api/v1/oauth2" > ${result_file}
+  token_sec=$(cat ${result_file} | jq -r '.access_token' )
+  if [[ "${token_sec}" == "null" ]]
+  then
+    echo "Could not login to security service. Please verify the host and username/password."
+    exit 13
+  fi
+  echo "${token_sec}" > token_sec.json
+  setsub
+}
+
+login_sub() {
+  curl ${FLAGS} -X POST -H "Content-Type: application/json" -d "$payload" "https://${OWSUB}/api/v1/oauth2" > ${result_file}
+  token_sub=$(cat ${result_file} | jq -r '.access_token' )
+  if [[ "${token_sub}" == "null" ]]
   then
     method=$(cat ${result_file} | jq -r '.method' )
     if [[ "${method}" == "sms" ]]
@@ -65,20 +76,20 @@ login() {
             read -r -p "Please provide the SMS login code that was sent to you: " challenge_code
             mfauuid=$(cat ${result_file} | jq -r '.uuid' )
             mfaloginpayload="{ \"uuid\" : \"${mfauuid}\", \"answer\" : \"${challenge_code}\" }"
-            curl ${FLAGS} -X POST "https://${target_service_endpoint}/api/v1/oauth2?completeMFAChallenge=true" \
+            curl ${FLAGS} -X POST "https://${OWSEC}/api/v1/oauth2?completeMFAChallenge=true" \
                             -d "$mfaloginpayload" > mfa_answer.json
-            token=$(cat mfa_answer.json | jq -r '.access_token')
-            if [[ "{$token}" != "null" ]]
+            token_sub=$(cat mfa_answer.json | jq -r '.access_token')
+            if [[ "{$token_sub}" != "null" ]]
             then
                 break
             fi
         done
         return
     fi
-    echo "Could not login. Please verify the host and username/password."
+    echo "Could not login to subscription service. Please verify the host and username/password."
     exit 13
   fi
-  echo "${token}" > token.json
+  echo "${token_sub}" > token_sub.json
 }
 
 findbrowser() {
@@ -101,130 +112,165 @@ findbrowser() {
 	fi
 }
 
+setsub() {
+    if [ -z ${OWSUB_OVERRIDE+x} ]; then
+    curl  ${FLAGS} -X GET "https://${OWSEC}/api/v1/systemEndpoints" \
+        -H "Content-Type: application/json" \
+        -H "Accept: application/json" \
+        -H "Authorization: Bearer ${token_sec}"  > ${result_file}
+    rawurl="$(cat ${result_file} | jq -r '.endpoints[] | select( .type == "owsub" ) | .uri')"
+    if [[ ! -z "${rawurl}" ]]; then
+            proto="$(echo $rawurl | grep :// | sed -e's,^\(.*://\).*,\1,g')"
+    url="$(echo ${rawurl/$proto/})"
+    user="$(echo $url | grep @ | cut -d@ -f1)"
+    hostport="$(echo ${url/$user@/} | cut -d/ -f1)"
+    host="$(echo $hostport | sed -e 's,:.*,,g')"
+    port="$(echo $hostport | sed -e 's,^.*:,:,g' -e 's,.*:\([0-9]*\).*,\1,g' -e 's,[^0-9],,g')"
+    path="$(echo $url | grep / | cut -d/ -f2-)"
+    export OWSUB=${url}
+    echo "Using ${OWSUB}..."
+    else
+    echo "OWSUB endpoint is not found:"
+    jq < ${result_file}
+    exit 1
+    fi
+    else
+    export OWSUB=${OWSUB_OVERRIDE}
+    fi
+}
+
 me() {
     curl  ${FLAGS} -X GET -H "Content-Type: application/json" \
-    -H "Authorization: Bearer ${token}" \
-    "https://${target_service_endpoint}/api/v1/oauth2?me=true" > ${result_file}
+    -H "Authorization: Bearer ${token_sub}" \
+    "https://${OWSUB}/api/v1/oauth2?me=true" > ${result_file}
     jq < ${result_file}
 }
 
 logout() {
   curl  ${FLAGS} -X DELETE -H "Content-Type: application/json" \
-        -H "Authorization: Bearer ${token}" \
-        "https://${target_service_endpoint}/api/v1/oauth2/${token}"
+        -H "Authorization: Bearer ${token_sub}" \
+        "https://${OWSUB}/api/v1/oauth2/${token}"
   rm -rf token.json
 }
 
 startmfa() {
     payload="{ \"type\" : \"sms\" , \"sms\" : \"$1\" }"
-    curl ${FLAGS} -X PUT "https://${target_service_endpoint}/api/v1/submfa?startValidation=true" \
+    curl ${FLAGS} -X PUT "https://${OWSUB}/api/v1/submfa?startValidation=true" \
         -H "Content-Type: application/json" \
-        -H "Authorization: Bearer ${token}" \
+        -H "Authorization: Bearer ${token_sub}" \
         -d "${payload}" > ${result_file}
      jq < ${result_file}
 }
 
 completemfa() {
     payload="{ \"type\" : \"sms\" , \"sms\" : \"$1\" }"
-    curl ${FLAGS} -X PUT "https://${target_service_endpoint}/api/v1/submfa?completeValidation=true&challengeCode=$2" \
+    curl ${FLAGS} -X PUT "https://${OWSUB}/api/v1/submfa?completeValidation=true&challengeCode=$2" \
         -H "Content-Type: application/json" \
-        -H "Authorization: Bearer ${token}" \
+        -H "Authorization: Bearer ${token_sub}" \
         -d "${payload}" > ${result_file}
     jq < ${result_file}
 }
 
 getmfa() {
-    curl ${FLAGS} -X GET "https://${target_service_endpoint}/api/v1/submfa" \
+    curl ${FLAGS} -X GET "https://${OWSUB}/api/v1/submfa" \
         -H "Content-Type: application/json" \
-        -H "Authorization: Bearer ${token}" > ${result_file}
+        -H "Authorization: Bearer ${token_sub}" > ${result_file}
     jq < ${result_file}
 }
 
 disablemfa() {
     payload="{ \"type\" : \"disabled\"  }"
-    curl ${FLAGS} -X PUT "https://${target_service_endpoint}/api/v1/submfa" \
+    curl ${FLAGS} -X PUT "https://${OWSUB}/api/v1/submfa" \
         -H "Content-Type: application/json" \
-        -H "Authorization: Bearer ${token}" \
+        -H "Authorization: Bearer ${token_sub}" \
         -d "${payload}" > ${result_file}
     jq < ${result_file}
 }
 
 getmyinfo() {
-    curl ${FLAGS} -X GET "https://${target_service_endpoint}/api/v1/subscriber" \
+    curl ${FLAGS} -X GET "https://${OWSUB}/api/v1/subscriber" \
         -H "Content-Type: application/json" \
-        -H "Authorization: Bearer ${token}" > ${result_file}
+        -H "Authorization: Bearer ${token_sub}" > ${result_file}
     jq < ${result_file}
 }
 
 removeme() {
-    curl ${FLAGS} -X DELETE "https://${target_service_endpoint}/api/v1/subscriber" \
+    curl ${FLAGS} -X DELETE "https://${OWSUB}/api/v1/subscriber" \
         -H "Content-Type: application/json" \
-        -H "Authorization: Bearer ${token}" > ${result_file}
+        -H "Authorization: Bearer ${token_sub}" > ${result_file}
     jq < ${result_file}
 }
 
 reboot() {
     payload="{ \"mac\" : \"04f8f8fc3771\" , \"when\" : 0 }"
-    curl ${FLAGS} -X POST "https://${target_service_endpoint}/api/v1/action?action=reboot" \
+    curl ${FLAGS} -X POST "https://${OWSUB}/api/v1/action?action=reboot" \
         -H "Content-Type: application/json" \
-        -H "Authorization: Bearer ${token}" \
+        -H "Authorization: Bearer ${token_sub}" \
         -d "${payload}" > ${result_file}
     jq < ${result_file}
 }
 
 blink() {
     payload="{ \"mac\" : \"$1\" , \"when\" : 0 , \"pattern\" : \"blink\" , \"duration\" : 20 }"
-    curl ${FLAGS} -X POST "https://${target_service_endpoint}/api/v1/action?action=blink" \
+    curl ${FLAGS} -X POST "https://${OWSUB}/api/v1/action?action=blink" \
         -H "Content-Type: application/json" \
-        -H "Authorization: Bearer ${token}" \
+        -H "Authorization: Bearer ${token_sub}" \
         -d "${payload}" > ${result_file}
     jq < ${result_file}
 }
 
 wificlients() {
-    curl ${FLAGS} -X GET "https://${target_service_endpoint}/api/v1/wificlients?serialNumber=04f8f8fc3771" \
+    curl ${FLAGS} -X GET "https://${OWSUB}/api/v1/wificlients?serialNumber=04f8f8fc3771" \
         -H "Content-Type: application/json" \
-        -H "Authorization: Bearer ${token}" > ${result_file}
+        -H "Authorization: Bearer ${token_sub}" > ${result_file}
     jq < ${result_file}
 }
 
 wiredclients() {
-    curl ${FLAGS} -X GET "https://${target_service_endpoint}/api/v1/wiredclients?serialNumber=$1" \
+    curl ${FLAGS} -X GET "https://${OWSUB}/api/v1/wiredclients?serialNumber=$1" \
         -H "Content-Type: application/json" \
-        -H "Authorization: Bearer ${token}" > ${result_file}
+        -H "Authorization: Bearer ${token_sub}" > ${result_file}
     jq < ${result_file}
 }
 
 signup() {
-    curl ${FLAGS} -X POST "https://${target_service_endpoint}/api/v1/signup?email=stephane.bourque%40gmail.com&macAddress=04f8f8fc3771" \
+    curl ${FLAGS} -X POST "https://${OWSUB}/api/v1/signup?email=stephane.bourque%40gmail.com&macAddress=04f8f8fc3771" \
         -H "Content-Type: application/json" \
         -d "{}" > ${result_file}
     jq < ${result_file}
 }
 
 getsignup() {
-    curl ${FLAGS} -X POST "https://${target_service_endpoint}/api/v1/signup?signupUUID=$1" \
+    curl ${FLAGS} -X POST "https://${OWSUB}/api/v1/signup?signupUUID=$1" \
         -H "Content-Type: application/json" \
         -d "{}" > ${result_file}
     jq < ${result_file}
 }
 
+systeminfo() {
+    curl  ${FLAGS} -X GET "https://${OWSUB}/api/v1/system?command=info" \
+    -H "Accept: application/json" \
+    -H "Authorization: Bearer ${token_sec}" > ${result_file}
+    jq < ${result_file}
+}
+
 shopt -s nocasematch
 case "$1" in
-    "login") login; echo "You successfully logged in."  ; logout ;;
-    "me") login; me ; logout ;;
-    "startmfa") login; startmfa "$2" ; logout;;
-    "completemfa") login; completemfa "$2" "$3" ; logout;;
-    "getmfa") login; getmfa ; logout;;
-    "disablemfa") login; disablemfa ; logout;;
-    "getmyinfo") login; getmyinfo ; logout;;
-    "reboot") login; reboot "$2" ; logout ;;
-    "blink") login; blink "$2" ; logout ;;
-    "wificlients") login; wificlients "$2" ; logout ;;
-    "wiredclients") login; wiredclients "$2" ; logout ;;
+    "login") login_sub; echo "You successfully logged in."  ; logout ;;
+    "me") login_sub; me ; logout ;;
+    "startmfa") login_sub; startmfa "$2" ; logout;;
+    "completemfa") login_sub; completemfa "$2" "$3" ; logout;;
+    "getmfa") login_sub; getmfa ; logout;;
+    "disablemfa") login_sub; disablemfa ; logout;;
+    "getmyinfo") login_sub; getmyinfo ; logout;;
+    "reboot") login_sub; reboot "$2" ; logout ;;
+    "blink") login_sub; blink "$2" ; logout ;;
+    "wificlients") login_sub; wificlients "$2" ; logout ;;
+    "wiredclients") login_sub; wiredclients "$2" ; logout ;;
     "signup") signup ;;
     "getsignup") getsignup $2 ;;
-    "removeme") login; removeme ; logout ;;
+    "removeme") login_sub; removeme ; logout ;;
+    "systeminfo") login; systeminfo ; logout;;
     *) help ;;
 esac
 

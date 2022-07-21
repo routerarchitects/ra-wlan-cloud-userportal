@@ -37,4 +37,6 @@ src/ow_version.h
 *.swp
 helm/charts/*
 !helm/charts/.gitkeep
-test_scripts/curl/token.json
+test_scripts/curl/result.json
+test_scripts/curl/token_sub.json
+test_scripts/curl/token_sec.json
