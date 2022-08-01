@@ -20,8 +20,8 @@ RUN make install
 
 FROM build-base AS poco-build
 
-ADD https://api.github.com/repos/stephb9959/poco/git/refs/heads/master version.json
-RUN git clone https://github.com/stephb9959/poco /poco
+ADD https://api.github.com/repos/AriliaWireless/poco/git/refs/tags/poco-tip-v1 version.json
+RUN git clone https://github.com/AriliaWireless/poco --branch poco-tip-v1 /poco
 
 WORKDIR /poco
 RUN mkdir cmake-build
