@@ -219,19 +219,19 @@ namespace OpenWifi {
                 ssid["bss-mode"] = "ap";
                 if(j.encryption=="wpa1-personal") {
                     ssid["encryption"]["proto"] = "psk";
-                    ssid["encryption"]["ieee80211w"] = "optional";
+                    ssid["encryption"]["ieee80211w"] = "disabled";
                 } else if(j.encryption=="wpa2-personal") {
                     ssid["encryption"]["proto"] = "psk2";
-                    ssid["encryption"]["ieee80211w"] = "optional";
+                    ssid["encryption"]["ieee80211w"] = "disabled";
                 } else if(j.encryption=="wpa3-personal") {
                     ssid["encryption"]["proto"] = "sae";
                     ssid["encryption"]["ieee80211w"] = "required";
                 } else if (j.encryption=="wpa1/2-personal") {
                     ssid["encryption"]["proto"] = "psk-mixed";
-                    ssid["encryption"]["ieee80211w"] = "optional";
+                    ssid["encryption"]["ieee80211w"] = "disabled";
                 } else if (j.encryption=="wpa2/3-personal") {
                     ssid["encryption"]["proto"] = "sae-mixed";
-                    ssid["encryption"]["ieee80211w"] = "optional";
+                    ssid["encryption"]["ieee80211w"] = "disabled";
                 }
                 ssid["encryption"]["key"] = j.password;
                 if(j.type=="main") {
