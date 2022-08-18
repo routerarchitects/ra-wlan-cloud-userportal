@@ -1,16 +1,16 @@
-ARG ALPINE_VERSION=3.16.2
+ARG DEBIAN_VERSION=11.4-slim
 ARG POCO_VERSION=poco-tip-v1
 ARG FMTLIB_VERSION=9.0.0
 ARG CPPKAFKA_VERSION=tip-v1
 ARG JSON_VALIDATOR_VERSION=2.1.0
 
-FROM alpine:$ALPINE_VERSION AS build-base
+FROM debian:$DEBIAN_VERSION AS build-base
 
-RUN apk add --update --no-cache \
+RUN apt-get update && apt-get install --no-install-recommends -y \
     make cmake g++ git \
-    unixodbc-dev postgresql-dev mariadb-dev \
-    librdkafka-dev boost-dev openssl-dev \
-    zlib-dev nlohmann-json
+    unixodbc-dev libpq-dev libmariadb-dev libmariadbclient-dev-compat \
+    librdkafka-dev libboost-all-dev libssl-dev \
+    zlib1g-dev nlohmann-json3-dev ca-certificates
 
 FROM build-base AS poco-build
 
@@ -90,21 +90,21 @@ WORKDIR /owsub/cmake-build
 RUN cmake ..
 RUN cmake --build . --config Release -j8
 
-FROM alpine:$ALPINE_VERSION
+FROM debian:$DEBIAN_VERSION
 
 ENV OWSUB_USER=owsub \
     OWSUB_ROOT=/owsub-data \
     OWSUB_CONFIG=/owsub-data
 
-RUN addgroup -S "$OWSUB_USER" && \
-    adduser -S -G "$OWSUB_USER" "$OWSUB_USER"
+RUN useradd "$OWSUB_USER"
 
 RUN mkdir /openwifi
 RUN mkdir -p "$OWSUB_ROOT" "$OWSUB_CONFIG" && \
     chown "$OWSUB_USER": "$OWSUB_ROOT" "$OWSUB_CONFIG"
 
-RUN apk add --update --no-cache librdkafka su-exec gettext ca-certificates bash jq curl \
-    mariadb-connector-c libpq unixodbc postgresql-client
+RUN apt-get update && apt-get install --no-install-recommends -y \
+    librdkafka++1 gosu gettext ca-certificates bash jq curl wget \
+    libmariadb-dev-compat libpq5 unixodbc
 
 COPY test_scripts/curl/cli /cli
 
