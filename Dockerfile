@@ -119,6 +119,8 @@ COPY --from=owsub-build /owsub/cmake-build/owsub /openwifi/owsub
 COPY --from=cppkafka-build /cppkafka/cmake-build/src/lib /usr/local/lib
 COPY --from=poco-build /poco/cmake-build/lib /usr/local/lib
 
+RUN ldconfig
+
 EXPOSE 16006 17006 16106
 
 ENTRYPOINT ["/docker-entrypoint.sh"]
