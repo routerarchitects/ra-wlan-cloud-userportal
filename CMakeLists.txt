@@ -75,6 +75,7 @@ add_executable(owsub
         src/framework/StorageClass.h
         src/framework/API_Proxy.h
         src/framework/ow_constants.h
+        src/framework/MicroServiceErrorHandler.h
         src/framework/WebSocketClientNotifications.h
         src/framework/MicroServiceErrorHandler.h
         src/RESTObjects/RESTAPI_SecurityObjects.h src/RESTObjects/RESTAPI_SecurityObjects.cpp
