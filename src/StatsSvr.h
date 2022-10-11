@@ -4,8 +4,11 @@
 
 #pragma once
 
-#include "framework/MicroService.h"
 #include "RESTObjects/RESTAPI_SubObjects.h"
+#include "framework/SubSystemServer.h"
+#include "Poco/Notification.h"
+#include "Poco/NotificationQueue.h"
+#include "framework/utils.h"
 
 namespace OpenWifi {
 
@@ -59,7 +62,7 @@ namespace OpenWifi {
                 std::memmove(&int_rxs[0],&int_rxs[1], sizeof(int_rxs[1])*buffer_size-1);
                 index_--;
             }
-            LastUpdate_ = OpenWifi::Now();
+            LastUpdate_ = Utils::Now();
         }
 
         void print() {

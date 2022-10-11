@@ -3,6 +3,7 @@
 //
 
 #include "storage_subscriber_info.h"
+#include "framework/RESTAPI_utils.h"
 
 namespace OpenWifi {
 

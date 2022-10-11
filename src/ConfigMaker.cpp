@@ -8,6 +8,8 @@
 #include "sdks/SDK_prov.h"
 #include "sdks/SDK_gw.h"
 
+#include "nlohmann/json.hpp"
+
 namespace OpenWifi {
 
     static std::string ConvertBand(const std::string &B) {

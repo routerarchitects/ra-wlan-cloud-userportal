@@ -4,12 +4,12 @@
 
 #pragma once
 
-#include "framework/MicroService.h"
+#include "framework/RESTAPI_Handler.h"
 
 namespace OpenWifi {
     class RESTAPI_subscriber_handler : public RESTAPIHandler {
     public:
-        RESTAPI_subscriber_handler(const RESTAPIHandler::BindingMap &bindings, Poco::Logger &L, RESTAPI_GenericServer & Server,
+        RESTAPI_subscriber_handler(const RESTAPIHandler::BindingMap &bindings, Poco::Logger &L, RESTAPI_GenericServerAccounting & Server,
                                    uint64_t TransactionId, bool Internal)
         : RESTAPIHandler(bindings, L,
                          std::vector<std::string>{

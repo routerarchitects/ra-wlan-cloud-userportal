@@ -4,7 +4,7 @@
 
 #include "RESTAPI_signup_handler.h"
 #include "framework/API_Proxy.h"
-#include "framework/MicroService.h"
+#include "framework/MicroServiceNames.h"
 
 namespace OpenWifi {
 
@@ -34,19 +34,19 @@ namespace OpenWifi {
             return BadRequest(RESTAPI::Errors::InvalidRegistrationOperatorName);
         }
 
-        return API_Proxy(Logger(), Request, Response, ParsedBody_, uSERVICE_PROVISIONING.c_str(), "/api/v1/signup", 60000);
+        return API_Proxy(Logger(), Request, Response, uSERVICE_PROVISIONING.c_str(), "/api/v1/signup", 60000);
     }
 
     void RESTAPI_signup_handler::DoPut() {
-        return API_Proxy(Logger(), Request, Response, ParsedBody_, uSERVICE_PROVISIONING.c_str(), "/api/v1/signup", 60000);
+        return API_Proxy(Logger(), Request, Response, uSERVICE_PROVISIONING.c_str(), "/api/v1/signup", 60000);
     }
 
     void RESTAPI_signup_handler::DoGet() {
-        return API_Proxy(Logger(), Request, Response, ParsedBody_, uSERVICE_PROVISIONING.c_str(), "/api/v1/signup", 60000);
+        return API_Proxy(Logger(), Request, Response, uSERVICE_PROVISIONING.c_str(), "/api/v1/signup", 60000);
     }
 
     void RESTAPI_signup_handler::DoDelete() {
-        return API_Proxy(Logger(), Request, Response, ParsedBody_, uSERVICE_PROVISIONING.c_str(), "/api/v1/signup", 60000);
+        return API_Proxy(Logger(), Request, Response, uSERVICE_PROVISIONING.c_str(), "/api/v1/signup", 60000);
     }
 
 }

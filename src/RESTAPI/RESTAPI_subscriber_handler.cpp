@@ -11,6 +11,7 @@
 #include "sdks/SDK_fms.h"
 #include "sdks/SDK_sec.h"
 #include "ConfigMaker.h"
+#include "nlohmann/json.hpp"
 
 namespace OpenWifi {
 

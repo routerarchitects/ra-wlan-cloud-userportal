@@ -3,7 +3,8 @@
 //
 
 #include "RESTAPI_claim_handler.h"
-#include "framework/MicroService.h"
+#include "framework/MicroServiceNames.h"
+#include "framework/OpenAPIRequests.h"
 
 namespace OpenWifi {
 

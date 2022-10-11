@@ -6,6 +6,7 @@
 #include "RESTObjects/RESTAPI_SubObjects.h"
 #include "StorageService.h"
 #include "sdks/SDK_gw.h"
+#include "nlohmann/json.hpp"
 
 // #define __DBG__ std::cout << __LINE__ << std::endl ;
 #define __DBG__

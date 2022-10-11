@@ -6,8 +6,7 @@
 //	Arilia Wireless Inc.
 //
 
-#ifndef UCENTRAL_USTORAGESERVICE_H
-#define UCENTRAL_USTORAGESERVICE_H
+#pragma once
 
 #include <map>
 
@@ -17,7 +16,6 @@
 #include "Poco/Data/PostgreSQL/Connector.h"
 #include "Poco/Data/MySQL/Connector.h"
 
-#include "framework/MicroService.h"
 #include "framework/StorageClass.h"
 
 #include "storage/storage_subscriber_info.h"
@@ -45,5 +43,3 @@ namespace OpenWifi {
     inline class StorageService * StorageService() { return StorageService::instance(); }
 
 }  // namespace
-
-#endif //UCENTRAL_USTORAGESERVICE_H
