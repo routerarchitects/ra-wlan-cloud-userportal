@@ -5,7 +5,7 @@
 #include "SDK_gw.h"
 #include "framework/OpenAPIRequests.h"
 #include "framework/MicroServiceNames.h"
-
+#include "framework/utils.h"
 
 namespace OpenWifi::SDK::GW {
     namespace Device {
@@ -136,7 +136,7 @@ namespace OpenWifi::SDK::GW {
             Poco::JSON::Object      Body;
 
             Poco::JSON::Parser P;
-            uint64_t Now = OpenWifi::Now();
+            uint64_t Now = Utils::Now();
 
             Configuration->set("uuid", Now);
             Body.set("serialNumber", Mac);

@@ -4,6 +4,7 @@
 
 #include "storage_subscriber_info.h"
 #include "framework/RESTAPI_utils.h"
+#include "framework/utils.h"
 
 namespace OpenWifi {
 
@@ -38,7 +39,7 @@ namespace OpenWifi {
         DB(T, "subscriberinfo", SubInfoDBDB_Fields, SubInfoDBDB_Fields_Indexes, P, L, "sui") {}
 
     void SubscriberInfoDB::CreateDefaultSubscriberInfo(const SecurityObjects::UserInfoAndPolicy & UI, SubObjects::SubscriberInfo &SI, const ProvObjects::SubscriberDeviceList & Devices) {
-        auto Now = OpenWifi::Now();
+        auto Now = Utils::Now();
 
         //  ok, we need to generate a default record and store it...
         SI.id = UI.userinfo.id;
