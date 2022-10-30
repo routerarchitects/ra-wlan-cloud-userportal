@@ -83,7 +83,6 @@ add_executable(owsub
         src/framework/SubSystemServer.cpp
         src/framework/SubSystemServer.h
         src/framework/RESTAPI_utils.h
-        src/framework/WebSocketClientNotification.cpp
         src/framework/AuthClient.cpp
         src/framework/AuthClient.h
         src/framework/MicroServiceNames.h
