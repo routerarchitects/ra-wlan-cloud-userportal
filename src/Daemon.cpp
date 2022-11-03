@@ -12,6 +12,7 @@
 #include "StatsSvr.h"
 
 #include "Poco/Net/SSLManager.h"
+#include "framework/UI_WebSocketClientServer.h"
 
 namespace OpenWifi {
 	class Daemon *Daemon::instance_ = nullptr;
@@ -26,7 +27,8 @@ namespace OpenWifi {
 								   SubSystemVec{
 									   StorageService(),
 									   SubscriberCache(),
-                                       StatsSvr()
+                                       StatsSvr(),
+                                       UI_WebSocketClientServer()
 								   });
 		}
 		return instance_;

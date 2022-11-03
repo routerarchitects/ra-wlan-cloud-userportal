@@ -12,6 +12,7 @@
 #include "RESTAPI/RESTAPI_signup_handler.h"
 #include "RESTAPI/RESTAPI_stats_handler.h"
 #include "framework/RESTAPI_SystemCommand.h"
+#include "framework/RESTAPI_WebSocketServer.h"
 
 namespace OpenWifi {
 
@@ -28,7 +29,8 @@ namespace OpenWifi {
                     RESTAPI_claim_handler,
                     RESTAPI_signup_handler,
                     RESTAPI_system_command,
-                    RESTAPI_stats_handler
+                    RESTAPI_stats_handler,
+                    RESTAPI_webSocketServer
                 >(Path, Bindings, L, S, TransactionId);
     }
 
