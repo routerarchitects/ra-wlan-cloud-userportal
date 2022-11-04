@@ -4,24 +4,32 @@
 
 #pragma once
 
-#include "framework/MicroService.h"
+#include "Poco/Logger.h"
 #include "Poco/JSON/Parser.h"
+#include "Poco/Net/HTTPServerRequest.h"
+#include "Poco/Net/HTTPServerResponse.h"
+#include "Poco/Net/HTTPSClientSession.h"
+#include "Poco/URI.h"
+
+#include "framework/MicroServiceFuncs.h"
 
 namespace OpenWifi {
     inline void API_Proxy( Poco::Logger &Logger,
                     Poco::Net::HTTPServerRequest *Request,
                     Poco::Net::HTTPServerResponse *Response,
-                    const Poco::JSON::Object::Ptr & Body,
                     const char * ServiceType,
                     const char * PathRewrite,
                     uint64_t msTimeout_ = 10000 ) {
         try {
-            auto Services = MicroService::instance().GetServices(ServiceType);
+            auto Services = MicroServiceGetServices(ServiceType);
             for(auto const &Svc:Services) {
                 Poco::URI   SourceURI(Request->getURI());
                 Poco::URI	DestinationURI(Svc.PrivateEndPoint);
                 DestinationURI.setPath(PathRewrite);
                 DestinationURI.setQuery(SourceURI.getQuery());
+
+                // std::cout << "     Source: " << SourceURI.toString() << std::endl;
+                // std::cout << "Destination: " << DestinationURI.toString() << std::endl;
 
                 Poco::Net::HTTPSClientSession Session(DestinationURI.getHost(), DestinationURI.getPort());
                 Session.setKeepAlive(true);
@@ -29,12 +37,11 @@ namespace OpenWifi {
                 Poco::Net::HTTPRequest ProxyRequest(Request->getMethod(),
                                                     DestinationURI.getPathAndQuery(),
                                                     Poco::Net::HTTPMessage::HTTP_1_1);
-
                 if(Request->has("Authorization")) {
                     ProxyRequest.add("Authorization", Request->get("Authorization"));
                 } else {
                     ProxyRequest.add("X-API-KEY", Svc.AccessKey);
-                    ProxyRequest.add("X-INTERNAL-NAME", MicroService::instance().PublicEndPoint());
+                    ProxyRequest.add("X-INTERNAL-NAME", MicroServicePublicEndPoint());
                 }
 
                 if(Request->getMethod() == Poco::Net::HTTPRequest::HTTP_DELETE) {
@@ -48,9 +55,9 @@ namespace OpenWifi {
                     Poco::JSON::Parser P;
                     std::stringstream SS;
                     try {
-                        if(Body!= nullptr) {
-                            Poco::JSON::Stringifier::condense(Body, SS);
-                        }
+                        auto Body = P.parse(Request->stream()).extract<Poco::JSON::Object::Ptr>();
+                        Poco::JSON::Stringifier::condense(Body,SS);
+                        SS << "\r\n\r\n";
                     } catch(const Poco::Exception &E) {
                         Logger.log(E);
                     }
@@ -77,7 +84,7 @@ namespace OpenWifi {
                         Response->sendBuffer(SSR.str().c_str(),SSR.str().size());
                         return;
                     } catch( const Poco::Exception & E) {
-                        Logger.log(E);
+
                     }
                     Response->setStatus(ProxyResponse.getStatus());
                     Response->send();

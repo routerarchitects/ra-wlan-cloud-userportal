@@ -3,6 +3,8 @@
 //
 
 #include "SDK_sec.h"
+#include "framework/OpenAPIRequests.h"
+#include "framework/MicroServiceNames.h"
 
 namespace OpenWifi::SDK::Sec {
 

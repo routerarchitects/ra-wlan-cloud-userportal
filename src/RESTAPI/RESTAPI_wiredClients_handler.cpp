@@ -7,6 +7,7 @@
 #include "nlohmann/json.hpp"
 #include "StorageService.h"
 #include "sdks/SDK_gw.h"
+#include "framework/utils.h"
 
 namespace OpenWifi {
 
@@ -43,7 +44,7 @@ namespace OpenWifi {
             if (SerialNumber == i.macAddress) {
 
                 Poco::JSON::Object Answer;
-                uint64_t Now = OpenWifi::Now();
+                uint64_t Now = Utils::Now();
                 Answer.set("created", Now);
                 Answer.set("modified", Now);
                 SubObjects::ClientList CList;

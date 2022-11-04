@@ -4,8 +4,8 @@
 
 #pragma once
 
-#include "framework/MicroService.h"
 #include "RESTObjects/RESTAPI_ProvObjects.h"
+#include "Poco/Logger.h"
 
 namespace OpenWifi {
     class ConfigMaker {

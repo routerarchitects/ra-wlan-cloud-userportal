@@ -6,6 +6,8 @@
 #include "RESTObjects/RESTAPI_SubObjects.h"
 #include "StorageService.h"
 #include "sdks/SDK_gw.h"
+#include "nlohmann/json.hpp"
+#include "framework/utils.h"
 
 // #define __DBG__ std::cout << __LINE__ << std::endl ;
 #define __DBG__
@@ -47,7 +49,7 @@ namespace OpenWifi {
                 Poco::JSON::Object::Ptr LastStats;
                 Poco::JSON::Object  Answer;
                 if(SDK::GW::Device::GetLastStats(nullptr,i.serialNumber,LastStats)){
-                    uint64_t    Now = OpenWifi::Now();
+                    uint64_t    Now = Utils::Now();
                     SubObjects::AssociationList AssocList;
                     AssocList.modified = AssocList.created = Now;
                     std::stringstream SS;

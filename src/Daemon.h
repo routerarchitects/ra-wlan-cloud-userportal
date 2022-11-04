@@ -6,8 +6,7 @@
 //	Arilia Wireless Inc.
 //
 
-#ifndef OPENWIFI_DAEMON_H
-#define OPENWIFI_DAEMON_H
+#pragma once
 
 #include <array>
 #include <iostream>
@@ -15,18 +14,8 @@
 #include <vector>
 #include <set>
 
-/* #include "Poco/Util/Application.h"
-#include "Poco/Util/ServerApplication.h"
-#include "Poco/Util/Option.h"
-#include "Poco/Util/OptionSet.h"
-#include "Poco/UUIDGenerator.h"
-#include "Poco/ErrorHandler.h"
-#include "Poco/Crypto/RSAKey.h"
-#include "Poco/Crypto/CipherFactory.h"
-#include "Poco/Crypto/Cipher.h"
-*/
-
 #include "framework/MicroService.h"
+#include "framework/MicroServiceNames.h"
 #include "Dashboard.h"
 
 namespace OpenWifi {
@@ -58,9 +47,5 @@ namespace OpenWifi {
     };
 
 	inline Daemon * Daemon() { return Daemon::instance(); }
-    inline void DaemonPostInitialization(Poco::Util::Application &self) {
-        Daemon()->PostInitialization(self);
-    }
+    void DaemonPostInitialization(Poco::Util::Application &self);
 }
-
-#endif //UCENTRAL_UCENTRAL_H

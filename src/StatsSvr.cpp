@@ -3,6 +3,9 @@
 //
 
 #include "StatsSvr.h"
+#include "framework/KafkaTopics.h"
+#include "framework/KafkaManager.h"
+#include "nlohmann/json.hpp"
 
 namespace OpenWifi {
 

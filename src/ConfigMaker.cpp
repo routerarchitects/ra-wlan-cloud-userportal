@@ -7,6 +7,8 @@
 #include "StorageService.h"
 #include "sdks/SDK_prov.h"
 #include "sdks/SDK_gw.h"
+#include "framework/utils.h"
+#include "nlohmann/json.hpp"
 
 namespace OpenWifi {
 
@@ -368,7 +370,7 @@ namespace OpenWifi {
             }
             SDK::GW::Device::SetSubscriber(nullptr, i.serialNumber, SI.id);
         }
-        SI.modified = OpenWifi::Now();
+        SI.modified = Utils::Now();
         return StorageService()->SubInfoDB().UpdateRecord("id",id_,SI);
     }
 

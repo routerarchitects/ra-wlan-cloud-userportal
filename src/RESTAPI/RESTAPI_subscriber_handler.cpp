@@ -11,6 +11,8 @@
 #include "sdks/SDK_fms.h"
 #include "sdks/SDK_sec.h"
 #include "ConfigMaker.h"
+#include "nlohmann/json.hpp"
+#include "framework/utils.h"
 
 namespace OpenWifi {
 
@@ -97,7 +99,7 @@ namespace OpenWifi {
             }
 
             if(Mods) {
-                auto now = OpenWifi::Now();
+                auto now = Utils::Now();
                 if(SI.modified==now)
                     SI.modified++;
                 else
@@ -212,7 +214,7 @@ namespace OpenWifi {
             return BadRequest(RESTAPI::Errors::InvalidJSONDocument);
         }
 
-        auto Now = OpenWifi::Now();
+        auto Now = Utils::Now();
         if(Body->has("firstName"))
             Existing.firstName = Changes.firstName;
         if(Body->has("initials"))
@@ -290,7 +292,7 @@ namespace OpenWifi {
                     ExistingAP.subscriberDevices.modified = Now;
                 }
             }
-            Changes.modified = OpenWifi::Now();
+            Changes.modified = Utils::Now();
         }
 
         if(StorageService()->SubInfoDB().UpdateRecord("id",UserInfo_.userinfo.id, Existing)) {

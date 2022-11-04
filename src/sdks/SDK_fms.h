@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "framework/MicroService.h"
+#include "framework/RESTAPI_Handler.h"
 #include "RESTObjects/RESTAPI_FMSObjects.h"
 
 namespace OpenWifi::SDK::FMS {

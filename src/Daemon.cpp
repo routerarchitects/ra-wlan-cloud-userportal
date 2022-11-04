@@ -6,12 +6,13 @@
 //	Arilia Wireless Inc.
 //
 
-#include "framework/MicroService.h"
-
 #include "Daemon.h"
 #include "StorageService.h"
 #include "SubscriberCache.h"
 #include "StatsSvr.h"
+
+#include "Poco/Net/SSLManager.h"
+#include "framework/UI_WebSocketClientServer.h"
 
 namespace OpenWifi {
 	class Daemon *Daemon::instance_ = nullptr;
@@ -26,7 +27,8 @@ namespace OpenWifi {
 								   SubSystemVec{
 									   StorageService(),
 									   SubscriberCache(),
-                                       StatsSvr()
+                                       StatsSvr(),
+                                       UI_WebSocketClientServer()
 								   });
 		}
 		return instance_;
@@ -35,20 +37,31 @@ namespace OpenWifi {
 	void Daemon::PostInitialization([[maybe_unused]] Poco::Util::Application &self) {
     }
 
+    void DaemonPostInitialization(Poco::Util::Application &self) {
+        Daemon()->PostInitialization(self);
+    }
 }
 
 int main(int argc, char **argv) {
-	try {
-		auto App = OpenWifi::Daemon::instance();
-		auto ExitCode =  App->run(argc, argv);
-		delete App;
+    int ExitCode;
+    try {
+        Poco::Net::SSLManager::instance().initializeServer(nullptr, nullptr, nullptr);
+        auto App = OpenWifi::Daemon::instance();
+        ExitCode =  App->run(argc, argv);
+        Poco::Net::SSLManager::instance().shutdown();
+    } catch (Poco::Exception &exc) {
+        ExitCode = Poco::Util::Application::EXIT_SOFTWARE;
+        std::cout << exc.displayText() << std::endl;
+    } catch (std::exception &exc) {
+        ExitCode = Poco::Util::Application::EXIT_TEMPFAIL;
+        std::cout << exc.what() << std::endl;
+    } catch (...) {
+        ExitCode = Poco::Util::Application::EXIT_TEMPFAIL;
+        std::cout << "Exception on closure" << std::endl;
+    }
 
-		return ExitCode;
-
-	} catch (Poco::Exception &exc) {
-		std::cerr << exc.displayText() << std::endl;
-		return Poco::Util::Application::EXIT_SOFTWARE;
-	}
+    std::cout << "Exitcode: " << ExitCode << std::endl;
+    return ExitCode;
 }
 
 // end of namespace
