@@ -7,6 +7,8 @@
 #include "framework/KafkaManager.h"
 #include "nlohmann/json.hpp"
 
+#define dbg std::cout << __LINE__ << std::endl
+
 namespace OpenWifi {
 
     int StatsSvr::Start() {
@@ -33,27 +35,42 @@ namespace OpenWifi {
                 try {
                     // std::cout << "Size:" << Queue_.size() << "  " << Msg->Key() << std::endl;
                     // std::cout << Msg->Payload() << std::endl;
+                    dbg;
                     nlohmann::json msg = nlohmann::json::parse(Msg->Payload());
                     if (msg.contains(uCentralProtocol::PAYLOAD)) {
+                        dbg;
                         auto payload = msg[uCentralProtocol::PAYLOAD];
+                        dbg;
                         if (payload.contains("state") && payload.contains("serial")) {
+                            dbg;
                             auto serialNumber = payload["serial"].get<std::string>();
                             auto state = payload["state"];
+                            dbg;
                             if (state.contains("version")) {
+                                dbg;
                                 if (state.contains("unit")) {
+                                    dbg;
                                     auto unit = state["unit"];
+                                    dbg;
                                     if (unit.contains("localtime")) {
+                                        dbg;
                                         uint64_t timestamp = unit["localtime"];
+                                        dbg;
                                         if (state.contains("interfaces")) {
+                                            dbg;
                                             if (state["interfaces"].is_array()) {
+                                                dbg;
                                                 auto interfaces = state["interfaces"];
                                                 auto serial_int = Utils::SerialNumberToInt(serialNumber);
                                                 uint64_t int_rx=0, int_tx=0, ext_rx=0,ext_tx=0;
                                                 for (const auto &cur_int: interfaces) {
+                                                    dbg;
                                                     bool external_stats=true;
                                                     if(cur_int.contains("location")) {
+                                                        dbg;
                                                         auto location = cur_int["location"].get<std::string>();
                                                         auto parts = Poco::StringTokenizer(location,"/");
+                                                        dbg;
                                                         if(parts.count()==3) {
                                                             if(parts[2]=="0")
                                                                 external_stats = true;
@@ -63,10 +80,13 @@ namespace OpenWifi {
                                                     }
 
                                                     if (cur_int.contains("counters")) {
+                                                        dbg;
                                                         if(external_stats) {
+                                                            dbg;
                                                             ext_rx = cur_int["counters"]["rx_bytes"].get<uint64_t>();
                                                             ext_tx = cur_int["counters"]["tx_bytes"].get<uint64_t>();
                                                         } else {
+                                                            dbg;
                                                             int_rx = cur_int["counters"]["rx_bytes"].get<uint64_t>();
                                                             int_tx = cur_int["counters"]["tx_bytes"].get<uint64_t>();
                                                         }
@@ -77,12 +97,18 @@ namespace OpenWifi {
                                                     auto it = DeviceStats_.find(serial_int);
                                                     if (it == end(DeviceStats_)) {
                                                         DeviceStats D;
+                                                        dbg;
                                                         D.AddValue(timestamp, ext_tx, ext_rx, int_tx, int_rx);
+                                                        dbg;
                                                         DeviceStats_[serial_int] = D;
+                                                        dbg;
                                                         std::cout << "Created device stats entries for " << serialNumber
                                                                   << std::endl;
+                                                        dbg;
                                                     } else {
+                                                        dbg;
                                                         it->second.AddValue(timestamp, ext_tx, ext_rx, int_tx, int_rx);
+                                                        dbg;
                                                         std::cout << "Adding device stats entries for " << serialNumber
                                                                   << std::endl;
                                                     }
@@ -103,7 +129,9 @@ namespace OpenWifi {
             } else {
 
             }
+            dbg;
             Note = Queue_.waitDequeueNotification();
+            dbg;
         }
     }
 
