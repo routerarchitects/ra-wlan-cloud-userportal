@@ -79,7 +79,7 @@ namespace OpenWifi {
                                                         }
                                                     }
 
-                                                    if (cur_int.contains("counters")) {
+                                                    if (cur_int.contains("counters") && cur_int["counters"].contains("rx_bytes") && cur_int["counters"].contains("tx_bytes")) {
                                                         dbg;
                                                         if(external_stats) {
                                                             dbg;
