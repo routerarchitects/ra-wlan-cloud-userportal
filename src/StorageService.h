@@ -10,11 +10,11 @@
 
 #include <map>
 
+#include "Poco/Data/MySQL/Connector.h"
+#include "Poco/Data/PostgreSQL/Connector.h"
+#include "Poco/Data/SQLite/Connector.h"
 #include "Poco/Data/Session.h"
 #include "Poco/Data/SessionPool.h"
-#include "Poco/Data/SQLite/Connector.h"
-#include "Poco/Data/PostgreSQL/Connector.h"
-#include "Poco/Data/MySQL/Connector.h"
 
 #include "framework/StorageClass.h"
 
@@ -22,24 +22,24 @@
 
 namespace OpenWifi {
 
-    class StorageService : public StorageClass {
-        public:
-        static StorageService *instance() {
-            static auto instance_ = new StorageService;
-                return instance_;
-            }
+	class StorageService : public StorageClass {
+	  public:
+		static StorageService *instance() {
+			static auto instance_ = new StorageService;
+			return instance_;
+		}
 
-            OpenWifi::SubscriberInfoDB & SubInfoDB() { return *SubscriberDB_; };
+		OpenWifi::SubscriberInfoDB &SubInfoDB() { return *SubscriberDB_; };
 
-            int Start() override;
-            void Stop() override;
+		int Start() override;
+		void Stop() override;
 
-          private:
-            std::unique_ptr<OpenWifi::SubscriberInfoDB>         SubscriberDB_;
-            Poco::Thread                                        Updater_;
-            std::atomic_bool                                    Running_=false;
-    };
+	  private:
+		std::unique_ptr<OpenWifi::SubscriberInfoDB> SubscriberDB_;
+		Poco::Thread Updater_;
+		std::atomic_bool Running_ = false;
+	};
 
-    inline class StorageService * StorageService() { return StorageService::instance(); }
+	inline class StorageService *StorageService() { return StorageService::instance(); }
 
-}  // namespace
+} // namespace OpenWifi

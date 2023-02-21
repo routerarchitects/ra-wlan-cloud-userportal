@@ -10,23 +10,23 @@
 
 namespace OpenWifi {
 
-    int StorageService::Start() {
-		std::lock_guard		Guard(Mutex_);
+	int StorageService::Start() {
+		std::lock_guard Guard(Mutex_);
 		Logger().notice("Starting.");
 
 		StorageClass::Start();
-		SubscriberDB_ = std::make_unique<OpenWifi::SubscriberInfoDB>(dbType_,*Pool_, Logger());
+		SubscriberDB_ = std::make_unique<OpenWifi::SubscriberInfoDB>(dbType_, *Pool_, Logger());
 		SubscriberDB_->Create();
 
-        return 0;
-    }
+		return 0;
+	}
 
-    void StorageService::Stop() {
-	    std::lock_guard		Guard(Mutex_);
+	void StorageService::Stop() {
+		std::lock_guard Guard(Mutex_);
 
-	    StorageClass::Stop();
-        Logger().notice("Stopping.");
-    }
-}
+		StorageClass::Stop();
+		Logger().notice("Stopping.");
+	}
+} // namespace OpenWifi
 
 // namespace

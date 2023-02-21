@@ -4,14 +4,14 @@
 
 #pragma once
 
-#include "framework/RESTAPI_Handler.h"
 #include "RESTObjects/RESTAPI_FMSObjects.h"
+#include "framework/RESTAPI_Handler.h"
 
 namespace OpenWifi::SDK::FMS {
 
-    namespace Firmware {
-        bool GetDeviceInformation(RESTAPIHandler *client, const Types::UUID_t & SerialNumber, FMSObjects::DeviceInformation & DI);
-    }
+	namespace Firmware {
+		bool GetDeviceInformation(RESTAPIHandler *client, const Types::UUID_t &SerialNumber,
+								  FMSObjects::DeviceInformation &DI);
+	}
 
-}
-
+} // namespace OpenWifi::SDK::FMS

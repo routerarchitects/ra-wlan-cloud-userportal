@@ -4,29 +4,38 @@
 
 #pragma once
 
-#include "framework/RESTAPI_Handler.h"
 #include "RESTObjects/RESTAPI_ProvObjects.h"
+#include "framework/RESTAPI_Handler.h"
 
 namespace OpenWifi::SDK::Prov {
 
-    namespace Device {
-        bool Get(RESTAPIHandler *client, const std::string &Mac, ProvObjects::InventoryTagList & Device);
-        bool SetConfiguration(RESTAPIHandler *client, const std::string &Mac, const std::string &ConfigUUID);
-    }
+	namespace Device {
+		bool Get(RESTAPIHandler *client, const std::string &Mac,
+				 ProvObjects::InventoryTagList &Device);
+		bool SetConfiguration(RESTAPIHandler *client, const std::string &Mac,
+							  const std::string &ConfigUUID);
+	} // namespace Device
 
-    namespace Configuration {
-        bool Get( RESTAPIHandler *client, const std::string &ConfigUUID, ProvObjects::DeviceConfiguration & Config);
-        bool Delete( RESTAPIHandler *client, const std::string &ConfigUUID);
-        bool Create( RESTAPIHandler *client, const std::string & SerialNumber, const ProvObjects::DeviceConfiguration & Config , std::string & ConfigUUID);
-        bool Update( RESTAPIHandler *client, const std::string &ConfigUUID, ProvObjects::DeviceConfiguration & Config);
-        bool Push( RESTAPIHandler *client, const std::string &serialNumber, ProvObjects::InventoryConfigApplyResult &Results );
-    }
+	namespace Configuration {
+		bool Get(RESTAPIHandler *client, const std::string &ConfigUUID,
+				 ProvObjects::DeviceConfiguration &Config);
+		bool Delete(RESTAPIHandler *client, const std::string &ConfigUUID);
+		bool Create(RESTAPIHandler *client, const std::string &SerialNumber,
+					const ProvObjects::DeviceConfiguration &Config, std::string &ConfigUUID);
+		bool Update(RESTAPIHandler *client, const std::string &ConfigUUID,
+					ProvObjects::DeviceConfiguration &Config);
+		bool Push(RESTAPIHandler *client, const std::string &serialNumber,
+				  ProvObjects::InventoryConfigApplyResult &Results);
+	} // namespace Configuration
 
-    namespace Subscriber {
-        bool GetDevices(RESTAPIHandler *client, const std::string &SubscriberId, const std::string &OperatorId, ProvObjects::SubscriberDeviceList &devList);
-        bool ReturnDeviceToInventory(RESTAPIHandler *client, const std::string &SubscriberId, const std::string &SerialNumber);
-        bool SetDevice(RESTAPIHandler *client, const ProvObjects::SubscriberDevice &D);
-        bool GetDevice(RESTAPIHandler *client, const std::string &SerialNumber, ProvObjects::SubscriberDevice &D);
-    }
+	namespace Subscriber {
+		bool GetDevices(RESTAPIHandler *client, const std::string &SubscriberId,
+						const std::string &OperatorId, ProvObjects::SubscriberDeviceList &devList);
+		bool ReturnDeviceToInventory(RESTAPIHandler *client, const std::string &SubscriberId,
+									 const std::string &SerialNumber);
+		bool SetDevice(RESTAPIHandler *client, const ProvObjects::SubscriberDevice &D);
+		bool GetDevice(RESTAPIHandler *client, const std::string &SerialNumber,
+					   ProvObjects::SubscriberDevice &D);
+	} // namespace Subscriber
 
-}
+} // namespace OpenWifi::SDK::Prov

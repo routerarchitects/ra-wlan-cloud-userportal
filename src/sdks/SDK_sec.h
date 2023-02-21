@@ -4,21 +4,22 @@
 
 #pragma once
 
-#include "framework/RESTAPI_Handler.h"
 #include "RESTObjects/RESTAPI_SecurityObjects.h"
+#include "framework/RESTAPI_Handler.h"
 
 namespace OpenWifi::SDK::Sec {
 
-    namespace User {
-        bool Exists(RESTAPIHandler *client, const Types::UUID_t & User);
-        bool Get(RESTAPIHandler *client, const Types::UUID_t & User, SecurityObjects::UserInfo & UserInfo);
-    }
+	namespace User {
+		bool Exists(RESTAPIHandler *client, const Types::UUID_t &User);
+		bool Get(RESTAPIHandler *client, const Types::UUID_t &User,
+				 SecurityObjects::UserInfo &UserInfo);
+	} // namespace User
 
-    namespace Subscriber {
-        bool Exists(RESTAPIHandler *client, const Types::UUID_t & User);
-        bool Get(RESTAPIHandler *client, const Types::UUID_t & User, SecurityObjects::UserInfo & UserInfo);
-        bool Delete(RESTAPIHandler *client, const Types::UUID_t & Id);
-    }
+	namespace Subscriber {
+		bool Exists(RESTAPIHandler *client, const Types::UUID_t &User);
+		bool Get(RESTAPIHandler *client, const Types::UUID_t &User,
+				 SecurityObjects::UserInfo &UserInfo);
+		bool Delete(RESTAPIHandler *client, const Types::UUID_t &Id);
+	} // namespace Subscriber
 
-}
-
+} // namespace OpenWifi::SDK::Sec
