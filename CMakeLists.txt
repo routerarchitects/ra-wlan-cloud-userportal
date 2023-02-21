@@ -44,7 +44,6 @@ find_package(ZLIB       REQUIRED)
 find_package(fmt        REQUIRED)
 find_package(Poco       REQUIRED COMPONENTS Crypto JWT Net Util NetSSL Data DataSQLite)
 find_package(nlohmann_json  REQUIRED)
-find_package(nlohmann_json_schema_validator REQUIRED)
 
 if(SMALL_BUILD)
     find_package(Poco REQUIRED COMPONENTS Crypto JWT Net Util NetSSL Data DataSQLite)
@@ -142,6 +141,5 @@ target_link_libraries(owsub PUBLIC
         ${Poco_LIBRARIES}
         ${MySQL_LIBRARIES}
         ${ZLIB_LIBRARIES}
-        fmt::fmt
-        CppKafka::cppkafka nlohmann_json_schema_validator)
+        fmt::fmt)
 
