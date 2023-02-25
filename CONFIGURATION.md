@@ -35,7 +35,7 @@ If you key file uses a password, please enter it here.
 
 ### REST API Intra microservice parameters
 The following parameters describe the configuration for the inter-microservice HTTP server. You may use the same certificate/key
-you are using for your extenral server or another certificate.
+you are using for your external server or another certificate.
 ```properties
 openwifi.internal.restapi.host.0.backlog = 100
 openwifi.internal.restapi.host.0.security = relaxed
