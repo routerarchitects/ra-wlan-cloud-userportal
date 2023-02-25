@@ -70,11 +70,11 @@ These are different Microservie parameters. Following is a brief explanation.
 openwifi.service.key = $OWSUB_ROOT/certs/restapi-key.pem
 openwifi.service.key.password = mypassword
 openwifi.system.data = $OWSUB_ROOT/data
-openwifi.system.uri.private = https://localhost:17004
-openwifi.system.uri.public = https://ucentral.dpaas.arilia.com:16002
-openwifi.system.uri.ui = https://ucentral-ui.arilia.com
+openwifi.system.uri.private = https://localhost:17006
+openwifi.system.uri.public = https://openwifi.example.com:16006
+openwifi.system.uri.ui = https://openwifi-prov-ui.example.com
 openwifi.security.restapi.disable = false
-openwifi.system.commandchannel = /tmp/app.ucentralfms
+openwifi.system.commandchannel = /tmp/app.owsub
 openwifi.autoprovisioning = true
 ```
 #### openwifi.service.key
@@ -102,7 +102,7 @@ Allow unknown devices to be provisioned by the system.
 In order to support an application load balancer health check verification, your need to provide the following parameters.
 ```properties
 alb.enable = true
-alb.port = 16102
+alb.port = 16106
 ```
 
 ### Kafka
