@@ -11,34 +11,67 @@ like all other OWSDK microservices, is defined using an OpenAPI definition and u
 protocol to interact with Access Points. To use the OWSUB, you either need to [build it](#building) or use the 
 [Docker version](#docker).
 
+## OpenAPI
+You may get static page with OpenAPI docs generated from the definition on [GitHub Page](https://telecominfraproject.github.io/wlan-cloud-userportal/).
+
 ## Building
 To build the microservice from source, please follow the instructions in [here](./BUILDING.md)
 
 ## Docker
 To use the CLoudSDK deployment please follow [here](https://github.com/Telecominfraproject/wlan-cloud-ucentral-deploy)
+Also, you may use [Swagger UI](https://petstore.swagger.io/#/) with OpenAPI definition file raw link (i.e. [latest version file](https://raw.githubusercontent.com/Telecominfraproject/wlan-cloud-userportal/main/openapi/owanalytics.yaml)) to get interactive docs page.
+
+#### Expected directory layout
+From the directory where your cloned source is, you will need to create the `certs`, `logs`, and `uploads` directories.
+```bash
+mkdir certs
+mkdir certs/cas
+mkdir logs
+mkdir uploads
+```
+You should now have the following:
+```text
+--+-- certs
+  |   +--- cas
+  +-- cmake
+  +-- cmake-build
+  +-- logs
+  +-- src
+  +-- test_scripts
+  +-- openapi
+  +-- uploads
+  +-- owsub.properties
+```
+
+### Certificate
+The OWSUB uses a certificate to provide security for the REST API Certificate to secure the Northbound API.
+
+#### The `certs` directory
+For all deployments, you will need the following `certs` directory, populated with the proper files.
+
+```text
+certs ---+--- restapi-ca.pem
+         +--- restapi-cert.pem
+         +--- restapi-key.pem
+```
+
+## Firewall Considerations
+| Port  | Description                                 | Configurable |
+|:------|:--------------------------------------------|:------------:|
+| 16006 | Default port for REST API Access to the OWSUB |     yes      |
 
 ### Environment variables
-The following environment variables should be set from the root directory of the service. They tell the OWGW process where to find
+The following environment variables should be set from the root directory of the service. They tell the OWSUB process where to find
 the configuration and the root directory.
 ```bash
-export OWGW_ROOT=`pwd`
-export OWGW_CONFIG=`pwd`
+export OWSUB_ROOT=`pwd`
+export OWSUB_CONFIG=`pwd`
 ```
 You can run the shell script `set_env.sh` from the microservice root.
 
 ### OWSUB Service Configuration
 The configuration is kept in a file called `owsub.properties`. To understand the content of this file,
 please look [here](https://github.com/Telecominfraproject/wlan-cloud-userportal/blob/main/CONFIGURATION.md)
-
-## OpenAPI
-You may get static page with OpenAPI docs generated from the definition on [GitHub Page](https://telecominfraproject.github.io/wlan-cloud-userportal/).
-
-Also, you may use [Swagger UI](https://petstore.swagger.io/#/) with OpenAPI definition file raw link (i.e. [latest version file](https://raw.githubusercontent.com/Telecominfraproject/wlan-cloud-userportal/main/openapi/owanalytics.yaml)) to get interactive docs page.
-
-## Firewall Considerations
-| Port  | Description                                 | Configurable |
-|:------|:--------------------------------------------|:------------:|
-| 16006 | Default port for REST API Access to the OWSUB |     yes      |
 
 ## Kafka topics
 Toe read more about Kafka, follow the [document](https://github.com/Telecominfraproject/wlan-cloud-ucentralgw/blob/main/KAFKA.md)
