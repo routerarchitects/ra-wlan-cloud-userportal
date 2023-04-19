@@ -110,6 +110,7 @@ add_executable(owsub
         src/framework/RESTAPI_PartHandler.h
         src/framework/MicroService.cpp
         src/framework/MicroServiceExtra.h
+        src/framework/default_device_types.h
         src/RESTObjects/RESTAPI_SecurityObjects.h src/RESTObjects/RESTAPI_SecurityObjects.cpp
         src/RESTObjects/RESTAPI_GWobjects.h src/RESTObjects/RESTAPI_GWobjects.cpp
         src/RESTObjects/RESTAPI_FMSObjects.h src/RESTObjects/RESTAPI_FMSObjects.cpp
