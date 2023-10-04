@@ -145,5 +145,6 @@ target_link_libraries(owsub PUBLIC
         ${MySQL_LIBRARIES}
         ${ZLIB_LIBRARIES}
         CppKafka::cppkafka
+        resolv
         fmt::fmt)
 
