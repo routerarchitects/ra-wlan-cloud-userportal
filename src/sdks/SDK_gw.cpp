@@ -1,6 +1,8 @@
 //
 // Created by stephane bourque on 2022-01-11.
 //
+#include <regex>
+#include "framework/RESTAPI_Handler.h"
 
 #include "SDK_gw.h"
 #include "framework/MicroServiceNames.h"
@@ -51,15 +53,6 @@ namespace OpenWifi::SDK::GW {
 			ObjRequest.set("when", When);
 			ObjRequest.set("uri", ImageName);
 			PerformCommand(client, "upgrade", EndPoint, ObjRequest);
-		}
-
-		void Refresh(RESTAPIHandler *client, const std::string &Mac, uint64_t When) {
-			std::string EndPoint = "/api/v1/device/" + Mac + "/refresh";
-			Poco::JSON::Object ObjRequest;
-
-			ObjRequest.set("serialNumber", Mac);
-			ObjRequest.set("when", When);
-			PerformCommand(client, "refresh", EndPoint, ObjRequest);
 		}
 
 		void PerformCommand(RESTAPIHandler *client, const std::string &Command,
@@ -138,6 +131,27 @@ namespace OpenWifi::SDK::GW {
 			return false;
 		}
 
+	    Poco::Net::HTTPResponse::HTTPStatus GetConfig(RESTAPIHandler *client, const std::string &Mac,
+                                           Poco::JSON::Object::Ptr &Response) {
+            std::string EndPoint = "/api/v1/device/" + Mac;
+            auto API = OpenAPIRequestGet(uSERVICE_GATEWAY, EndPoint, {}, 1000);
+            auto ResponseStatus =
+                API.Do(Response, client == nullptr ? "" : client->UserInfo_.webtoken.access_token_);
+            if (ResponseStatus != Poco::Net::HTTPServerResponse::HTTP_OK) {
+                Poco::Logger::get("SDK_gw").error(fmt::format(
+                    "GetConfig: Could not get configuration from controller for device id {}. "
+                    "Status={}",
+                    Mac, int(ResponseStatus)));
+                return ResponseStatus;
+            }
+            if (!Response || !Response->has("configuration")) {
+                Poco::Logger::get("SDK_gw").error(fmt::format(
+                    "GetConfig: Could not get configuration from controller for device id {}.", Mac));
+                return ResponseStatus;
+            }
+			return Poco::Net::HTTPServerResponse::HTTP_OK;
+        }
+
 		bool Configure(RESTAPIHandler *client, const std::string &Mac,
 					   Poco::JSON::Object::Ptr &Configuration, Poco::JSON::Object::Ptr &Response) {
 
@@ -153,7 +167,7 @@ namespace OpenWifi::SDK::GW {
 			Body.set("configuration", Configuration);
 
 			OpenWifi::OpenAPIRequestPost R(OpenWifi::uSERVICE_GATEWAY,
-										   "/api/v1/device/" + Mac + "/configure", {}, Body, 10000);
+										   "/api/v1/device/" + Mac + "/configure", {}, Body, 90000);
 
 			auto ResponseStatus =
 				R.Do(Response, client ? client->UserInfo_.webtoken.access_token_ : "");
@@ -164,6 +178,115 @@ namespace OpenWifi::SDK::GW {
 			}
 
 			return false;
+		}
+
+		static bool SetInterfaceSsid(Poco::JSON::Object::Ptr &Config, const std::string &SerialNumber,
+									 const Poco::JSON::Object::Ptr &Body, std::string &status) {
+			status.clear(); //clear any previous status message
+			std::string override_ssid{};
+			std::string override_password{};
+			OpenWifi::RESTAPIHandler::AssignIfPresent(Body, "ssid", override_ssid);
+			OpenWifi::RESTAPIHandler::AssignIfPresent(Body, "password", override_password);
+			Poco::trimInPlace(override_ssid); // trim spaces around the SSID
+
+			// require at least one parameter
+			if (!Body->has("ssid") && !Body->has("password")) {
+				status = "MissingOrInvalidParameters";
+				Poco::Logger::get("Configure").error("Missing Required Parameters.");
+				return false;
+			}
+			// SSID validation first
+			if (Body->has("ssid")) {
+				static const std::regex Ssid_Regex(R"(^[A-Za-z0-9._ -]{1,32}$)");
+				if (override_ssid.empty() || !std::regex_match(override_ssid, Ssid_Regex)) {
+					status = "SSIDInvalidName";
+					Poco::Logger::get("Configure").error(fmt::format(
+						"Invalid SSID ({}). Allowed: 1 to 32 chars (letters, numbers, dot, underscore, hyphen, space).", override_ssid));
+					return false;
+				}
+			}
+			// Password validation next
+			if (Body->has("password")) {
+				static const std::regex Pass_Regex(R"(^\S{8,32}$)");
+				if (override_password.empty() || !std::regex_match(override_password, Pass_Regex)) {
+					status = "SSIDInvalidPassword";
+					Poco::Logger::get("Configure").error(
+						"Invalid password. Must be 8 to 32 characters without spaces.");
+					return false;
+				}
+			}
+			// Apply overrides if configuration is valid
+			if (Config && (!override_ssid.empty() || !override_password.empty())) {
+				Poco::Logger::get("Configure").information(
+					fmt::format("Applying SSID/Password overrides to device {}.", SerialNumber));
+				auto interfaces = Config->getArray("interfaces");
+				for (std::size_t i = 0; i < interfaces->size(); ++i) {
+					auto iface = interfaces->getObject(i);
+					if (iface->has("ssids")) {
+						auto ssids = iface->getArray("ssids");
+						for (std::size_t j = 0; j < ssids->size(); ++j) {
+							auto ssid = ssids->getObject(j);
+							if (!override_ssid.empty()){
+								ssid->set("name", override_ssid);
+							Poco::Logger::get("Configure").information(
+								fmt::format("Applied SSID override for device {}.", SerialNumber));
+							}
+							if (ssid->has("encryption")) {
+								auto encrypt = ssid->getObject("encryption");
+								if (!override_password.empty()){
+									encrypt->set("key", override_password);
+								Poco::Logger::get("Configure").information(fmt::format(
+									"Applied password override for device {}.", SerialNumber));
+								}
+							}
+						}
+					}
+				}
+			}
+			return true;
+		}
+
+		Poco::Net::HTTPResponse::HTTPStatus SetConfig(RESTAPIHandler *client, const std::string &SerialNumber,
+					   const Poco::JSON::Object::Ptr &Body, std::string &status) {
+			status.clear();
+			Poco::JSON::Object::Ptr DeviceObj;
+			auto returnStatus = GetConfig(client, SerialNumber, DeviceObj);
+			if (returnStatus != Poco::Net::HTTPServerResponse::HTTP_OK) {
+				status = (returnStatus == Poco::Net::HTTPServerResponse::HTTP_NOT_FOUND) ? "DeviceNotConnected": "InternalError";
+				return returnStatus;
+			}
+			if (!DeviceObj || !DeviceObj->has("configuration")) {
+				status = "ConfigNotFound";
+				return Poco::Net::HTTPResponse::HTTP_NOT_FOUND;
+			}
+			Poco::Logger::get("Configure").information( fmt::format("SetConfig: Fetched device config for serial {}.",SerialNumber));
+			auto Config = DeviceObj->getObject("configuration");
+			try { // Use SetInterfaceSsid to apply overrides
+				if (!SetInterfaceSsid(Config, SerialNumber, Body, status)) {
+					Poco::Logger::get("Configure").error("SetConfig: Failed to apply overrides");
+					if (status.empty()){
+						status = "InternalError";}
+					return Poco::Net::HTTPResponse::HTTP_BAD_REQUEST;
+				}
+			} catch (const std::exception &ex) {
+				Poco::Logger::get("Configure").error(
+					fmt::format("SetConfig: exception while applying overrides for {}: {}",SerialNumber, ex.what()));
+				status = "InternalError";
+					return Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR;
+			} catch (...) {
+				Poco::Logger::get("Configure").error(fmt::format(
+					"SetConfig: unknown exception while applying overrides for {}", SerialNumber));
+				status = "InternalError";
+					return Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR;
+			}
+			Poco::JSON::Object::Ptr Response;
+			if (Configure(client, SerialNumber, Config, Response)){ // Send new config to device
+				Poco::Logger::get("Configure").information(fmt::format("SetConfig: Successfully sent new configuration to device {}.", SerialNumber));
+				status.clear(); //clear status on success
+				return Poco::Net::HTTPResponse::HTTP_OK;
+			}
+			status = "InternalError"; // Could not send config to device
+			return Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR;
 		}
 
 		bool SetSubscriber(RESTAPIHandler *client, const std::string &SerialNumber,

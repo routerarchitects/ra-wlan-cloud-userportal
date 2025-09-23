@@ -53,12 +53,24 @@ namespace OpenWifi {
 													keepRedirector);
 				} else if (Command == "factory") {
 					return SDK::GW::Device::Factory(this, i.serialNumber, When, keepRedirector);
-				} else if (Command == "refresh") {
-					ConfigMaker InitialConfig(Logger(), UserInfo_.userinfo.id);
-					if (InitialConfig.Prepare())
-						return OK();
-					else
-						return InternalError(RESTAPI::Errors::SubConfigNotRefreshed);
+				} else if (Command == "configure") {
+					std::string status{};
+					auto Response = SDK::GW::Device::SetConfig(this, i.serialNumber, Body, status);
+					if (Response != Poco::Net::HTTPServerResponse::HTTP_OK) {
+						if (status == "MissingOrInvalidParameters") {
+							return BadRequest(RESTAPI::Errors::MissingOrInvalidParameters,"Required Parameters are missing.");
+						} else if (status == "DeviceNotConnected") {
+							return BadRequest(RESTAPI::Errors::DeviceNotConnected);
+						} else if (status == "SSIDInvalidName") {
+							return BadRequest(RESTAPI::Errors::SSIDInvalidName);
+						} else if (status == "SSIDInvalidPassword") {
+							return BadRequest(RESTAPI::Errors::SSIDInvalidPassword);
+						} else if (status == "ConfigNotFound") {
+							return BadRequest(RESTAPI::Errors::ConfigNotFound);
+						}
+						return BadRequest(RESTAPI::Errors::InternalError, status);
+					}
+					return OK();
 				} else {
 					return BadRequest(RESTAPI::Errors::MissingOrInvalidParameters);
 				}
