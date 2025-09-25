@@ -1,0 +1,12 @@
+Dual License Summary
+---------------------
+This project is dual-licensed:
+
+1. Portions of the code are derived from the Telecom Infra Project (TIP) 'wlan-cloud-userportal' repository, licensed under the BSD 3-Clause License.
+2. All modifications and additions by Infernet Systems Pvt Ltd (also known as Router Architects) are licensed under:
+   - GNU General Public License v3 (GPLv3)
+   - A commercial license (available upon request)
+
+Users may choose to use the GPLv3 license or purchase a commercial license for proprietary use.
+
+See LICENSE-BSD, LICENSE-GPLv3, and COMMERCIAL-LICENSE for details.
