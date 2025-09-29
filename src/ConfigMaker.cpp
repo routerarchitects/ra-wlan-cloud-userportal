@@ -89,6 +89,10 @@ namespace OpenWifi {
                   ]
                 },
                 "health": {
+                  "dns-remote": true,
+                  "dns-local": true,
+                  "dhcp-remote": false,
+                  "dhcp-local": true,
                   "interval": 60
                 },
                 "statistics": {
@@ -125,8 +129,7 @@ namespace OpenWifi {
                     "location": "universe"
                 },
                 "ssh": {
-                    "authorized-keys": [],
-                    "password-authentication": false,
+                    "password-authentication": true,
                     "port": 22
                 }
             }
@@ -153,6 +156,13 @@ namespace OpenWifi {
 				AllBands.emplace_back(ConvertBand(rr.band));
 
 			nlohmann::json UpstreamPort, DownstreamPort;
+			auto addPortDefaults = [](nlohmann::json &Port) { // used a lambda func to avoid code duplication
+				Port["vlan-tag"] = "auto";
+				Port["reverse-path"] = false;
+				Port["isolate"] = false;
+				Port["learning"] = true;
+				Port["multicast"] = true;
+			};
 			if (i.internetConnection.type == "manual") {
 				UpstreamInterface["addressing"] = "static";
 				UpstreamInterface["subnet"] = i.internetConnection.subnetMask;
@@ -164,6 +174,7 @@ namespace OpenWifi {
 			} else if (i.internetConnection.type == "pppoe") {
 				nlohmann::json Port;
 				Port["select-ports"].push_back("WAN*");
+				addPortDefaults(Port);
 				UpstreamInterface["ethernet"].push_back(Port);
 				UpstreamInterface["broad-band"]["protocol"] = "pppoe";
 				UpstreamInterface["broad-band"]["user-name"] = i.internetConnection.username;
@@ -176,6 +187,7 @@ namespace OpenWifi {
 				Port["select-ports"].push_back("WAN*");
 				if (i.deviceMode.type == "bridge")
 					Port["select-ports"].push_back("LAN*");
+				addPortDefaults(Port);
 				UpstreamInterface["ethernet"].push_back(Port);
 				UpstreamInterface["ipv4"]["addressing"] = "dynamic";
 				if (i.internetConnection.ipV6Support)
@@ -185,9 +197,12 @@ namespace OpenWifi {
 			if (i.deviceMode.type == "bridge") {
 				UpstreamPort["select-ports"].push_back("LAN*");
 				UpstreamPort["select-ports"].push_back("WAN*");
+				addPortDefaults(UpstreamPort);
 			} else if (i.deviceMode.type == "manual") {
-				UpstreamPort.push_back("WAN*");
-				DownstreamPort.push_back("LAN*");
+				UpstreamPort["select-ports"].push_back("WAN*"); // puts WAN in select-ports for UpstreamPort object
+				DownstreamPort["select-ports"].push_back("LAN*");
+				addPortDefaults(UpstreamPort);
+				addPortDefaults(DownstreamPort);
 				DownstreamInterface["name"] = "LAN";
 				DownstreamInterface["role"] = "downstream";
 				DownstreamInterface["services"].push_back("lldp");
@@ -198,6 +213,8 @@ namespace OpenWifi {
 				CreateDHCPInfo(i.deviceMode.subnet, i.deviceMode.startIP, i.deviceMode.endIP,
 							   FirstIPInRange, HowMany);
 				DownstreamInterface["ipv4"]["subnet"] = i.deviceMode.subnet;
+				DownstreamInterface["ipv4"]["send-hostname"] = false;
+				DownstreamInterface["ipv4"]["gateway"] = "192.168.1.1";
 				DownstreamInterface["ipv4"]["dhcp"]["lease-first"] = FirstIPInRange;
 				DownstreamInterface["ipv4"]["dhcp"]["lease-count"] = HowMany;
 				DownstreamInterface["ipv4"]["dhcp"]["lease-time"] =
@@ -205,6 +222,8 @@ namespace OpenWifi {
 			} else if (i.deviceMode.type == "nat") {
 				UpstreamPort["select-ports"].push_back("WAN*");
 				DownstreamPort["select-ports"].push_back("LAN*");
+				addPortDefaults(UpstreamPort);
+				addPortDefaults(DownstreamPort);
 				DownstreamInterface["name"] = "LAN";
 				DownstreamInterface["role"] = "downstream";
 				DownstreamInterface["services"].push_back("lldp");
@@ -215,6 +234,8 @@ namespace OpenWifi {
 				CreateDHCPInfo(i.deviceMode.subnet, i.deviceMode.startIP, i.deviceMode.endIP,
 							   FirstIPInRange, HowMany);
 				DownstreamInterface["ipv4"]["subnet"] = i.deviceMode.subnet;
+				DownstreamInterface["ipv4"]["send-hostname"] = false;
+				DownstreamInterface["ipv4"]["gateway"] = "192.168.1.1";
 				DownstreamInterface["ipv4"]["dhcp"]["lease-first"] = FirstIPInRange;
 				DownstreamInterface["ipv4"]["dhcp"]["lease-count"] = HowMany;
 				DownstreamInterface["ipv4"]["dhcp"]["lease-time"] =
@@ -231,6 +252,12 @@ namespace OpenWifi {
 					ssid["wifi-bands"] = ConvertBands(j.bands);
 				}
 				ssid["bss-mode"] = "ap";
+				ssid["tip-information-element"] = true;
+				ssid["dtim-period"] = 2;
+				ssid["fils-discovery-interval"] = 20;
+				ssid["maximum-clients"] = 64;
+				ssid["services"] = nlohmann::json::array();
+				ssid["hidden-ssid"] = false;
 				if (j.encryption == "wpa1-personal") {
 					ssid["encryption"]["proto"] = "psk";
 					ssid["encryption"]["ieee80211w"] = "disabled";
@@ -248,7 +275,9 @@ namespace OpenWifi {
 					ssid["encryption"]["ieee80211w"] = "disabled";
 				}
 				ssid["encryption"]["key"] = j.password;
+				ssid["encryption"]["key-caching"] = true;
 				if (j.type == "main") {
+					ssid["isolate-clients"] = false;
 					main_ssids.push_back(ssid);
 				} else {
 					hasGuest = true;
@@ -264,9 +293,11 @@ namespace OpenWifi {
 
 			nlohmann::json UpStreamEthernet, DownStreamEthernet;
 			if (!UpstreamPort.empty()) {
+				addPortDefaults(UpstreamPort);
 				UpStreamEthernet.push_back(UpstreamPort);
 			}
 			if (!DownstreamPort.empty()) {
+				addPortDefaults(DownstreamPort);
 				DownStreamEthernet.push_back(DownstreamPort);
 			}
 
@@ -317,26 +348,21 @@ namespace OpenWifi {
 					radio["allow-dfs"] = true;
 				if (!k.mimo.empty())
 					radio["mimo"] = k.mimo;
-				radio["legacy-rates"] = k.legacyRates;
 				radio["beacon-interval"] = k.beaconInterval;
-				radio["dtim-period"] = k.dtimPeriod;
 				radio["maximum-clients"] = k.maximumClients;
 				radio["rates"]["beacon"] = k.rates.beacon;
 				radio["rates"]["multicast"] = k.rates.multicast;
-				radio["he-settings"]["multiple-bssid"] = k.he.multipleBSSID;
-				radio["he-settings"]["ema"] = k.he.ema;
-				radio["he-settings"]["bss-color"] = k.he.bssColor;
 				radios.push_back(radio);
 			}
 
 			ProvObjects::DeviceConfigurationElement Metrics{.name = "metrics",
 															.description = "default metrics",
-															.weight = 0,
+															.weight = 1,
 															.configuration = to_string(metrics)};
 
 			ProvObjects::DeviceConfigurationElement Services{.name = "services",
 															 .description = "default services",
-															 .weight = 0,
+															 .weight = 1,
 															 .configuration = to_string(services)};
 
 			nlohmann::json InterfaceSection;
@@ -344,14 +370,14 @@ namespace OpenWifi {
 			ProvObjects::DeviceConfigurationElement InterfacesList{
 				.name = "interfaces",
 				.description = "default interfaces",
-				.weight = 0,
+				.weight = 1,
 				.configuration = to_string(InterfaceSection)};
 
 			nlohmann::json RadiosSection;
 			RadiosSection["radios"] = radios;
 			ProvObjects::DeviceConfigurationElement RadiosList{.name = "radios",
 															   .description = "default radios",
-															   .weight = 0,
+															   .weight = 1,
 															   .configuration =
 																   to_string(RadiosSection)};
 

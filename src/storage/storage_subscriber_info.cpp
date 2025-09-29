@@ -82,7 +82,7 @@ namespace OpenWifi {
 			WN.type = "main";
 			WN.name = "OpenWifi-" + AP.macAddress.substr(6);
 			WN.password = Poco::toUpper(AP.macAddress);
-			WN.encryption = "wpa2-personal";
+			WN.encryption = "wpa1-personal";
 			if (AP.deviceType == "linksys_ea8300") {
 				WN.bands.emplace_back("2G");
 				WN.bands.emplace_back("5GL");
@@ -104,13 +104,8 @@ namespace OpenWifi {
 				RI.channel = 0;
 				RI.country = i.locale;
 				RI.maximumClients = 64;
-				RI.legacyRates = false;
-				RI.he.bssColor = 1;
-				RI.he.ema = false;
-				RI.he.multipleBSSID = false;
 				RI.beaconInterval = 100;
-				RI.dtimPeriod = 2;
-				RI.allowDFS = false;
+				RI.allowDFS = true;
 				RI.mimo = "";
 				RI.txpower = 24;
 				if (b == "2G") {
