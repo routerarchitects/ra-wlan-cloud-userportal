@@ -1,3 +1,9 @@
+/*
+ * SPDX-License-Identifier: AGPL-3.0 OR LicenseRef-Commercial
+ * Copyright (c) 2025 Infernet Systems Pvt Ltd
+ * Portions copyright (c) Telecom Infra Project (TIP), BSD-3-Clause
+ */
+
 //
 // Created by stephane bourque on 2022-02-21.
 //
@@ -89,7 +95,7 @@ namespace OpenWifi::RESTAPI::Errors {
 	static const struct msg ConfigurationMustExist { 1017, "Configuration must exist." };
 	static const struct msg MissingOrInvalidParameters { 1018, "Invalid or missing parameters." };
 	static const struct msg UnknownSerialNumber { 1019, "Unknown Serial Number." };
-	static const struct msg InvalidSerialNumber { 1020, "Invalid Serial Number." };
+	static const struct msg InvalidSerialNumber { 1020, "Invalid Serial Number or MAC address" };
 	static const struct msg SerialNumberExists { 1021, "Serial Number already exists." };
 	static const struct msg ValidNonRootUUID { 1022, "Must be a non-root, and valid UUID." };
 	static const struct msg VenueMustExist { 1023, "Venue does not exist." };
@@ -226,8 +232,7 @@ namespace OpenWifi::RESTAPI::Errors {
 		1102, "Provisioning service not available yet."
 	};
 	static const struct msg SSIDInvalidPassword {
-		1103, "Invalid password length. Must be 8 characters or greater, and a maximum of 32 "
-			  "characters."
+		1103, "Invalid password length. Must be between 8 and 32 characters without spaces."
 	};
 	static const struct msg InvalidStartingIPAddress {
 		1104, "Invalid starting/ending IP address."
@@ -432,7 +437,9 @@ namespace OpenWifi::RESTAPI::Errors {
     static const struct msg InvalidRadiusServer { 1191, "Invalid Radius Server." };
 
 	static const struct msg InvalidRRMAction { 1192, "Invalid RRM Action." };
-
+	static const struct msg SSIDInvalidName{
+		1193, "Invalid SSID. Allowed characters: 1 to 32 chars (letters, digits, dot, underscore, hyphen, space.)"};
+	static const struct msg ConfigNotFound { 1194, "Configuration not available for this device." };
     static const struct msg SimulationDoesNotExist {
         7000, "Simulation Instance ID does not exist."
     };
@@ -584,7 +591,7 @@ namespace OpenWifi::RESTAPI::Protocol {
 
 namespace OpenWifi::uCentralProtocol {
 
-	const int SERIAL_NUMBER_LENGTH = 30;
+	const int SERIAL_NUMBER_LENGTH = 12;
 
 	// vocabulary used in the PROTOCOL.md file
 	static const char *JSONRPC = "jsonrpc";
