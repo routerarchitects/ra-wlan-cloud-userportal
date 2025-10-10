@@ -2,6 +2,11 @@
 // Created by stephane bourque on 2021-11-07.
 //
 
+/*
+SPDX-License-Identifier: AGPL-3.0 OR LicenseRef-Commercial
+Copyright (c) 2025 Infernet Systems Pvt Ltd
+Portions copyright (c) Telecom Infra Project (TIP), BSD-3-Clause
+*/
 #include "RESTAPI_subscriber_handler.h"
 #include "ConfigMaker.h"
 #include "RESTObjects/RESTAPI_SubObjects.h"
@@ -143,9 +148,9 @@ namespace OpenWifi {
 		StorageService()->SubInfoDB().CreateRecord(SI);
 
 		Logger().information(
-			fmt::format("{}: Generating initial configuration.", UserInfo_.userinfo.email));
+			fmt::format("{}: Fetching Current configuration.", UserInfo_.userinfo.email));
 		ConfigMaker InitialConfig(Logger(), SI.id);
-		InitialConfig.Prepare();
+		InitialConfig.DefConfig(SI);
 		StorageService()->SubInfoDB().GetRecord("id", SI.id, SI);
 
 		Poco::JSON::Object Answer;
