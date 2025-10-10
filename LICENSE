@@ -1,0 +1,28 @@
+Dual License Summary
+---------------------
+
+This project is dual-licensed.
+
+1. **Upstream Code**
+   Portions of the code are derived from the Telecom Infra Project (TIP) 'wlan-cloud-userportal' repository,
+   licensed under the BSD 3-Clause License.
+   See LICENSE-BSD for the full text.
+
+2. Modifications and Additions
+   All modifications and additions to this repository are licensed under:
+
+   - GNU Affero General Public License v3.0 (AGPL-3.0), OR
+   - A commercial license (available upon request from Infernet Systems Pvt Ltd, also known as Router Architects).
+
+   Contributors agree to these terms by signing the Contributor License Agreement (CLA).
+
+3. **Usage Options**
+   Users may choose to use this project under the terms of the AGPL-3.0 license,
+   or obtain a commercial license for proprietary use.
+
+---
+
+See:
+- `LICENSE-BSD` for the BSD 3-Clause License
+- `LICENSE-AGPL-3.0` for the AGPL license text
+- `LICENSE-COMMERCIAL` for commercial licensing terms
