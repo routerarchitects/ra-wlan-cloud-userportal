@@ -2,6 +2,11 @@
 // Created by stephane bourque on 2021-12-13.
 //
 
+/*
+SPDX-License-Identifier: AGPL-3.0 OR LicenseRef-Commercial
+Copyright (c) 2025 Infernet Systems Pvt Ltd
+Portions copyright (c) Telecom Infra Project (TIP), BSD-3-Clause
+*/
 #include "ConfigMaker.h"
 #include "RESTObjects/RESTAPI_SubObjects.h"
 #include "StorageService.h"
@@ -9,7 +14,6 @@
 #include "nlohmann/json.hpp"
 #include "sdks/SDK_gw.h"
 #include "sdks/SDK_prov.h"
-
 namespace OpenWifi {
 
 	static std::string ConvertBand(const std::string &B) {
@@ -65,6 +69,85 @@ namespace OpenWifi {
 
 	// #define __DBG__ std::cout << __LINE__ << std::endl ;
 	// #define __DBG__
+	static bool UpdateSubDevicesDB(const Poco::JSON::Object::Ptr &Config, const std::string &serial, Poco::Logger &logger) {
+		ProvObjects::SubscriberDevice subDevice;
+		if (!SDK::Prov::Subscriber::GetDevice(nullptr, serial, subDevice)) {
+			logger.information(fmt::format("Could not find provisioning subdevice for {}", serial));
+			return false;
+		}
+		std::vector<std::string> keys; // get all section names from fetched config inside a vector
+		Config->getNames(keys);
+		for (size_t i = 0; i < keys.size(); ++i) {
+			const std::string &name = keys[i];
+			if (!(Config->isObject(name) || Config->isArray(name))) { // only process sections that are objects or arrays
+				logger.information(fmt::format("Skipping extra key value '{}' for device {}", name, serial));
+				continue;
+			}
+			Poco::JSON::Object::Ptr sectionObj = new Poco::JSON::Object(); // create a new JSON object to hold section data
+			if (Config->isArray(name))
+				sectionObj->set(name, Config->getArray(name));
+			else
+				sectionObj->set(name, Config->getObject(name));
+			std::ostringstream jsonOutput; // convert section object to JSON string
+			Poco::JSON::Stringifier::stringify(sectionObj, jsonOutput);
+			ProvObjects::DeviceConfigurationElement elem; // create a config element and store the section data inside it
+			elem.name = name;
+			elem.weight = 1;
+			elem.configuration = jsonOutput.str(); // store the section as a string
+			subDevice.configuration.push_back(elem);
+			logger.information(fmt::format("Stored section {} for device {}", name, serial));
+		}
+		if (!SDK::Prov::Subscriber::SetDevice(nullptr, subDevice)) {
+			logger.information(fmt::format("Cannot update provisioning subdevice for {}", serial));
+			return false;
+		}
+		return true;
+	}
+
+	bool OpenWifi::ConfigMaker::DefConfig(const SubObjects::SubscriberInfo &SI) {
+		for (size_t i = 0; i < SI.accessPoints.list.size(); ++i) {
+			const auto &ap = SI.accessPoints.list[i];
+			Poco::JSON::Object::Ptr DeviceObj;
+			auto ResponseStatus = SDK::GW::Device::GetConfig(nullptr, ap.serialNumber, DeviceObj); // nullptr means no token given so SDK uses its own token
+			if (ResponseStatus != Poco::Net::HTTPResponse::HTTP_OK) {
+				Logger_.warning(fmt::format("Failed to fetch current configuration for device {}.",
+					ap.serialNumber));
+				return false;
+			}
+			auto Config = DeviceObj->getObject("configuration");
+			auto interfaces = Config->getArray("interfaces");
+			std::string NewSsid = "OpenWifi-" + ap.macAddress.substr(8);
+			std::string NewPassword = Poco::toUpper(ap.macAddress);
+			for (std::size_t i = 0; i < interfaces->size(); ++i) {
+				auto iface = interfaces->getObject(i);
+				auto ssids = iface->getArray("ssids");
+				if (!ssids)
+					continue; // if no ssids to update, skip this interface
+				for (std::size_t j = 0; j < ssids->size(); ++j) {
+					auto ssid = ssids->getObject(j);
+					ssid->set("name", NewSsid);
+					Logger_.information(fmt::format("Updated SSID to {} for device {}",
+						NewSsid, ap.serialNumber));
+					ssid->getObject("encryption")->set("key", NewPassword);
+					Logger_.information(fmt::format("Updated Password to {} for device {}",
+						NewPassword, ap.serialNumber));
+				}
+			}
+			Poco::JSON::Object::Ptr Response;
+			if (SDK::GW::Device::Configure(nullptr, ap.serialNumber, Config, Response)) {
+				UpdateSubDevicesDB(Config, ap.serialNumber, Logger_);
+				Logger_.information(fmt::format("Updated configuration for device {} in provisioning",
+					ap.serialNumber));
+
+				SDK::GW::Device::SetSubscriber(nullptr, ap.serialNumber, SI.id);
+				Logger_.information(fmt::format("Pushed updated configuration to device {}", ap.serialNumber));
+			} else {
+				Logger_.error(fmt::format("Failed to push updated configuration to device {}.",
+					ap.serialNumber));
+			}
+		}
+		return true;
+	}
 	bool ConfigMaker::Prepare() {
 
 		SubObjects::SubscriberInfo SI;
@@ -89,6 +172,10 @@ namespace OpenWifi {
                   ]
                 },
                 "health": {
+                  "dns-remote": true,
+                  "dns-local": true,
+                  "dhcp-remote": false,
+                  "dhcp-local": true,
                   "interval": 60
                 },
                 "statistics": {
@@ -125,8 +212,7 @@ namespace OpenWifi {
                     "location": "universe"
                 },
                 "ssh": {
-                    "authorized-keys": [],
-                    "password-authentication": false,
+                    "password-authentication": true,
                     "port": 22
                 }
             }
@@ -153,6 +239,13 @@ namespace OpenWifi {
 				AllBands.emplace_back(ConvertBand(rr.band));
 
 			nlohmann::json UpstreamPort, DownstreamPort;
+			auto addPortDefaults = [](nlohmann::json &Port) { // used a lambda func to avoid code duplication
+				Port["vlan-tag"] = "auto";
+				Port["reverse-path"] = false;
+				Port["isolate"] = false;
+				Port["learning"] = true;
+				Port["multicast"] = true;
+			};
 			if (i.internetConnection.type == "manual") {
 				UpstreamInterface["addressing"] = "static";
 				UpstreamInterface["subnet"] = i.internetConnection.subnetMask;
@@ -164,6 +257,7 @@ namespace OpenWifi {
 			} else if (i.internetConnection.type == "pppoe") {
 				nlohmann::json Port;
 				Port["select-ports"].push_back("WAN*");
+				addPortDefaults(Port);
 				UpstreamInterface["ethernet"].push_back(Port);
 				UpstreamInterface["broad-band"]["protocol"] = "pppoe";
 				UpstreamInterface["broad-band"]["user-name"] = i.internetConnection.username;
@@ -176,6 +270,7 @@ namespace OpenWifi {
 				Port["select-ports"].push_back("WAN*");
 				if (i.deviceMode.type == "bridge")
 					Port["select-ports"].push_back("LAN*");
+				addPortDefaults(Port);
 				UpstreamInterface["ethernet"].push_back(Port);
 				UpstreamInterface["ipv4"]["addressing"] = "dynamic";
 				if (i.internetConnection.ipV6Support)
@@ -185,9 +280,12 @@ namespace OpenWifi {
 			if (i.deviceMode.type == "bridge") {
 				UpstreamPort["select-ports"].push_back("LAN*");
 				UpstreamPort["select-ports"].push_back("WAN*");
+				addPortDefaults(UpstreamPort);
 			} else if (i.deviceMode.type == "manual") {
-				UpstreamPort.push_back("WAN*");
-				DownstreamPort.push_back("LAN*");
+				UpstreamPort["select-ports"].push_back("WAN*"); // puts WAN in select-ports for UpstreamPort object
+				DownstreamPort["select-ports"].push_back("LAN*");
+				addPortDefaults(UpstreamPort);
+				addPortDefaults(DownstreamPort);
 				DownstreamInterface["name"] = "LAN";
 				DownstreamInterface["role"] = "downstream";
 				DownstreamInterface["services"].push_back("lldp");
@@ -198,6 +296,8 @@ namespace OpenWifi {
 				CreateDHCPInfo(i.deviceMode.subnet, i.deviceMode.startIP, i.deviceMode.endIP,
 							   FirstIPInRange, HowMany);
 				DownstreamInterface["ipv4"]["subnet"] = i.deviceMode.subnet;
+				DownstreamInterface["ipv4"]["send-hostname"] = false;
+				DownstreamInterface["ipv4"]["gateway"] = "192.168.1.1";
 				DownstreamInterface["ipv4"]["dhcp"]["lease-first"] = FirstIPInRange;
 				DownstreamInterface["ipv4"]["dhcp"]["lease-count"] = HowMany;
 				DownstreamInterface["ipv4"]["dhcp"]["lease-time"] =
@@ -205,6 +305,8 @@ namespace OpenWifi {
 			} else if (i.deviceMode.type == "nat") {
 				UpstreamPort["select-ports"].push_back("WAN*");
 				DownstreamPort["select-ports"].push_back("LAN*");
+				addPortDefaults(UpstreamPort);
+				addPortDefaults(DownstreamPort);
 				DownstreamInterface["name"] = "LAN";
 				DownstreamInterface["role"] = "downstream";
 				DownstreamInterface["services"].push_back("lldp");
@@ -215,6 +317,8 @@ namespace OpenWifi {
 				CreateDHCPInfo(i.deviceMode.subnet, i.deviceMode.startIP, i.deviceMode.endIP,
 							   FirstIPInRange, HowMany);
 				DownstreamInterface["ipv4"]["subnet"] = i.deviceMode.subnet;
+				DownstreamInterface["ipv4"]["send-hostname"] = false;
+				DownstreamInterface["ipv4"]["gateway"] = "192.168.1.1";
 				DownstreamInterface["ipv4"]["dhcp"]["lease-first"] = FirstIPInRange;
 				DownstreamInterface["ipv4"]["dhcp"]["lease-count"] = HowMany;
 				DownstreamInterface["ipv4"]["dhcp"]["lease-time"] =
@@ -231,6 +335,12 @@ namespace OpenWifi {
 					ssid["wifi-bands"] = ConvertBands(j.bands);
 				}
 				ssid["bss-mode"] = "ap";
+				ssid["tip-information-element"] = true;
+				ssid["dtim-period"] = 2;
+				ssid["fils-discovery-interval"] = 20;
+				ssid["maximum-clients"] = 64;
+				ssid["services"] = nlohmann::json::array();
+				ssid["hidden-ssid"] = false;
 				if (j.encryption == "wpa1-personal") {
 					ssid["encryption"]["proto"] = "psk";
 					ssid["encryption"]["ieee80211w"] = "disabled";
@@ -248,7 +358,9 @@ namespace OpenWifi {
 					ssid["encryption"]["ieee80211w"] = "disabled";
 				}
 				ssid["encryption"]["key"] = j.password;
+				ssid["encryption"]["key-caching"] = true;
 				if (j.type == "main") {
+					ssid["isolate-clients"] = false;
 					main_ssids.push_back(ssid);
 				} else {
 					hasGuest = true;
@@ -264,9 +376,11 @@ namespace OpenWifi {
 
 			nlohmann::json UpStreamEthernet, DownStreamEthernet;
 			if (!UpstreamPort.empty()) {
+				addPortDefaults(UpstreamPort);
 				UpStreamEthernet.push_back(UpstreamPort);
 			}
 			if (!DownstreamPort.empty()) {
+				addPortDefaults(DownstreamPort);
 				DownStreamEthernet.push_back(DownstreamPort);
 			}
 
@@ -317,26 +431,21 @@ namespace OpenWifi {
 					radio["allow-dfs"] = true;
 				if (!k.mimo.empty())
 					radio["mimo"] = k.mimo;
-				radio["legacy-rates"] = k.legacyRates;
 				radio["beacon-interval"] = k.beaconInterval;
-				radio["dtim-period"] = k.dtimPeriod;
 				radio["maximum-clients"] = k.maximumClients;
 				radio["rates"]["beacon"] = k.rates.beacon;
 				radio["rates"]["multicast"] = k.rates.multicast;
-				radio["he-settings"]["multiple-bssid"] = k.he.multipleBSSID;
-				radio["he-settings"]["ema"] = k.he.ema;
-				radio["he-settings"]["bss-color"] = k.he.bssColor;
 				radios.push_back(radio);
 			}
 
 			ProvObjects::DeviceConfigurationElement Metrics{.name = "metrics",
 															.description = "default metrics",
-															.weight = 0,
+															.weight = 1,
 															.configuration = to_string(metrics)};
 
 			ProvObjects::DeviceConfigurationElement Services{.name = "services",
 															 .description = "default services",
-															 .weight = 0,
+															 .weight = 1,
 															 .configuration = to_string(services)};
 
 			nlohmann::json InterfaceSection;
@@ -344,14 +453,14 @@ namespace OpenWifi {
 			ProvObjects::DeviceConfigurationElement InterfacesList{
 				.name = "interfaces",
 				.description = "default interfaces",
-				.weight = 0,
+				.weight = 1,
 				.configuration = to_string(InterfaceSection)};
 
 			nlohmann::json RadiosSection;
 			RadiosSection["radios"] = radios;
 			ProvObjects::DeviceConfigurationElement RadiosList{.name = "radios",
 															   .description = "default radios",
-															   .weight = 0,
+															   .weight = 1,
 															   .configuration =
 																   to_string(RadiosSection)};
 
