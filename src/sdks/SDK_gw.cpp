@@ -178,6 +178,8 @@ namespace OpenWifi::SDK::GW {
 			auto ResponseStatus =
 				R.Do(CallResponse, client ? client->UserInfo_.webtoken.access_token_ : "");
 			if (ResponseStatus == Poco::Net::HTTPResponse::HTTP_OK) {
+				Poco::Logger::get("SDK_gw").information(fmt::format(
+					"SetSubscriber: Successfully set subscriber [{}] for device {}.", SerialNumber, uuid));
 				return true;
 			}
 			return false;

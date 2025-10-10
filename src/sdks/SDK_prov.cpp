@@ -1,3 +1,9 @@
+/*
+ * SPDX-License-Identifier: AGPL-3.0 OR LicenseRef-Commercial
+ * Copyright (c) 2025 Infernet Systems Pvt Ltd
+ * Portions copyright (c) Telecom Infra Project (TIP), BSD-3-Clause
+ */
+
 //
 // Created by stephane bourque on 2022-01-11.
 //
@@ -156,20 +162,42 @@ namespace OpenWifi::SDK::Prov {
 			return false;
 		}
 
-		bool ReturnDeviceToInventory(RESTAPIHandler *client, const std::string &SubscriberId,
-									 const std::string &SerialNumber) {
-			std::string EndPoint = "/api/v1/inventory/" + SerialNumber;
-			Poco::JSON::Object Body;
-			Body.set("serialNumber", SerialNumber);
-			auto API = OpenAPIRequestPut(uSERVICE_PROVISIONING, EndPoint,
-										 {{"removeSubscriber", SubscriberId}}, Body, 20000);
-			auto CallResponse = Poco::makeShared<Poco::JSON::Object>();
-			auto ResponseStatus = API.Do(
-				CallResponse, client == nullptr ? "" : client->UserInfo_.webtoken.access_token_);
-			if (ResponseStatus != Poco::Net::HTTPResponse::HTTP_OK) {
-				// std::cout << "ReturnDeviceToInventory: " << ResponseStatus << std::endl;
+		bool UpdateSubscriber(RESTAPIHandler *client, const std::string &subscriberId,
+							const std::string &serialNumber, bool removeSubscriber /* = false */) {
+			const std::string endpoint = "/api/v1/inventory/" + serialNumber;
+
+			Poco::JSON::Object body;
+			body.set("devClass", "subscriber");
+			body.set("subscriber", subscriberId);
+
+			// action for logging purpose only
+			const std::string action = removeSubscriber ? "remove" : "add";
+
+			Poco::Logger::get("SDK_prov").debug(fmt::format(
+				"Attempting to {} subscriber [{}] in inventory (serialNumber: {}).",
+				action, subscriberId, serialNumber));
+			Types::StringPairVec queryParams {};
+			if (removeSubscriber) {
+				queryParams.emplace_back("removeSubscriber", subscriberId);
+			}
+
+			auto api = OpenAPIRequestPut(uSERVICE_PROVISIONING, endpoint, queryParams, body, 20000);
+			Poco::Logger::get("SDK_prov").information(fmt::format(
+				"endpoint: [{}], queryParams: [{}]", endpoint,
+				(removeSubscriber ? "removeSubscriber=" + subscriberId
+								  : "")));
+
+			auto response = Poco::makeShared<Poco::JSON::Object>();
+			if (api.Do(response, client ? client->UserInfo_.webtoken.access_token_ : "") !=
+				Poco::Net::HTTPResponse::HTTP_OK) {
+				Poco::Logger::get("SDK_prov").error(fmt::format(
+					"Failed to {} subscriber [{}] in inventory (serialNumber: {}).",
+					action, subscriberId, serialNumber));
 				return false;
 			}
+			Poco::Logger::get("SDK_prov").debug(fmt::format(
+				"Successfully {} subscriber [{}] in inventory (serialNumber: {}).",
+				action, subscriberId, serialNumber));
 			return true;
 		}
 

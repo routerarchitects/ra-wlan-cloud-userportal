@@ -1,3 +1,9 @@
+/*
+ * SPDX-License-Identifier: AGPL-3.0 OR LicenseRef-Commercial
+ * Copyright (c) 2025 Infernet Systems Pvt Ltd
+ * Portions copyright (c) Telecom Infra Project (TIP), BSD-3-Clause
+ */
+
 //
 // Created by stephane bourque on 2022-01-11.
 //
@@ -31,8 +37,8 @@ namespace OpenWifi::SDK::Prov {
 	namespace Subscriber {
 		bool GetDevices(RESTAPIHandler *client, const std::string &SubscriberId,
 						const std::string &OperatorId, ProvObjects::SubscriberDeviceList &devList);
-		bool ReturnDeviceToInventory(RESTAPIHandler *client, const std::string &SubscriberId,
-									 const std::string &SerialNumber);
+		bool UpdateSubscriber(RESTAPIHandler *client, const std::string &SubscriberId,
+									 const std::string &SerialNumber, bool removeSubscriber = false);
 		bool SetDevice(RESTAPIHandler *client, const ProvObjects::SubscriberDevice &D);
 		bool GetDevice(RESTAPIHandler *client, const std::string &SerialNumber,
 					   ProvObjects::SubscriberDevice &D);
