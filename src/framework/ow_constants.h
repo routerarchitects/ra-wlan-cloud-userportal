@@ -95,7 +95,7 @@ namespace OpenWifi::RESTAPI::Errors {
 	static const struct msg ConfigurationMustExist { 1017, "Configuration must exist." };
 	static const struct msg MissingOrInvalidParameters { 1018, "Invalid or missing parameters." };
 	static const struct msg UnknownSerialNumber { 1019, "Unknown Serial Number." };
-	static const struct msg InvalidSerialNumber { 1020, "Invalid Serial Number." };
+	static const struct msg InvalidSerialNumber { 1020, "Invalid Serial Number or MAC address" };
 	static const struct msg SerialNumberExists { 1021, "Serial Number already exists." };
 	static const struct msg ValidNonRootUUID { 1022, "Must be a non-root, and valid UUID." };
 	static const struct msg VenueMustExist { 1023, "Venue does not exist." };
@@ -590,7 +590,7 @@ namespace OpenWifi::RESTAPI::Protocol {
 
 namespace OpenWifi::uCentralProtocol {
 
-	const int SERIAL_NUMBER_LENGTH = 30;
+	const int SERIAL_NUMBER_LENGTH = 12;
 
 	// vocabulary used in the PROTOCOL.md file
 	static const char *JSONRPC = "jsonrpc";

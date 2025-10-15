@@ -1,3 +1,9 @@
+/*
+ * SPDX-License-Identifier: AGPL-3.0 OR LicenseRef-Commercial
+ * Copyright (c) 2025 Infernet Systems Pvt Ltd
+ * Portions copyright (c) Telecom Infra Project (TIP), BSD-3-Clause
+ */
+
 //
 // Created by stephane bourque on 2021-11-07.
 //
@@ -327,21 +333,26 @@ namespace OpenWifi {
 	}
 
 	void RESTAPI_subscriber_handler::DoDelete() {
-		auto id = GetParameter("id", "");
-		if (!id.empty()) {
-			StorageService()->SubInfoDB().DeleteRecord("id", id);
-			return OK();
+		if (UserInfo_.userinfo.id.empty()) {
+			Logger().warning("Received delete request without id.");
+			return NotFound();
 		}
 
+		Logger().information(fmt::format("Deleting subscriber {}.", UserInfo_.userinfo.id));
 		SubObjects::SubscriberInfo SI;
 		if (StorageService()->SubInfoDB().GetRecord("id", UserInfo_.userinfo.id, SI)) {
 			for (const auto &i : SI.accessPoints.list) {
 				if (!i.serialNumber.empty()) {
-					SDK::Prov::Subscriber::ReturnDeviceToInventory(nullptr, UserInfo_.userinfo.id,
-																   i.serialNumber);
+					SDK::Prov::Subscriber::UpdateSubscriber(nullptr, UserInfo_.userinfo.id,
+																   i.serialNumber, true);
+					SDK::GW::Device::SetSubscriber(nullptr, i.serialNumber, "");
 				}
 			}
+			Logger().information(fmt::format("Deleting security info for {}.",
+											 UserInfo_.userinfo.id));
 			SDK::Sec::Subscriber::Delete(nullptr, UserInfo_.userinfo.id);
+			Logger().information(fmt::format("Deleting subscriber info for {}.",
+											 UserInfo_.userinfo.id));
 			StorageService()->SubInfoDB().DeleteRecord("id", UserInfo_.userinfo.id);
 			return OK();
 		}
