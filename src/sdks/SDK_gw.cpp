@@ -361,8 +361,8 @@ namespace OpenWifi::SDK::GW {
 			}
 			Poco::Logger::get("Configure").information( fmt::format("SetConfig: Fetched device config for serial {}.",SerialNumber));
 			auto Config = DeviceObj->getObject("configuration");
-			try { // Use SetInterfaceSsid to apply overrides
-				if (!SetInterfaceSsid(Config, SerialNumber, Body, status)) {
+			try { // Use SetInterfacesSsids to apply overrides
+				if (!SetInterfacesSsids(Config, SerialNumber, Body, status)) {
 					Poco::Logger::get("Configure").error("SetConfig: Failed to apply overrides");
 					if (status.empty()){
 						status = "InternalError";}
