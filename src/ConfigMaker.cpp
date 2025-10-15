@@ -71,6 +71,85 @@ namespace OpenWifi {
 
 	// #define __DBG__ std::cout << __LINE__ << std::endl ;
 	// #define __DBG__
+	static bool UpdateSubDevicesDB(const Poco::JSON::Object::Ptr &Config, const std::string &serial, Poco::Logger &logger) {
+		ProvObjects::SubscriberDevice subDevice;
+		if (!SDK::Prov::Subscriber::GetDevice(nullptr, serial, subDevice)) {
+			logger.information(fmt::format("Could not find provisioning subdevice for {}", serial));
+			return false;
+		}
+		std::vector<std::string> keys; // get all section names from fetched config inside a vector
+		Config->getNames(keys);
+		for (size_t i = 0; i < keys.size(); ++i) {
+			const std::string &name = keys[i];
+			if (!(Config->isObject(name) || Config->isArray(name))) { // only process sections that are objects or arrays
+				logger.information(fmt::format("Skipping extra key value '{}' for device {}", name, serial));
+				continue;
+			}
+			Poco::JSON::Object::Ptr sectionObj = new Poco::JSON::Object(); // create a new JSON object to hold section data
+			if (Config->isArray(name))
+				sectionObj->set(name, Config->getArray(name));
+			else
+				sectionObj->set(name, Config->getObject(name));
+			std::ostringstream jsonOutput; // convert section object to JSON string
+			Poco::JSON::Stringifier::stringify(sectionObj, jsonOutput);
+			ProvObjects::DeviceConfigurationElement elem; // create a config element and store the section data inside it
+			elem.name = name;
+			elem.weight = 1;
+			elem.configuration = jsonOutput.str(); // store the section as a string
+			subDevice.configuration.push_back(elem);
+			logger.information(fmt::format("Stored section {} for device {}", name, serial));
+		}
+		if (!SDK::Prov::Subscriber::SetDevice(nullptr, subDevice)) {
+			logger.information(fmt::format("Cannot update provisioning subdevice for {}", serial));
+			return false;
+		}
+		return true;
+	}
+
+	bool OpenWifi::ConfigMaker::DefConfig(const SubObjects::SubscriberInfo &SI) {
+		for (size_t i = 0; i < SI.accessPoints.list.size(); ++i) {
+			const auto &ap = SI.accessPoints.list[i];
+			Poco::JSON::Object::Ptr DeviceObj;
+			auto ResponseStatus = SDK::GW::Device::GetConfig(nullptr, ap.serialNumber, DeviceObj); // nullptr means no token given so SDK uses its own token
+			if (ResponseStatus != Poco::Net::HTTPResponse::HTTP_OK) {
+				Logger_.warning(fmt::format("Failed to fetch current configuration for device {}.",
+					ap.serialNumber));
+				return false;
+			}
+			auto Config = DeviceObj->getObject("configuration");
+			auto interfaces = Config->getArray("interfaces");
+			std::string NewSsid = "OpenWifi-" + ap.macAddress.substr(8);
+			std::string NewPassword = Poco::toUpper(ap.macAddress);
+			for (std::size_t i = 0; i < interfaces->size(); ++i) {
+				auto iface = interfaces->getObject(i);
+				auto ssids = iface->getArray("ssids");
+				if (!ssids)
+					continue; // if no ssids to update, skip this interface
+				for (std::size_t j = 0; j < ssids->size(); ++j) {
+					auto ssid = ssids->getObject(j);
+					ssid->set("name", NewSsid);
+					Logger_.information(fmt::format("Updated SSID to {} for device {}",
+						NewSsid, ap.serialNumber));
+					ssid->getObject("encryption")->set("key", NewPassword);
+					Logger_.information(fmt::format("Updated Password to {} for device {}",
+						NewPassword, ap.serialNumber));
+				}
+			}
+			Poco::JSON::Object::Ptr Response;
+			if (SDK::GW::Device::Configure(nullptr, ap.serialNumber, Config, Response)) {
+				UpdateSubDevicesDB(Config, ap.serialNumber, Logger_);
+				Logger_.information(fmt::format("Updated configuration for device {} in provisioning",
+					ap.serialNumber));
+
+				SDK::GW::Device::SetSubscriber(nullptr, ap.serialNumber, SI.id);
+				Logger_.information(fmt::format("Pushed updated configuration to device {}", ap.serialNumber));
+			} else {
+				Logger_.error(fmt::format("Failed to push updated configuration to device {}.",
+					ap.serialNumber));
+			}
+		}
+		return true;
+	}
 	bool ConfigMaker::Prepare() {
 
 		SubObjects::SubscriberInfo SI;

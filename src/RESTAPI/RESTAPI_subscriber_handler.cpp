@@ -149,9 +149,9 @@ namespace OpenWifi {
 		StorageService()->SubInfoDB().CreateRecord(SI);
 
 		Logger().information(
-			fmt::format("{}: Generating initial configuration.", UserInfo_.userinfo.email));
+			fmt::format("{}: Fetching Current configuration.", UserInfo_.userinfo.email));
 		ConfigMaker InitialConfig(Logger(), SI.id);
-		InitialConfig.Prepare();
+		InitialConfig.DefConfig(SI);
 		StorageService()->SubInfoDB().GetRecord("id", SI.id, SI);
 
 		Poco::JSON::Object Answer;
