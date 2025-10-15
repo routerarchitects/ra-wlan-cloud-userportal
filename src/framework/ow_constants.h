@@ -1,3 +1,9 @@
+/*
+ * SPDX-License-Identifier: AGPL-3.0 OR LicenseRef-Commercial
+ * Copyright (c) 2025 Infernet Systems Pvt Ltd
+ * Portions copyright (c) Telecom Infra Project (TIP), BSD-3-Clause
+ */
+
 //
 // Created by stephane bourque on 2022-02-21.
 //
@@ -226,8 +232,7 @@ namespace OpenWifi::RESTAPI::Errors {
 		1102, "Provisioning service not available yet."
 	};
 	static const struct msg SSIDInvalidPassword {
-		1103, "Invalid password length. Must be 8 characters or greater, and a maximum of 32 "
-			  "characters."
+		1103, "Invalid password length. Must be between 8 and 32 characters without spaces."
 	};
 	static const struct msg InvalidStartingIPAddress {
 		1104, "Invalid starting/ending IP address."
@@ -432,7 +437,8 @@ namespace OpenWifi::RESTAPI::Errors {
     static const struct msg InvalidRadiusServer { 1191, "Invalid Radius Server." };
 
 	static const struct msg InvalidRRMAction { 1192, "Invalid RRM Action." };
-
+	static const struct msg SSIDInvalidName{
+		1193, "Invalid SSID. Allowed characters: 1 to 32 chars (letters, digits, dot, underscore, hyphen, space.)"};
     static const struct msg SimulationDoesNotExist {
         7000, "Simulation Instance ID does not exist."
     };

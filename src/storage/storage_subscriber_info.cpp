@@ -1,3 +1,9 @@
+/*
+ * SPDX-License-Identifier: AGPL-3.0 OR LicenseRef-Commercial
+ * Copyright (c) 2025 Infernet Systems Pvt Ltd
+ * Portions copyright (c) Telecom Infra Project (TIP), BSD-3-Clause
+ */
+
 //
 // Created by stephane bourque on 2021-11-29.
 //
@@ -62,7 +68,7 @@ namespace OpenWifi {
 		int ap_num = 1;
 		for (const auto &i : Devices.subscriberDevices) {
 			SubObjects::AccessPoint AP;
-			AP.macAddress = i.realMacAddress;
+			AP.macAddress = i.serialNumber;
 			AP.serialNumber = i.serialNumber;
 			AP.deviceType = i.deviceType;
 			AP.id = i.info.id;
