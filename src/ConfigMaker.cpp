@@ -71,7 +71,13 @@ namespace OpenWifi {
 
 	// #define __DBG__ std::cout << __LINE__ << std::endl ;
 	// #define __DBG__
-	static bool UpdateSubDevicesDB(const Poco::JSON::Object::Ptr &Config, const std::string &serial, Poco::Logger &logger) {
+	/*
+	GET/subscriber calls DefaultConfig to fetch the current config from the device,
+	update ssid and password according to mac address and call Configure to push the
+	updated config to the device. It then calls UpdateSubDevices to update the
+	provisioning database with the new config.
+	*/
+	static bool UpdateSubDevices(const Poco::JSON::Object::Ptr &Config, const std::string &serial, Poco::Logger &logger) {
 		ProvObjects::SubscriberDevice subDevice;
 		if (!SDK::Prov::Subscriber::GetDevice(nullptr, serial, subDevice)) {
 			logger.information(fmt::format("Could not find provisioning subdevice for {}", serial));
@@ -106,7 +112,7 @@ namespace OpenWifi {
 		return true;
 	}
 
-	bool OpenWifi::ConfigMaker::DefConfig(const SubObjects::SubscriberInfo &SI) {
+	bool OpenWifi::ConfigMaker::DefaultConfig(const SubObjects::SubscriberInfo &SI) {
 		for (size_t i = 0; i < SI.accessPoints.list.size(); ++i) {
 			const auto &ap = SI.accessPoints.list[i];
 			Poco::JSON::Object::Ptr DeviceObj;
@@ -128,16 +134,14 @@ namespace OpenWifi {
 				for (std::size_t j = 0; j < ssids->size(); ++j) {
 					auto ssid = ssids->getObject(j);
 					ssid->set("name", NewSsid);
-					Logger_.information(fmt::format("Updated SSID to {} for device {}",
-						NewSsid, ap.serialNumber));
 					ssid->getObject("encryption")->set("key", NewPassword);
-					Logger_.information(fmt::format("Updated Password to {} for device {}",
-						NewPassword, ap.serialNumber));
+					Logger_.information(fmt::format("Updated SSID to {} and Password to {} for device {}",
+						NewSsid, NewPassword, ap.serialNumber));
 				}
 			}
 			Poco::JSON::Object::Ptr Response;
 			if (SDK::GW::Device::Configure(nullptr, ap.serialNumber, Config, Response)) {
-				UpdateSubDevicesDB(Config, ap.serialNumber, Logger_);
+				UpdateSubDevices(Config, ap.serialNumber, Logger_);
 				Logger_.information(fmt::format("Updated configuration for device {} in provisioning",
 					ap.serialNumber));
 

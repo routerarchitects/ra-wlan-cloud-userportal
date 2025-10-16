@@ -20,7 +20,7 @@ namespace OpenWifi {
 		explicit ConfigMaker(Poco::Logger &L, const std::string &Id) : Logger_(L), id_(Id) {}
 		bool Prepare();
 		bool Push();
-		bool DefConfig(const SubObjects::SubscriberInfo &SI);
+		bool DefaultConfig(const SubObjects::SubscriberInfo &SI);
 
 	  private:
 		Poco::Logger &Logger_;

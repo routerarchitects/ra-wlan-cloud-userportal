@@ -151,7 +151,7 @@ namespace OpenWifi {
 		Logger().information(
 			fmt::format("{}: Fetching Current configuration.", UserInfo_.userinfo.email));
 		ConfigMaker InitialConfig(Logger(), SI.id);
-		InitialConfig.DefConfig(SI);
+		InitialConfig.DefaultConfig(SI);
 		StorageService()->SubInfoDB().GetRecord("id", SI.id, SI);
 
 		Poco::JSON::Object Answer;
