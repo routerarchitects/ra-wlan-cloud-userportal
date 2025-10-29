@@ -73,9 +73,9 @@ namespace OpenWifi {
 	// #define __DBG__
 	/*
 	GET/subscriber calls DefaultConfig to fetch the current config from the device,
-	update ssid and password according to mac address and call Configure to push the
-	updated config to the device. It then calls UpdateSubDevices to update the
-	provisioning database with the new config.
+	update ssid and password according to mac address, update the provisioning
+	database with the new config (UpdateSubDevices), and then owprov pushes
+	the updated config to the device (Configuration::Push).
 	*/
 	static bool UpdateSubDevices(const Poco::JSON::Object::Ptr &Config, const std::string &serial, Poco::Logger &logger) {
 		ProvObjects::SubscriberDevice subDevice;
@@ -139,17 +139,17 @@ namespace OpenWifi {
 						NewSsid, NewPassword, ap.serialNumber));
 				}
 			}
-			Poco::JSON::Object::Ptr Response;
-			if (SDK::GW::Device::Configure(nullptr, ap.serialNumber, Config, Response)) {
-				UpdateSubDevices(Config, ap.serialNumber, Logger_);
-				Logger_.information(fmt::format("Updated configuration for device {} in provisioning",
-					ap.serialNumber));
-
+			if (UpdateSubDevices(Config, ap.serialNumber, Logger_)) {
+				Logger_.information(fmt::format("Updated configuration for device {} in provisioning", ap.serialNumber));
+				ProvObjects::InventoryConfigApplyResult applyResult;
+				if (SDK::Prov::Configuration::Push(nullptr, ap.serialNumber, applyResult)) {
+					Logger_.information(fmt::format("Provisioning applied updated configuration to device {}.", ap.serialNumber));
+				} else {
+					Logger_.error(fmt::format("Provisioning failed to apply updated configuration to device {}.", ap.serialNumber));
+				}
 				SDK::GW::Device::SetSubscriber(nullptr, ap.serialNumber, SI.id);
-				Logger_.information(fmt::format("Pushed updated configuration to device {}", ap.serialNumber));
 			} else {
-				Logger_.error(fmt::format("Failed to push updated configuration to device {}.",
-					ap.serialNumber));
+				Logger_.error(fmt::format("Failed to store updated configuration for device {} in provisioning.", ap.serialNumber));
 			}
 		}
 		return true;
