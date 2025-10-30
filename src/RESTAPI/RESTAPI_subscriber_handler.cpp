@@ -30,6 +30,14 @@ namespace OpenWifi {
 	}
 
 	void RESTAPI_subscriber_handler::DoGet() {
+		/*
+		Flow of GET /api/v1/subscriber when the subscriber calls this api for the first time:
+		1. RESTAPI_subscriber_handler::DoGet() calls ConfigMaker::DefaultConfig()
+		2. DefaultConfig() will fetch the current config from controller(owgw) (/api/v1/device/MAC)
+		3. It will then update ssid and password according to mac address.
+		4. Then it will call UpdateSubDevices() to update the provisioning database with the new config.
+		5. Finally, DefaultConfig() will call owprov to push the updated config to the device (/api/v1/inventory/MAC?applyConfiguration=true).
+		*/
 
 		if (UserInfo_.userinfo.id.empty()) {
 			return NotFound();
@@ -149,7 +157,7 @@ namespace OpenWifi {
 		StorageService()->SubInfoDB().CreateRecord(SI);
 
 		Logger().information(
-			fmt::format("{}: Fetching Current configuration.", UserInfo_.userinfo.email));
+			fmt::format("{}: Fetching Current configuration from controller", UserInfo_.userinfo.email));
 		ConfigMaker InitialConfig(Logger(), SI.id);
 		InitialConfig.DefaultConfig(SI);
 		StorageService()->SubInfoDB().GetRecord("id", SI.id, SI);

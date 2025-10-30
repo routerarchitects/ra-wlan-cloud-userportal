@@ -69,61 +69,112 @@ namespace OpenWifi {
 		DHCPFirst = htonl(FA.s_addr) & SubNetBitMask;
 	}
 
-	// #define __DBG__ std::cout << __LINE__ << std::endl ;
-	// #define __DBG__
 	/*
-	GET/subscriber calls DefaultConfig to fetch the current config from the device,
-	update ssid and password according to mac address, update the provisioning
-	database with the new config (UpdateSubDevices), and then owprov pushes
-	the updated config to the device (Configuration::Push).
+		This function prepares and updates the provisioning configuration for an Access Point (AP)
+		using the configuration fetched from the controller (owgw).
+
+		Example of configuration received from controller:
+		{
+			"interfaces": [ ... ],
+			"metrics": { ... },
+			"radios": [ ... ],
+			"services": { ... },
+			"uuid": "some-uuid"
+		}
+
+		Goal:
+		We need to convert this controller configuration into a provisioning format that can be stored
+		in the provisioning database.
+
+		Conversion Rules:
+		- Keep only sections that are JSON objects or arrays (ignore simple key-value pairs).
+		- For each section (like "interfaces", "metrics", "radios", "services"):
+			- Add a "name" (section name)
+			- Add a "weight" (default: 1)
+			- Store its full JSON data as a configuration element
+
+		Example of resulting provisioning configuration format:
+		{
+			"interfaces": {
+				"name": "interfaces",
+				"weight": 1,
+				...
+			},
+			"metrics": {
+				"name": "metrics",
+				"weight": 1,
+				...
+			},
+			"radios": {
+				"name": "radios",
+				"weight": 1,
+				...
+			},
+			"services": {
+				"name": "services",
+				"weight": 1,
+				...
+			}
+		}
+
+		In summary:
+		The function extracts each relevant section (object or array) from the controller config,
+		adds name and weight to it, and stores it in the provisioning database for that AP.
 	*/
 	static bool UpdateSubDevices(const Poco::JSON::Object::Ptr &Config, const std::string &serial, Poco::Logger &logger) {
 		ProvObjects::SubscriberDevice subDevice;
 		if (!SDK::Prov::Subscriber::GetDevice(nullptr, serial, subDevice)) {
-			logger.information(fmt::format("Could not find provisioning subdevice for {}", serial));
+			logger.error(fmt::format("Could not find provisioning subdevice for {}", serial));
 			return false;
 		}
-		std::vector<std::string> keys; // get all section names from fetched config inside a vector
-		Config->getNames(keys);
-		for (size_t i = 0; i < keys.size(); ++i) {
-			const std::string &name = keys[i];
-			if (!(Config->isObject(name) || Config->isArray(name))) { // only process sections that are objects or arrays
+		std::vector<std::string> sectionNames;
+		Config->getNames(sectionNames);
+		for (size_t i = 0; i < sectionNames.size(); ++i) {
+			const std::string &name = sectionNames[i];
+			if (!(Config->isObject(name) || Config->isArray(name))) {
 				logger.information(fmt::format("Skipping extra key value '{}' for device {}", name, serial));
 				continue;
 			}
-			Poco::JSON::Object::Ptr sectionObj = new Poco::JSON::Object(); // create a new JSON object to hold section data
+			Poco::JSON::Object::Ptr sectionObj = new Poco::JSON::Object();
 			if (Config->isArray(name))
 				sectionObj->set(name, Config->getArray(name));
 			else
 				sectionObj->set(name, Config->getObject(name));
-			std::ostringstream jsonOutput; // convert section object to JSON string
+			std::ostringstream jsonOutput;
 			Poco::JSON::Stringifier::stringify(sectionObj, jsonOutput);
-			ProvObjects::DeviceConfigurationElement elem; // create a config element and store the section data inside it
+			ProvObjects::DeviceConfigurationElement elem;
 			elem.name = name;
 			elem.weight = 1;
-			elem.configuration = jsonOutput.str(); // store the section as a string
+			elem.configuration = jsonOutput.str();
 			subDevice.configuration.push_back(elem);
 			logger.information(fmt::format("Stored section {} for device {}", name, serial));
 		}
 		if (!SDK::Prov::Subscriber::SetDevice(nullptr, subDevice)) {
-			logger.information(fmt::format("Cannot update provisioning subdevice for {}", serial));
+			logger.error(fmt::format("Cannot update provisioning subdevice for {}", serial));
 			return false;
 		}
 		return true;
 	}
 
+	/*
+		DefaultConfig() will:
+		1. For each AP of the subscriber, fetch current config from controller (owgw) (/api/v1/device/MAC)
+		2. Update ssid and password according to mac address.
+		3. Call UpdateSubDevices() to update the provisioning database with the new config.
+		4. Call owprov to push the updated config to the device (/api/v1/inventory/MAC?applyConfiguration=true).
+	*/
 	bool OpenWifi::ConfigMaker::DefaultConfig(const SubObjects::SubscriberInfo &SI) {
 		for (size_t i = 0; i < SI.accessPoints.list.size(); ++i) {
 			const auto &ap = SI.accessPoints.list[i];
-			Poco::JSON::Object::Ptr DeviceObj;
-			auto ResponseStatus = SDK::GW::Device::GetConfig(nullptr, ap.serialNumber, DeviceObj); // nullptr means no token given so SDK uses its own token
+			Poco::JSON::Object::Ptr ConfigObj;
+			auto ResponseStatus = SDK::GW::Device::GetConfig(nullptr, ap.serialNumber, ConfigObj);
 			if (ResponseStatus != Poco::Net::HTTPResponse::HTTP_OK) {
 				Logger_.warning(fmt::format("Failed to fetch current configuration for device {}.",
 					ap.serialNumber));
 				return false;
 			}
-			auto Config = DeviceObj->getObject("configuration");
-			auto interfaces = Config->getArray("interfaces");
+			auto NewConfig = ConfigObj->getObject("configuration");
+			auto interfaces = NewConfig->getArray("interfaces");
 			std::string NewSsid = "OpenWifi-" + ap.macAddress.substr(8);
 			std::string NewPassword = Poco::toUpper(ap.macAddress);
 			for (std::size_t i = 0; i < interfaces->size(); ++i) {
@@ -139,7 +190,7 @@ namespace OpenWifi {
 						NewSsid, NewPassword, ap.serialNumber));
 				}
 			}
-			if (UpdateSubDevices(Config, ap.serialNumber, Logger_)) {
+			if (UpdateSubDevices(NewConfig, ap.serialNumber, Logger_)) {
 				Logger_.information(fmt::format("Updated configuration for device {} in provisioning", ap.serialNumber));
 				ProvObjects::InventoryConfigApplyResult applyResult;
 				if (SDK::Prov::Configuration::Push(nullptr, ap.serialNumber, applyResult)) {
