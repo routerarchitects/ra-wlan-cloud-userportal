@@ -199,6 +199,7 @@ namespace OpenWifi {
 					Logger_.error(fmt::format("Provisioning failed to apply updated configuration to device {}.", ap.serialNumber));
 				}
 				SDK::GW::Device::SetSubscriber(nullptr, ap.serialNumber, SI.id);
+				SDK::Prov::Subscriber::UpdateSubscriber(nullptr, SI.id, ap.serialNumber, false);
 			} else {
 				Logger_.error(fmt::format("Failed to store updated configuration for device {} in provisioning.", ap.serialNumber));
 			}
