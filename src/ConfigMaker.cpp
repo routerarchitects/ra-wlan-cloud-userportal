@@ -12,6 +12,7 @@
 #include "RESTObjects/RESTAPI_SubObjects.h"
 #include "StorageService.h"
 #include "framework/utils.h"
+#include "framework/ow_constants.h"
 #include "nlohmann/json.hpp"
 #include "sdks/SDK_gw.h"
 #include "sdks/SDK_prov.h"
@@ -144,7 +145,7 @@ namespace OpenWifi {
 			Poco::JSON::Stringifier::stringify(sectionObj, jsonOutput);
 			ProvObjects::DeviceConfigurationElement elem;
 			elem.name = name;
-			elem.weight = 1;
+			elem.weight = DEFAULT_DEVICE_CONFIG_WEIGHT;
 			elem.configuration = jsonOutput.str();
 			subDevice.configuration.push_back(elem);
 			logger.information(fmt::format("Stored section {} for device {}", name, serial));
@@ -175,7 +176,7 @@ namespace OpenWifi {
 			}
 			auto NewConfig = ConfigObj->getObject("configuration");
 			auto interfaces = NewConfig->getArray("interfaces");
-			std::string NewSsid = "OpenWifi-" + ap.macAddress.substr(8);
+			std::string NewSsid = DEFAULT_SSID_PREFIX + ap.macAddress.substr(MAC_SUFFIX_START_INDEX);
 			std::string NewPassword = Poco::toUpper(ap.macAddress);
 			for (std::size_t i = 0; i < interfaces->size(); ++i) {
 				auto iface = interfaces->getObject(i);

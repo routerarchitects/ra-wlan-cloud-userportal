@@ -47,6 +47,9 @@ namespace OpenWifi {
 }
 
 #define DBGLINE     std::cout << __LINE__ << ":" << __FILE__ << ", " << __func__ << std::endl;
+#define DEFAULT_DEVICE_CONFIG_WEIGHT 1
+#define DEFAULT_SSID_PREFIX "OpenWifi-"
+#define MAC_SUFFIX_START_INDEX 8
 namespace OpenWifi::RESTAPI::Errors {
 	struct msg {
 		uint64_t err_num;
