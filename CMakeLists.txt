@@ -138,7 +138,9 @@ add_executable(owsub
         src/sdks/SDK_gw.cpp src/sdks/SDK_gw.h
         src/sdks/SDK_sec.cpp src/sdks/SDK_sec.h
         src/RESTAPI/RESTAPI_claim_handler.cpp src/RESTAPI/RESTAPI_claim_handler.h
-        src/RESTAPI/RESTAPI_signup_handler.cpp src/RESTAPI/RESTAPI_signup_handler.h src/sdks/SDK_fms.cpp src/sdks/SDK_fms.h src/StatsSvr.cpp src/StatsSvr.h src/RESTAPI/RESTAPI_stats_handler.cpp src/RESTAPI/RESTAPI_stats_handler.h)
+        src/RESTAPI/RESTAPI_signup_handler.cpp src/RESTAPI/RESTAPI_signup_handler.h src/sdks/SDK_fms.cpp src/sdks/SDK_fms.h src/StatsSvr.cpp src/StatsSvr.h src/RESTAPI/RESTAPI_stats_handler.cpp src/RESTAPI/RESTAPI_stats_handler.h
+        src/RESTAPI/RESTAPI_topology_handler.cpp src/RESTAPI/RESTAPI_topology_handler.h
+        )
 
 target_link_libraries(owsub PUBLIC
         ${Poco_LIBRARIES}
