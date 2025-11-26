@@ -50,6 +50,12 @@ namespace OpenWifi {
 #define DEFAULT_DEVICE_CONFIG_WEIGHT 1
 #define DEFAULT_SSID_PREFIX "OpenWifi-"
 #define MAC_SUFFIX_START_INDEX 8
+#define DEFAULT_MESH_INTERFACE_NAME "Bridge"
+#define DEFAULT_MESH_INTERFACE_ROLE "upstream"
+#define DEFAULT_MESH_IPV4_ADDRESSING "dynamic"
+#define DEFAULT_MESH_SERVICE "ssh"
+#define DEFAULT_MESH_PORT_WAN "WAN*"
+#define DEFAULT_MESH_PORT_LAN "LAN*"
 namespace OpenWifi::RESTAPI::Errors {
 	struct msg {
 		uint64_t err_num;

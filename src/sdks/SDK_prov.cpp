@@ -11,6 +11,8 @@
 #include "SDK_prov.h"
 #include "framework/MicroServiceNames.h"
 #include "framework/OpenAPIRequests.h"
+#include "framework/ow_constants.h"
+#include "nlohmann/json.hpp"
 
 namespace OpenWifi::SDK::Prov {
 
@@ -142,6 +144,32 @@ namespace OpenWifi::SDK::Prov {
 	} // namespace Configuration
 
 	namespace Subscriber {
+		/*
+			BuildMeshConfig() will:
+			1. Take the controller configuration and parse it to JSON.
+			2. Clone the last interface block and retarget it to mesh by:
+			   - renaming it to the mesh bridge name
+			   - setting the mesh role and IPv4 addressing mode
+			   - forcing ethernet select-ports to the mesh WAN/LAN defaults
+			3. Replace interfaces with this single mesh-ready bridge and return it as Poco JSON.
+		*/
+		Poco::JSON::Object::Ptr BuildMeshConfig(const Poco::JSON::Object::Ptr &configuration) {
+			std::ostringstream OS;
+			Poco::JSON::Stringifier::stringify(configuration, OS);
+			auto cfg = nlohmann::json::parse(OS.str());
+			if (cfg.contains("interfaces") && cfg["interfaces"].is_array() && !cfg["interfaces"].empty()) {
+				nlohmann::json bridge = cfg["interfaces"].back();
+				bridge["name"] = DEFAULT_MESH_INTERFACE_NAME;
+				bridge["role"] = DEFAULT_MESH_INTERFACE_ROLE;
+				bridge["ipv4"] = {{"addressing", DEFAULT_MESH_IPV4_ADDRESSING}};
+				bridge["ethernet"] = nlohmann::json::array({ {{"select-ports", {DEFAULT_MESH_PORT_WAN, DEFAULT_MESH_PORT_LAN}}} });
+				cfg["interfaces"] = nlohmann::json::array({bridge});
+			}
+			Poco::JSON::Parser parser;
+			auto parsed = parser.parse(cfg.dump());
+			return parsed.extract<Poco::JSON::Object::Ptr>();
+		}
+
 		bool GetDevices(RESTAPIHandler *client, const std::string &SubscriberId,
 						const std::string &OperatorId, ProvObjects::SubscriberDeviceList &devList) {
 
@@ -199,6 +227,52 @@ namespace OpenWifi::SDK::Prov {
 				"Successfully {} subscriber [{}] in inventory (serialNumber: {}).",
 				action, subscriberId, serialNumber));
 			return true;
+		}
+
+		/*
+			CreateDeviceData() will:
+			1. Check if a subscriberDevice already exists in subdevice table for the serial and return it if found.
+			2. If missing, build a minimal subscriberDevice from the inventory tag and user info:
+			   - set name to serial, fill serial/deviceType/operator/subscriber/realMac/deviceRules
+			   - populate object info via CreateObjectInfo
+			3. POST it via CreateDevice() (/api/v1/subscriberDevice/0) so the service assigns the UUID and returns the persisted record.
+		*/
+		bool CreateDeviceData(RESTAPIHandler *client, const ProvObjects::InventoryTag &inventoryTag, const SecurityObjects::UserInfo &userInfo,
+							  ProvObjects::SubscriberDevice &device) {
+			if (GetDevice(client, inventoryTag.serialNumber, device)) {
+				return true;
+			}
+			Poco::Logger::get("SDK_prov").information(fmt::format("Creating subscriberDevice for {}", inventoryTag.serialNumber));
+
+			device.info.name = inventoryTag.serialNumber;
+			device.serialNumber = inventoryTag.serialNumber;
+			device.deviceType = inventoryTag.deviceType;
+			device.operatorId = userInfo.owner;
+			device.subscriberId = userInfo.id;
+			device.realMacAddress = inventoryTag.serialNumber;
+			device.deviceRules = inventoryTag.deviceRules;
+			ProvObjects::CreateObjectInfo(userInfo, device.info);
+
+			return CreateDevice(client, device);
+		}
+
+		/*
+			CreateDevice() will:
+			1. POST the subscriberDevice to /api/v1/subscriberDevice/0 (provisioning assigns the UUID).
+			2. On HTTP 200, overwrite the same object with the provisioning response (info.id, defaults).
+		*/
+		bool CreateDevice(RESTAPIHandler *client, ProvObjects::SubscriberDevice &device) {
+			// Use "0" to let provisioning assign the UUID and return the created subdevice.
+			std::string EndPoint = "/api/v1/subscriberDevice/0";
+			Poco::JSON::Object Body;
+			device.to_json(Body);
+			auto API = OpenAPIRequestPost(uSERVICE_PROVISIONING, EndPoint, {}, Body, 120000);
+			auto CallResponse = Poco::makeShared<Poco::JSON::Object>();
+			auto ResponseStatus = API.Do(CallResponse, client == nullptr ? "" : client->UserInfo_.webtoken.access_token_);
+			if (ResponseStatus != Poco::Net::HTTPResponse::HTTP_OK) {
+				return false;
+			}
+			return device.from_json(CallResponse);
 		}
 
 		bool SetDevice(RESTAPIHandler *client, const ProvObjects::SubscriberDevice &D) {

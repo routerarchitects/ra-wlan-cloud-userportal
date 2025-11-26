@@ -27,4 +27,5 @@ namespace OpenWifi {
 		const std::string id_;
 		bool bad_ = false;
 	};
+	bool UpdateSubDevices(const Poco::JSON::Object::Ptr &Config, const std::string &serial, Poco::Logger &logger);
 } // namespace OpenWifi

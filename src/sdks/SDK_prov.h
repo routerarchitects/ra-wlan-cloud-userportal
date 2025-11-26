@@ -16,8 +16,9 @@
 namespace OpenWifi::SDK::Prov {
 
 	namespace Device {
+		// Get a single inventory tag for the given MAC/serial.
 		bool Get(RESTAPIHandler *client, const std::string &Mac,
-				 ProvObjects::InventoryTagList &Device);
+				 ProvObjects::InventoryTag &Device);
 		bool SetConfiguration(RESTAPIHandler *client, const std::string &Mac,
 							  const std::string &ConfigUUID);
 	} // namespace Device
@@ -39,6 +40,10 @@ namespace OpenWifi::SDK::Prov {
 						const std::string &OperatorId, ProvObjects::SubscriberDeviceList &devList);
 		bool UpdateSubscriber(RESTAPIHandler *client, const std::string &SubscriberId,
 									 const std::string &SerialNumber, bool removeSubscriber = false);
+		Poco::JSON::Object::Ptr BuildMeshConfig(const Poco::JSON::Object::Ptr &configuration);
+		bool CreateDeviceData(RESTAPIHandler *client, const ProvObjects::InventoryTag &inventoryTag, const SecurityObjects::UserInfo &userInfo,
+					   ProvObjects::SubscriberDevice &device);
+		bool CreateDevice(RESTAPIHandler *client, ProvObjects::SubscriberDevice &device);
 		bool SetDevice(RESTAPIHandler *client, const ProvObjects::SubscriberDevice &D);
 		bool GetDevice(RESTAPIHandler *client, const std::string &SerialNumber,
 					   ProvObjects::SubscriberDevice &D);

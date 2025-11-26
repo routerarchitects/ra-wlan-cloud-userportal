@@ -122,7 +122,7 @@ namespace OpenWifi {
 		The function extracts each relevant section (object or array) from the controller config,
 		adds name and weight to it, and stores it in the provisioning database for that AP.
 	*/
-	static bool UpdateSubDevices(const Poco::JSON::Object::Ptr &Config, const std::string &serial, Poco::Logger &logger) {
+	bool UpdateSubDevices(const Poco::JSON::Object::Ptr &Config, const std::string &serial, Poco::Logger &logger) {
 		ProvObjects::SubscriberDevice subDevice;
 		if (!SDK::Prov::Subscriber::GetDevice(nullptr, serial, subDevice)) {
 			logger.error(fmt::format("Could not find provisioning subdevice for {}", serial));
@@ -160,9 +160,10 @@ namespace OpenWifi {
 	/*
 		DefaultConfig() will:
 		1. For each AP of the subscriber, fetch current config from controller (owgw) (/api/v1/device/MAC)
-		2. Update ssid and password according to mac address.
-		3. Call UpdateSubDevices() to update the provisioning database with the new config.
-		4. Call owprov to push the updated config to the device (/api/v1/inventory/MAC?applyConfiguration=true).
+		2. Validate the fetched config: reject upstream interfaces carrying SSIDs and configs missing a mesh SSID.
+		3. If valid, set SSID/password based on the device MAC (AP + mesh).
+		4. Call UpdateSubDevices() to update provisioning, then push the updated config to the device
+		   (/api/v1/inventory/MAC?applyConfiguration=true).
 	*/
 	bool OpenWifi::ConfigMaker::DefaultConfig(const SubObjects::SubscriberInfo &SI) {
 		for (size_t i = 0; i < SI.accessPoints.list.size(); ++i) {
@@ -176,6 +177,27 @@ namespace OpenWifi {
 			}
 			auto NewConfig = ConfigObj->getObject("configuration");
 			auto interfaces = NewConfig->getArray("interfaces");
+			bool meshSsidFound = false;
+			for (std::size_t i = 0; i < interfaces->size(); ++i) {
+				auto iface = interfaces->getObject(i);
+				auto ssids = iface->getArray("ssids");
+				std::string role = iface->getValue<std::string>("role");
+				if (role == "upstream" && ssids && ssids->size() > 0) {
+					Logger_.error(fmt::format("Invalid configuration for device {}: upstream interface contains SSIDs.", ap.serialNumber));
+					return false;
+				}
+				if (!ssids)
+					continue;
+				for (std::size_t j = 0; j < ssids->size(); ++j) {
+					auto ssid = ssids->getObject(j);
+					if (ssid->getValue<std::string>("bss-mode") == "mesh")
+						meshSsidFound = true;
+				}
+			}
+			if (!meshSsidFound) {
+				Logger_.error(fmt::format("Invalid configuration for device {}: missing mesh SSID.", ap.serialNumber));
+				return false;
+			}
 			std::string NewSsid = DEFAULT_SSID_PREFIX + ap.macAddress.substr(MAC_SUFFIX_START_INDEX);
 			std::string NewPassword = Poco::toUpper(ap.macAddress);
 			for (std::size_t i = 0; i < interfaces->size(); ++i) {
@@ -185,10 +207,14 @@ namespace OpenWifi {
 					continue; // if no ssids to update, skip this interface
 				for (std::size_t j = 0; j < ssids->size(); ++j) {
 					auto ssid = ssids->getObject(j);
-					ssid->set("name", NewSsid);
-					ssid->getObject("encryption")->set("key", NewPassword);
-					Logger_.information(fmt::format("Updated SSID to {} and Password to {} for device {}",
-						NewSsid, NewPassword, ap.serialNumber));
+					auto encryption = ssid->getObject("encryption");
+					auto bssMode = ssid->getValue<std::string>("bss-mode");
+					if (bssMode == "ap") {
+						ssid->set("name", NewSsid);
+						encryption->set("key", NewPassword);
+					} else if (bssMode == "mesh") {
+						encryption->set("key", NewPassword);
+					}
 				}
 			}
 			if (UpdateSubDevices(NewConfig, ap.serialNumber, Logger_)) {
