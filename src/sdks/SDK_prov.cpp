@@ -145,7 +145,7 @@ namespace OpenWifi::SDK::Prov {
 
 	namespace Subscriber {
 		/*
-			BuildMeshConfig() will:
+			BuildMeshConfig():
 			1. Take the controller configuration and parse it to JSON.
 			2. Clone the last interface block and retarget it to mesh by:
 			   - renaming it to the mesh bridge name
@@ -230,14 +230,14 @@ namespace OpenWifi::SDK::Prov {
 		}
 
 		/*
-			CreateDeviceData() will:
+			CreateSubDeviceData:
 			1. Check if a subscriberDevice already exists in subdevice table for the serial and return it if found.
 			2. If missing, build a minimal subscriberDevice from the inventory tag and user info:
 			   - set name to serial, fill serial/deviceType/operator/subscriber/realMac/deviceRules
 			   - populate object info via CreateObjectInfo
 			3. POST it via CreateDevice() (/api/v1/subscriberDevice/0) so the service assigns the UUID and returns the persisted record.
 		*/
-		bool CreateDeviceData(RESTAPIHandler *client, const ProvObjects::InventoryTag &inventoryTag, const SecurityObjects::UserInfo &userInfo,
+		bool CreateSubDeviceData(RESTAPIHandler *client, const ProvObjects::InventoryTag &inventoryTag, const SecurityObjects::UserInfo &userInfo,
 							  ProvObjects::SubscriberDevice &device) {
 			if (GetDevice(client, inventoryTag.serialNumber, device)) {
 				return true;
@@ -257,7 +257,7 @@ namespace OpenWifi::SDK::Prov {
 		}
 
 		/*
-			CreateDevice() will:
+			CreateDevice:
 			1. POST the subscriberDevice to /api/v1/subscriberDevice/0 (provisioning assigns the UUID).
 			2. On HTTP 200, overwrite the same object with the provisioning response (info.id, defaults).
 		*/

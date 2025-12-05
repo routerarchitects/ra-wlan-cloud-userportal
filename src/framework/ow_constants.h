@@ -53,7 +53,6 @@ namespace OpenWifi {
 #define DEFAULT_MESH_INTERFACE_NAME "Bridge"
 #define DEFAULT_MESH_INTERFACE_ROLE "upstream"
 #define DEFAULT_MESH_IPV4_ADDRESSING "dynamic"
-#define DEFAULT_MESH_SERVICE "ssh"
 #define DEFAULT_MESH_PORT_WAN "WAN*"
 #define DEFAULT_MESH_PORT_LAN "LAN*"
 namespace OpenWifi::RESTAPI::Errors {

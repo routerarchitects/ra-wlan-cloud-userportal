@@ -158,6 +158,42 @@ namespace OpenWifi::SDK::GW {
 			return Poco::Net::HTTPServerResponse::HTTP_OK;
         }
 
+		/*
+			ValidateMeshSSID:
+			1. Ensure interfaces exist in fetched config, else send error.
+			2. Reject configs where an upstream interface carries SSIDs.
+			3. Require at least one SSID with bss-mode == "mesh" in interfaces.
+		*/
+		bool ValidateMeshSSID(const Poco::JSON::Object::Ptr &configuration, const std::string &serialNumber, Poco::Logger &logger) {
+			auto interfaces = configuration->getArray("interfaces");
+			if (!interfaces || interfaces->size() == 0) {
+				logger.error(fmt::format("Invalid configuration for device {}: missing interfaces.", serialNumber));
+				return false;
+			}
+			bool meshSsidFound = false;
+			for (std::size_t i = 0; i < interfaces->size(); ++i) {
+				auto iface = interfaces->getObject(i);
+				auto ssids = iface->getArray("ssids");
+				std::string role = iface->getValue<std::string>("role");
+				if (role == "upstream" && ssids && ssids->size() > 0) {
+					logger.error(fmt::format("Invalid configuration for device {}: upstream interface contains SSIDs.", serialNumber));
+					return false;
+				}
+				if (!ssids)
+					continue;
+				for (std::size_t j = 0; j < ssids->size(); ++j) {
+					auto ssid = ssids->getObject(j);
+					if (ssid && ssid->getValue<std::string>("bss-mode") == "mesh")
+						meshSsidFound = true;
+				}
+			}
+			if (!meshSsidFound) {
+				logger.error(fmt::format("Invalid configuration for device {}: missing mesh SSID.", serialNumber));
+				return false;
+			}
+			return true;
+		}
+
 		bool Configure(RESTAPIHandler *client, const std::string &Mac,
 					   Poco::JSON::Object::Ptr &Configuration, Poco::JSON::Object::Ptr &Response) {
 

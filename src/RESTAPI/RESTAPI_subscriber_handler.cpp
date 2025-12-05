@@ -29,15 +29,14 @@ namespace OpenWifi {
 			Mods++;
 		}
 	}
-
+/*
+	Flow of GET /api/v1/subscriber when the subscriber calls this api for the first time:
+	1. RESTAPI_subscriber_handler::DoGet() calls ConfigMaker::DefaultConfig()
+	2. DefaultConfig() will fetch the current config from controller(owgw) (/api/v1/device/MAC)
+	3. It will validate the config (no SSIDs on upstream, mesh SSID present), then update ssid/password based on MAC.
+	4. Then it will call UpdateSubDevices() to update the provisioning database with the new config and push it.
+*/
 	void RESTAPI_subscriber_handler::DoGet() {
-		/*
-		Flow of GET /api/v1/subscriber when the subscriber calls this api for the first time:
-		1. RESTAPI_subscriber_handler::DoGet() calls ConfigMaker::DefaultConfig()
-		2. DefaultConfig() will fetch the current config from controller(owgw) (/api/v1/device/MAC)
-		3. It will validate the config (no SSIDs on upstream, mesh SSID present), then update ssid/password based on MAC.
-		4. Then it will call UpdateSubDevices() to update the provisioning database with the new config and push it.
-		*/
 
 		if (UserInfo_.userinfo.id.empty()) {
 			return NotFound();
@@ -378,6 +377,7 @@ namespace OpenWifi {
 	*/
 	void RESTAPI_subscriber_handler::DoPost() {
 		if (UserInfo_.userinfo.id.empty()) {
+			Logger().error(fmt::format("Subscriber id is missing."));
 			return NotFound();
 		}
 		const auto mac = GetParameter("mac", "");
@@ -399,23 +399,47 @@ namespace OpenWifi {
 			}
 			return BadRequest(RESTAPI::Errors::SerialNumberAlreadyProvisioned);
 		}
-		SubObjects::SubscriberInfo info;
-		if (!StorageService()->SubInfoDB().GetRecord("id", UserInfo_.userinfo.id, info) || info.accessPoints.list.empty()) {
-			Logger().error("Subscriber has no primary device to source configuration.");
-			return BadRequest(RESTAPI::Errors::SubConfigNotRefreshed);
+		SubObjects::SubscriberInfo SI;
+		const bool hasSubInfo = StorageService()->SubInfoDB().GetRecord("id", UserInfo_.userinfo.id, SI);
+		if (!hasSubInfo || SI.accessPoints.list.empty()) { // If no existing APs -> treate new device as gatewayAP
+			ProvObjects::SubscriberDevice provisionedDevice;
+			if (!SDK::Prov::Subscriber::CreateSubDeviceData(this, inventoryTag, UserInfo_.userinfo, provisionedDevice)) {
+				Logger().error(fmt::format("Failed to create subdevice record for device {} in owprov.", newDeviceMac));
+				return InternalError(RESTAPI::Errors::SubConfigNotRefreshed);
+			}
+			ProvObjects::SubscriberDeviceList devices;
+			devices.subscriberDevices.push_back(provisionedDevice); // Ensure the new device is in subDevices list for SubInfoDB creation
+				StorageService()->SubInfoDB().CreateDefaultSubscriberInfo(UserInfo_, SI, devices);
+				ConfigMaker InitialConfig(Logger(), SI.id);
+				if (!InitialConfig.DefaultConfig(SI)) {
+					Logger().error(fmt::format("Failed to create default config for device {}.", newDeviceMac));
+					return InternalError(RESTAPI::Errors::SubConfigNotRefreshed);
+				}
+				if (hasSubInfo) {
+					Logger().information(fmt::format("Updating subscriber info for {}.", UserInfo_.userinfo.id));
+					StorageService()->SubInfoDB().UpdateRecord("id", SI.id, SI);
+				} else {
+					Logger().information(fmt::format("Creating subscriber info for {}.", UserInfo_.userinfo.id));
+					StorageService()->SubInfoDB().CreateRecord(SI);
+				}
+				return OK();
 		}
-		const auto gatewayMac = info.accessPoints.list.front().serialNumber;
-		Poco::JSON::Object::Ptr controllerConfig;
-		auto status = SDK::GW::Device::GetConfig(this, gatewayMac, controllerConfig);
+		const auto gatewayMac = SI.accessPoints.list.front().serialNumber;
+		Poco::JSON::Object::Ptr gatewayConfig;
+		auto status = SDK::GW::Device::GetConfig(this, gatewayMac, gatewayConfig);
 		if (status != Poco::Net::HTTPResponse::HTTP_OK) {
 			Logger().error(fmt::format("Failed to fetch current configuration from gateway {} (status {}).", gatewayMac, status));
 			return InternalError(RESTAPI::Errors::SubConfigNotRefreshed);
 		}
-		auto configuration = controllerConfig->getObject("configuration");
+		auto configuration = gatewayConfig->getObject("configuration");
+		if (!SDK::GW::Device::ValidateMeshSSID(configuration, gatewayMac, Logger())) {
+			Logger().error(fmt::format("Wrong mesh configuration found on fetched gateway device {}", gatewayMac));
+			return InternalError(RESTAPI::Errors::SubConfigNotRefreshed);
+		}
 		Logger().information(fmt::format("Fetched gateway configuration for {}.", gatewayMac));
 		// Ensure provisioning has a subscriberDevice entry for new device before any inventory updates
 		ProvObjects::SubscriberDevice provisionedDevice;
-		if (!SDK::Prov::Subscriber::CreateDeviceData(this, inventoryTag, UserInfo_.userinfo, provisionedDevice)) {
+		if (!SDK::Prov::Subscriber::CreateSubDeviceData(this, inventoryTag, UserInfo_.userinfo, provisionedDevice)) {
 			Logger().error(fmt::format("Failed to create subdevice record for device {} in owprov.", newDeviceMac));
 			return InternalError(RESTAPI::Errors::SubConfigNotRefreshed);
 		}
@@ -439,6 +463,15 @@ namespace OpenWifi {
 				return InternalError(RESTAPI::Errors::SubConfigNotRefreshed);
 			}
 			SDK::GW::Device::SetSubscriber(this, newDeviceMac, UserInfo_.userinfo.id);
+			// Update SubInfoDB accessPoints list with new device data
+			SubObjects::AccessPoint newAp;
+			newAp.macAddress = newDeviceMac;
+			newAp.serialNumber = newDeviceMac;
+			newAp.deviceType = inventoryTag.deviceType;
+			newAp.id = provisionedDevice.info.id;
+			newAp.name = "Access Point #" + std::to_string(SI.accessPoints.list.size() + 1);
+			SI.accessPoints.list.push_back(newAp);
+			StorageService()->SubInfoDB().UpdateRecord("id", SI.id, SI);
 			return OK();
 		} catch (const std::exception &ex) {
 			Logger().error(fmt::format("Exception while building mesh config: {}", ex.what()));

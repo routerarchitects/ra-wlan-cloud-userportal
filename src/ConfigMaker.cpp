@@ -176,28 +176,11 @@ namespace OpenWifi {
 				return false;
 			}
 			auto NewConfig = ConfigObj->getObject("configuration");
-			auto interfaces = NewConfig->getArray("interfaces");
-			bool meshSsidFound = false;
-			for (std::size_t i = 0; i < interfaces->size(); ++i) {
-				auto iface = interfaces->getObject(i);
-				auto ssids = iface->getArray("ssids");
-				std::string role = iface->getValue<std::string>("role");
-				if (role == "upstream" && ssids && ssids->size() > 0) {
-					Logger_.error(fmt::format("Invalid configuration for device {}: upstream interface contains SSIDs.", ap.serialNumber));
-					return false;
-				}
-				if (!ssids)
-					continue;
-				for (std::size_t j = 0; j < ssids->size(); ++j) {
-					auto ssid = ssids->getObject(j);
-					if (ssid->getValue<std::string>("bss-mode") == "mesh")
-						meshSsidFound = true;
-				}
-			}
-			if (!meshSsidFound) {
-				Logger_.error(fmt::format("Invalid configuration for device {}: missing mesh SSID.", ap.serialNumber));
+			if (!SDK::GW::Device::ValidateMeshSSID(NewConfig, ap.serialNumber, Logger_)) {
+				Logger_.error(fmt::format("Invalid configuration for device {}: wrong mesh config.", ap.serialNumber));
 				return false;
 			}
+			auto interfaces = NewConfig->getArray("interfaces");
 			std::string NewSsid = DEFAULT_SSID_PREFIX + ap.macAddress.substr(MAC_SUFFIX_START_INDEX);
 			std::string NewPassword = Poco::toUpper(ap.macAddress);
 			for (std::size_t i = 0; i < interfaces->size(); ++i) {

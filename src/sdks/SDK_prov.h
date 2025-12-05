@@ -41,7 +41,7 @@ namespace OpenWifi::SDK::Prov {
 		bool UpdateSubscriber(RESTAPIHandler *client, const std::string &SubscriberId,
 									 const std::string &SerialNumber, bool removeSubscriber = false);
 		Poco::JSON::Object::Ptr BuildMeshConfig(const Poco::JSON::Object::Ptr &configuration);
-		bool CreateDeviceData(RESTAPIHandler *client, const ProvObjects::InventoryTag &inventoryTag, const SecurityObjects::UserInfo &userInfo,
+		bool CreateSubDeviceData(RESTAPIHandler *client, const ProvObjects::InventoryTag &inventoryTag, const SecurityObjects::UserInfo &userInfo,
 					   ProvObjects::SubscriberDevice &device);
 		bool CreateDevice(RESTAPIHandler *client, ProvObjects::SubscriberDevice &device);
 		bool SetDevice(RESTAPIHandler *client, const ProvObjects::SubscriberDevice &D);
