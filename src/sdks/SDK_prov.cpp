@@ -146,24 +146,24 @@ namespace OpenWifi::SDK::Prov {
 	namespace Subscriber {
 		/*
 			BuildMeshConfig():
-			1. Take the controller configuration and parse it to JSON.
-			2. Clone the last interface block and retarget it to mesh by:
-			   - renaming it to the mesh bridge name
-			   - setting the mesh role and IPv4 addressing mode
-			   - forcing ethernet select-ports to the mesh WAN/LAN defaults
-			3. Replace interfaces with this single mesh-ready bridge and return it as Poco JSON.
+			1. Take the fetched gateway configuration and parse it into JSON.
+			2. For each interface(WAN/LAN), clone it and set ipv4.addressing to dynamic on the LAN.
+			3. Turn that JSON back into a Poco object so provisioning can store/push it.
 		*/
 		Poco::JSON::Object::Ptr BuildMeshConfig(const Poco::JSON::Object::Ptr &configuration) {
 			std::ostringstream OS;
 			Poco::JSON::Stringifier::stringify(configuration, OS);
 			auto cfg = nlohmann::json::parse(OS.str());
 			if (cfg.contains("interfaces") && cfg["interfaces"].is_array() && !cfg["interfaces"].empty()) {
-				nlohmann::json bridge = cfg["interfaces"].back();
-				bridge["name"] = DEFAULT_MESH_INTERFACE_NAME;
-				bridge["role"] = DEFAULT_MESH_INTERFACE_ROLE;
-				bridge["ipv4"] = {{"addressing", DEFAULT_MESH_IPV4_ADDRESSING}};
-				bridge["ethernet"] = nlohmann::json::array({ {{"select-ports", {DEFAULT_MESH_PORT_WAN, DEFAULT_MESH_PORT_LAN}}} });
-				cfg["interfaces"] = nlohmann::json::array({bridge});
+				nlohmann::json meshInterfaces = nlohmann::json::array();
+				for (const auto &iface : cfg["interfaces"]) {
+					auto meshInterface = iface;
+					meshInterface["ipv4"] = {{"addressing", DEFAULT_MESH_IPV4_ADDRESSING}};
+					meshInterfaces.push_back(meshInterface);
+				}
+				if (!meshInterfaces.empty()) {
+					cfg["interfaces"] = meshInterfaces;
+				}
 			}
 			Poco::JSON::Parser parser;
 			auto parsed = parser.parse(cfg.dump());

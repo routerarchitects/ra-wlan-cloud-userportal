@@ -464,14 +464,11 @@ namespace OpenWifi {
 			}
 			SDK::GW::Device::SetSubscriber(this, newDeviceMac, UserInfo_.userinfo.id);
 			// Update SubInfoDB accessPoints list with new device data
-			SubObjects::AccessPoint newAp;
-			newAp.macAddress = newDeviceMac;
-			newAp.serialNumber = newDeviceMac;
-			newAp.deviceType = inventoryTag.deviceType;
-			newAp.id = provisionedDevice.info.id;
-			newAp.name = "Access Point #" + std::to_string(SI.accessPoints.list.size() + 1);
-			SI.accessPoints.list.push_back(newAp);
-			StorageService()->SubInfoDB().UpdateRecord("id", SI.id, SI);
+			StorageService()->SubInfoDB().AddAccessPoint(SI, newDeviceMac, inventoryTag.deviceType, provisionedDevice);
+			if (!StorageService()->SubInfoDB().UpdateRecord("id", SI.id, SI)) {
+				Logger().error(fmt::format("Failed to add device {} to Subscriber Database", newDeviceMac));
+				return InternalError(RESTAPI::Errors::SubConfigNotRefreshed);
+			}
 			return OK();
 		} catch (const std::exception &ex) {
 			Logger().error(fmt::format("Exception while building mesh config: {}", ex.what()));
