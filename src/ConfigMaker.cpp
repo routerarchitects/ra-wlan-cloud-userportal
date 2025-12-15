@@ -122,7 +122,7 @@ namespace OpenWifi {
 		The function extracts each relevant section (object or array) from the controller config,
 		adds name and weight to it, and stores it in the provisioning database for that AP.
 	*/
-	bool UpdateSubDevices(const Poco::JSON::Object::Ptr &Config, const std::string &serial, Poco::Logger &logger) {
+	bool UpdateSubDeviceConfig(const Poco::JSON::Object::Ptr &Config, const std::string &serial, Poco::Logger &logger) {
 		ProvObjects::SubscriberDevice subDevice;
 		if (!SDK::Prov::Subscriber::GetDevice(nullptr, serial, subDevice)) {
 			logger.error(fmt::format("Could not find provisioning subdevice for {}", serial));
@@ -200,7 +200,7 @@ namespace OpenWifi {
 					}
 				}
 			}
-			if (UpdateSubDevices(NewConfig, ap.serialNumber, Logger_)) {
+			if (UpdateSubDeviceConfig(NewConfig, ap.serialNumber, Logger_)) {
 				Logger_.information(fmt::format("Updated configuration for device {} in provisioning", ap.serialNumber));
 				ProvObjects::InventoryConfigApplyResult applyResult;
 				if (SDK::Prov::Configuration::Push(nullptr, ap.serialNumber, applyResult)) {

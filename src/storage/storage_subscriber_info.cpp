@@ -3,7 +3,6 @@
  * Copyright (c) 2025 Infernet Systems Pvt Ltd
  * Portions copyright (c) Telecom Infra Project (TIP), BSD-3-Clause
  */
-
 //
 // Created by stephane bourque on 2021-11-29.
 //
@@ -71,8 +70,23 @@ namespace OpenWifi {
 		}
 	}
 
+	/*
+		AddAccessPoint():
+		Checks whether the subscriber already has an entry for the provided MAC address.
+		If found, it prevents adding duplicate entries.
+		If not found, it builds the AccessPoint data from the provisioning record and stores it in its own DB.
+	*/
 	void SubscriberInfoDB::AddAccessPoint(SubObjects::SubscriberInfo &SI, const std::string &macAddress,
 										  const std::string &deviceType, const ProvObjects::SubscriberDevice &ProvisionedDevice) {
+
+	// If this MAC is already present, do nothing
+	for (const auto &AP : SI.accessPoints.list) {
+        if (AP.macAddress == macAddress) {
+			Logger().information(fmt::format("Device {} already exists for subscriber {}. Skipping addition.", macAddress, SI.id));
+           return ;
+        }
+    }
+    // Otherwise, add a new Access Point entry.
 		SubObjects::AccessPoint AP;
 		AP.name = "Access Point #" + std::to_string(SI.accessPoints.list.size() + 1);
 		AP.macAddress = macAddress;

@@ -250,7 +250,7 @@ namespace OpenWifi::SubObjects {
 	}
 
 	void AccessPoint::to_json(Poco::JSON::Object &Obj) const {
-		field_to_json(Obj, "deviceId", id);
+		field_to_json(Obj, "id", id);
 		field_to_json(Obj, "macAddress", macAddress);
 		field_to_json(Obj, "serialNumber", serialNumber);
 		field_to_json(Obj, "name", name);
@@ -259,7 +259,7 @@ namespace OpenWifi::SubObjects {
 
 	bool AccessPoint::from_json(const Poco::JSON::Object::Ptr &Obj) {
 		try {
-			field_from_json(Obj, "deviceId", id);
+			field_from_json(Obj, "id", id);
 			field_from_json(Obj, "macAddress", macAddress);
 			field_from_json(Obj, "serialNumber", serialNumber);
 			field_from_json(Obj, "name", name);

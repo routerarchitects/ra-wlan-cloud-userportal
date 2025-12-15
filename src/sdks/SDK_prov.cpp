@@ -148,7 +148,7 @@ namespace OpenWifi::SDK::Prov {
 			BuildMeshConfig():
 			1. Take the fetched gateway configuration and parse it into JSON.
 			2. For each interface(WAN/LAN), clone it and set ipv4.addressing to dynamic on the LAN.
-			3. Turn that JSON back into a Poco object so provisioning can store/push it.
+			3. Convert that JSON back into a Poco object so callers can use the new config as needed.
 		*/
 		Poco::JSON::Object::Ptr BuildMeshConfig(const Poco::JSON::Object::Ptr &configuration) {
 			std::ostringstream OS;
@@ -158,7 +158,7 @@ namespace OpenWifi::SDK::Prov {
 				nlohmann::json meshInterfaces = nlohmann::json::array();
 				for (const auto &iface : cfg["interfaces"]) {
 					auto meshInterface = iface;
-					meshInterface["ipv4"] = {{"addressing", DEFAULT_MESH_IPV4_ADDRESSING}};
+					meshInterface["ipv4"] = {{"addressing", "dynamic"}};
 					meshInterfaces.push_back(meshInterface);
 				}
 				if (!meshInterfaces.empty()) {
@@ -242,7 +242,7 @@ namespace OpenWifi::SDK::Prov {
 			if (GetDevice(client, inventoryTag.serialNumber, device)) {
 				return true;
 			}
-			Poco::Logger::get("SDK_prov").information(fmt::format("Creating subscriberDevice for {}", inventoryTag.serialNumber));
+			Poco::Logger::get("SDK_prov").information(fmt::format("Creating subscriberDevice data for {}", inventoryTag.serialNumber));
 
 			device.info.name = inventoryTag.serialNumber;
 			device.serialNumber = inventoryTag.serialNumber;

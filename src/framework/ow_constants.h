@@ -50,7 +50,6 @@ namespace OpenWifi {
 #define DEFAULT_DEVICE_CONFIG_WEIGHT 1
 #define DEFAULT_SSID_PREFIX "OpenWifi-"
 #define MAC_SUFFIX_START_INDEX 8
-#define DEFAULT_MESH_IPV4_ADDRESSING "dynamic"
 namespace OpenWifi::RESTAPI::Errors {
 	struct msg {
 		uint64_t err_num;
@@ -443,6 +442,8 @@ namespace OpenWifi::RESTAPI::Errors {
 	static const struct msg InvalidRRMAction { 1192, "Invalid RRM Action." };
 	static const struct msg SSIDInvalidName{
 		1193, "Invalid SSID. Allowed characters: 1 to 32 chars (letters, digits, dot, underscore, hyphen, space.)"};
+	static const struct msg AddDeviceFailed {1194, "Failed to add new device."};
+	static const struct msg ApplyConfigFailed {1195, "Failed to apply configuration to device."};
     static const struct msg SimulationDoesNotExist {
         7000, "Simulation Instance ID does not exist."
     };
