@@ -9,6 +9,8 @@
 //
 #include "framework/ow_constants.h"
 
+#include <vector>
+
 #include "RESTAPI_subscriber_handler.h"
 #include "ConfigMaker.h"
 #include "RESTObjects/RESTAPI_SubObjects.h"
@@ -30,11 +32,11 @@ namespace OpenWifi {
 		}
 	}
 /*
-	Flow of GET /api/v1/subscriber when the subscriber calls this api for the first time:
-	1. RESTAPI_subscriber_handler::DoGet() calls ConfigMaker::DefaultConfig()
-	2. DefaultConfig() will fetch the current config from controller(owgw) (/api/v1/device/MAC)
-	3. It will validate the config (no SSIDs on upstream, mesh SSID present), then update ssid/password based on MAC.
-	4. Then it will call UpdateSubDeviceConfig() to update the provisioning database with the new config and push it.
+	Flow of GET /api/v1/subscriber when the subscriber calls this API for the first time:
+	1. RESTAPI_subscriber_handler::DoGet() calls ConfigMaker::PrepareDefaultConfig().
+	2. PrepareDefaultConfig() fetches controller config (/api/v1/device/MAC), validates mesh sections, and updates SSID/password
+	   before calling PrepareProvSubDeviceConfig().
+	3. DoGet() then persists and applies those prepared provisioning blocks (SetDevice, push, link) before returning the record.
 */
 	void RESTAPI_subscriber_handler::DoGet() {
 
@@ -154,9 +156,22 @@ namespace OpenWifi {
 		Logger().information(
 			fmt::format("{}: Fetching Current configuration from controller", UserInfo_.userinfo.email));
 		ConfigMaker InitialConfig(Logger(), SI.id);
-		if (!InitialConfig.DefaultConfig(SI)) {
-			Logger().error(fmt::format("Failed to create DefaultConfig: Fetched config is invalid for MAC {}.", SI.accessPoints.list[0].macAddress));
-			return InternalError(RESTAPI::Errors::SubConfigNotRefreshed);
+		std::vector<ProvObjects::SubscriberDevice> preparedDevices;
+		if (!InitialConfig.PrepareDefaultConfig(SI, preparedDevices)) {
+			Logger().error(fmt::format("Failed to create PrepareDefaultConfig: Fetched config is invalid for MAC {}.", SI.accessPoints.list[0].macAddress));
+			return InternalError(RESTAPI::Errors::ConfigBlockInvalid);
+		}
+		for (auto &preparedDevice : preparedDevices) {
+			if (!SDK::Prov::Subscriber::SetDevice(this, preparedDevice)) {
+				Logger().error(fmt::format("Failed to persist provisioning config for {}.", preparedDevice.serialNumber));
+				return InternalError(RESTAPI::Errors::ConfigBlockInvalid);
+			}
+			ProvObjects::InventoryConfigApplyResult applyResult;
+			if (!SDK::Prov::Configuration::Push(this, preparedDevice.serialNumber, applyResult)) {
+				Logger().error(fmt::format("Provisioning failed to apply updated configuration to device {}.", preparedDevice.serialNumber));
+			}
+			SDK::GW::Device::SetSubscriber(this, preparedDevice.serialNumber, SI.id);
+			SDK::Prov::Subscriber::UpdateSubscriber(this, SI.id, preparedDevice.serialNumber, false);
 		}
 		Logger().information(fmt::format("{}: Creating default configuration.", UserInfo_.userinfo.email));
 		StorageService()->SubInfoDB().CreateRecord(SI);
@@ -452,16 +467,15 @@ namespace OpenWifi {
 						break;
 					}
 				}
-				if (st == State::UPDATE_DB)
-				break;
-
-				st = SI.accessPoints.list.empty() ? State::GATEWAY_DEVICE_FLOW : State::MESH_DEVICE_FLOW;
+				if (st != State::UPDATE_DB) {
+					st = SI.accessPoints.list.empty() ? State::GATEWAY_DEVICE_FLOW : State::MESH_DEVICE_FLOW;
+				}
 				break;
 			}
 
 			case State::GATEWAY_DEVICE_FLOW: {
 				ProvObjects::SubscriberDevice dev;
-				if (!SDK::Prov::Subscriber::CreateSubDeviceData(this, inventoryTag, UserInfo_.userinfo, dev)) {
+				if (!SDK::Prov::Subscriber::CreateSubDeviceInfo(this, inventoryTag, UserInfo_.userinfo, dev)) {
 					Logger().error(fmt::format("Failed to create subdevice record for device {} in owprov.", mac));
 					return InternalError(RESTAPI::Errors::RecordNotCreated);
 				}
@@ -472,9 +486,22 @@ namespace OpenWifi {
 				StorageService()->SubInfoDB().CreateDefaultSubscriberInfo(UserInfo_, SI, devices);
 
 				ConfigMaker InitialConfig(Logger(), SI.id);
-				if (!InitialConfig.DefaultConfig(SI)) {
+				std::vector<ProvObjects::SubscriberDevice> preparedDevices;
+				if (!InitialConfig.PrepareDefaultConfig(SI, preparedDevices)) {
 					Logger().error(fmt::format("Failed to create default config for device {}.", mac));
 					return InternalError(RESTAPI::Errors::ApplyConfigFailed);
+				}
+				for (auto &preparedDevice : preparedDevices) {
+					if (!SDK::Prov::Subscriber::SetDevice(this, preparedDevice)) {
+						Logger().error(fmt::format("Failed to persist provisioning config for {}.", preparedDevice.serialNumber));
+						return InternalError(RESTAPI::Errors::ApplyConfigFailed);
+					}
+					ProvObjects::InventoryConfigApplyResult applyResult;
+					if (!SDK::Prov::Configuration::Push(this, preparedDevice.serialNumber, applyResult)) {
+						Logger().error(fmt::format("Provisioning failed to apply updated configuration to device {}.",preparedDevice.serialNumber));
+					}
+					SDK::GW::Device::SetSubscriber(this, preparedDevice.serialNumber, SI.id);
+					SDK::Prov::Subscriber::UpdateSubscriber(this, SI.id, preparedDevice.serialNumber, false);
 				}
 				Logger().information(fmt::format("Adding device {} as gateway in subscriber {}.", mac, UserInfo_.userinfo.id));
 				StorageService()->SubInfoDB().UpdateRecord("id", SI.id, SI);
@@ -485,18 +512,18 @@ namespace OpenWifi {
 
 				auto status = SDK::GW::Device::GetConfig(this, gatewayMac, gatewayConfig);
 				if (status != Poco::Net::HTTPResponse::HTTP_OK) {
-					Logger().error(fmt::format("Failed to fetch gateway {} configuration.",	gatewayMac));
+					Logger().error(fmt::format("Failed to fetch gateway {} configuration for mesh device {}.", gatewayMac, mac));
 					return InternalError(RESTAPI::Errors::AddDeviceFailed);
 				}
 
-				configuration = gatewayConfig->getObject("configuration");
-				if (!SDK::GW::Device::ValidateMeshSSID(configuration, gatewayMac, Logger())) {
-					Logger().error(fmt::format("Wrong mesh configuration found on fetched gateway device {}", gatewayMac));
+				if (!SDK::GW::Device::ValidateMeshSSID(gatewayConfig, gatewayMac, Logger())) {
+					Logger().error(fmt::format("Wrong mesh configuration found on fetched gateway device {} for mesh device {}.", gatewayMac, mac));
 					return InternalError(RESTAPI::Errors::ConfigBlockInvalid);
 				}
+				configuration = gatewayConfig->getObject("configuration");
 
 				Logger().information(fmt::format("Fetched gateway configuration for {}.", gatewayMac));
-				if (!SDK::Prov::Subscriber::CreateSubDeviceData(this, inventoryTag, UserInfo_.userinfo, provisionedDevice)) {
+				if (!SDK::Prov::Subscriber::CreateSubDeviceInfo(this, inventoryTag, UserInfo_.userinfo, provisionedDevice)) {
 					Logger().error(fmt::format("Failed to create subdevice record for device {} in owprov.", mac));
 					return InternalError(RESTAPI::Errors::RecordNotCreated);
 				}
@@ -511,10 +538,12 @@ namespace OpenWifi {
 					return InternalError(RESTAPI::Errors::ConfigurationMustExist);
 				}
 
-				if (!UpdateSubDeviceConfig(meshConfig, mac, Logger())) {
+				ConfigMaker MeshConfig(Logger(), SI.id);
+				if (!MeshConfig.PrepareProvSubDeviceConfig(meshConfig, mac, provisionedDevice)) {
 					Logger().error(fmt::format("Failed to store configuration for device {} in provisioning.", mac));
 					return InternalError(RESTAPI::Errors::RecordNotUpdated);
 				}
+				SDK::Prov::Subscriber::SetDevice(this, provisionedDevice);
 
 				// Pushing latest mesh configuration to the device
 				ProvObjects::InventoryConfigApplyResult applyResult;

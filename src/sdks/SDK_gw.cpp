@@ -160,11 +160,20 @@ namespace OpenWifi::SDK::GW {
 
 		/*
 			ValidateMeshSSID:
-			1. Ensure interfaces exist in fetched config, else send error.
-			2. Reject configs where an upstream interface carries SSIDs.
-			3. Require at least one SSID with bss-mode == "mesh" in interfaces.
+			1. Take the full device config, ensure the "configuration" block exists.
+			2. Check interfaces are present and upstream ports have no SSIDs.
+			3. Require at least one SSID with bss-mode == "mesh".
 		*/
-		bool ValidateMeshSSID(const Poco::JSON::Object::Ptr &configuration, const std::string &serialNumber, Poco::Logger &logger) {
+		bool ValidateMeshSSID(const Poco::JSON::Object::Ptr &deviceConfig, const std::string &serialNumber, Poco::Logger &logger) {
+			if (!deviceConfig || !deviceConfig->has("configuration")) {
+				logger.error(fmt::format("Invalid configuration for device {}: missing configuration block.", serialNumber));
+				return false;
+			}
+			auto configuration = deviceConfig->getObject("configuration");
+			if (!configuration) {
+				logger.error(fmt::format("Invalid configuration for device {}: Empty configuration.", serialNumber));
+				return false;
+			}
 			auto interfaces = configuration->getArray("interfaces");
 			if (!interfaces || interfaces->size() == 0) {
 				logger.error(fmt::format("Invalid configuration for device {}: missing interfaces.", serialNumber));

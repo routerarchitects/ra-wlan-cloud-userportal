@@ -230,14 +230,14 @@ namespace OpenWifi::SDK::Prov {
 		}
 
 		/*
-			CreateSubDeviceData:
+			CreateSubDeviceInfo:
 			1. Check if a subscriberDevice already exists in subdevice table for the serial and return it if found.
 			2. If missing, build a minimal subscriberDevice from the inventory tag and user info:
 			   - set name to serial, fill serial/deviceType/operator/subscriber/realMac/deviceRules
 			   - populate object info via CreateObjectInfo
 			3. POST it via CreateDevice() (/api/v1/subscriberDevice/0) so the service assigns the UUID and returns the persisted record.
 		*/
-		bool CreateSubDeviceData(RESTAPIHandler *client, const ProvObjects::InventoryTag &inventoryTag, const SecurityObjects::UserInfo &userInfo,
+		bool CreateSubDeviceInfo(RESTAPIHandler *client, const ProvObjects::InventoryTag &inventoryTag, const SecurityObjects::UserInfo &userInfo,
 							  ProvObjects::SubscriberDevice &device) {
 			if (GetDevice(client, inventoryTag.serialNumber, device)) {
 				return true;
