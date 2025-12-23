@@ -130,7 +130,6 @@ namespace OpenWifi {
 		for (size_t i = 0; i < sectionNames.size(); ++i) {
 			const std::string &name = sectionNames[i];
 			if (!(Config->isObject(name) || Config->isArray(name))) {
-				Logger_.information(fmt::format("Skipping extra key value '{}' for device {}", name, serial));
 				continue;
 			}
 			Poco::JSON::Object::Ptr sectionObj = new Poco::JSON::Object();

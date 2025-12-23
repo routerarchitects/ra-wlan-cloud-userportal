@@ -9,8 +9,6 @@
 //
 #include "framework/ow_constants.h"
 
-#include <vector>
-
 #include "RESTAPI_subscriber_handler.h"
 #include "ConfigMaker.h"
 #include "RESTObjects/RESTAPI_SubObjects.h"
@@ -445,13 +443,6 @@ namespace OpenWifi {
 					BadRequest(RESTAPI::Errors::SerialNumberAlreadyProvisioned);
 					return false;
 				}
-				mac = GetParameter("mac", "");
-				if (!Utils::NormalizeMac(mac)) {
-					Logger().error(fmt::format("Invalid MAC: [{}]", mac));
-					return BadRequest(RESTAPI::Errors::InvalidSerialNumber);
-				}
-				st = State::VALIDATE_PROV_INVENTORY;
-				break;
 			}
 		}
 		return true;
