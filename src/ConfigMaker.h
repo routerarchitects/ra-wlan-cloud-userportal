@@ -20,8 +20,8 @@ namespace OpenWifi {
 		explicit ConfigMaker(Poco::Logger &L, const std::string &Id) : Logger_(L), id_(Id) {}
 		bool Prepare();
 		bool Push();
-		bool PrepareDefaultConfig(const SubObjects::SubscriberInfo &SI, std::vector<ProvObjects::SubscriberDevice> &preparedDevices);
-		bool PrepareProvSubDeviceConfig(const Poco::JSON::Object::Ptr &Config, const std::string &serial, ProvObjects::SubscriberDevice &subDevice);
+		bool PrepareDefaultConfig(const SubObjects::AccessPoint &ap, ProvObjects::SubscriberDevice &subDevice);
+		bool PrepareProvSubDeviceConfig(const Poco::JSON::Object::Ptr &Config, ProvObjects::DeviceConfigurationElementVec &ProvConfig);
 
 	  private:
 		Poco::Logger &Logger_;

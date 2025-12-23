@@ -122,7 +122,9 @@ namespace OpenWifi {
 		The function extracts each relevant section (object or array) from the controller config,
 		adds name and weight to it, and stores it in the provisioning database for that AP.
 	*/
-	bool ConfigMaker::PrepareProvSubDeviceConfig(const Poco::JSON::Object::Ptr &Config, const std::string &serial, ProvObjects::SubscriberDevice &subDevice) {
+	bool ConfigMaker::PrepareProvSubDeviceConfig(const Poco::JSON::Object::Ptr &Config, ProvObjects::DeviceConfigurationElementVec &ProvConfig){
+		// Clear existing configuration to prevent duplicate sections in case of retries
+		ProvConfig.clear();
 		std::vector<std::string> sectionNames;
 		Config->getNames(sectionNames);
 		for (size_t i = 0; i < sectionNames.size(); ++i) {
@@ -142,29 +144,23 @@ namespace OpenWifi {
 			elem.name = name;
 			elem.weight = DEFAULT_DEVICE_CONFIG_WEIGHT;
 			elem.configuration = jsonOutput.str();
-			subDevice.configuration.push_back(elem);
-			Logger_.information(fmt::format("Stored section {} for device {}", name, serial));
+			ProvConfig.push_back(elem);
 		}
 		return true;
 	}
 
 	/*
-		PrepareDefaultConfig() will:
-		1. For each AP of the subscriber, fetch current config from controller (owgw) (/api/v1/device/MAC).
-		2. Validate the fetched config: reject upstream interfaces carrying SSIDs and configs missing a mesh SSID.
-		3. If valid, set SSID/password based on the device MAC (AP + mesh).
-		4. Call PrepareProvSubDeviceConfig() to produce provisioning-ready blocks for each device.
-		5. Append each prepared subDevice to preparedDevices for the caller to use.
+		PrepareDefaultConfig():
+		1. Fetch current config for the provided AccessPoint from the controller (/api/v1/device/MAC).
+		2. Validate mesh settings (no upstream SSIDs, mesh present).
+		3. Update SSID/password based on the device MAC (AP + mesh).
+		4. Return the updated configuration object so the caller can decide how to persist/apply it.
 	*/
-	bool ConfigMaker::PrepareDefaultConfig(const SubObjects::SubscriberInfo &SI, std::vector<ProvObjects::SubscriberDevice> &preparedDevices) {
-		preparedDevices.clear();
-		for (size_t i = 0; i < SI.accessPoints.list.size(); ++i) {
-			const auto &ap = SI.accessPoints.list[i];
+	bool ConfigMaker::PrepareDefaultConfig(const SubObjects::AccessPoint &ap, ProvObjects::SubscriberDevice &subDevice) {
 			Poco::JSON::Object::Ptr ConfigObj;
 			auto ResponseStatus = SDK::GW::Device::GetConfig(nullptr, ap.serialNumber, ConfigObj);
 			if (ResponseStatus != Poco::Net::HTTPResponse::HTTP_OK) {
-				Logger_.warning(fmt::format("Failed to fetch current configuration for device {}.",
-					ap.serialNumber));
+				Logger_.error(fmt::format("Failed to fetch current configuration for device {}.", ap.serialNumber));
 				return false;
 			}
 			if (!SDK::GW::Device::ValidateMeshSSID(ConfigObj, ap.serialNumber, Logger_)) {
@@ -175,6 +171,9 @@ namespace OpenWifi {
 			auto interfaces = NewConfig->getArray("interfaces");
 			std::string NewSsid = DEFAULT_SSID_PREFIX + ap.macAddress.substr(MAC_SUFFIX_START_INDEX);
 			std::string NewPassword = Poco::toUpper(ap.macAddress);
+			Logger_.information(fmt::format("Preparing default configuration for device {}  with SSID '{}' and Password '{}'.",
+											ap.serialNumber, NewSsid, NewPassword));
+			//  Update SSID and Password
 			for (std::size_t i = 0; i < interfaces->size(); ++i) {
 				auto iface = interfaces->getObject(i);
 				auto ssids = iface->getArray("ssids");
@@ -192,18 +191,7 @@ namespace OpenWifi {
 					}
 				}
 			}
-			ProvObjects::SubscriberDevice subDevice;
-			if (!SDK::Prov::Subscriber::GetDevice(nullptr, ap.serialNumber, subDevice)) {
-				Logger_.error(fmt::format("Could not find provisioning subdevice for {}", ap.serialNumber));
-				return false;
-			}
-			if (!PrepareProvSubDeviceConfig(NewConfig, ap.serialNumber, subDevice)) {
-				Logger_.error(fmt::format("Failed to store updated configuration for device {} in provisioning.", ap.serialNumber));
-				return false;
-			}
-			preparedDevices.push_back(subDevice);
-		}
-		return true;
+		return PrepareProvSubDeviceConfig(NewConfig, subDevice.configuration);
 	}
 	bool ConfigMaker::Prepare() {
 

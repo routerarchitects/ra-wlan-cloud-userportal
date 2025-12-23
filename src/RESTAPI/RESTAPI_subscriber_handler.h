@@ -7,6 +7,9 @@
 #include "framework/RESTAPI_Handler.h"
 
 namespace OpenWifi {
+
+	struct AddDeviceContext;
+
 	class RESTAPI_subscriber_handler : public RESTAPIHandler {
 	  public:
 		RESTAPI_subscriber_handler(const RESTAPIHandler::BindingMap &bindings, Poco::Logger &L,
@@ -29,5 +32,11 @@ namespace OpenWifi {
 		void DoDelete() final;
 
 	  private:
+		bool ADD_DEVICE_VALIDATE_INPUTS(AddDeviceContext &ctx);
+		bool ADD_DEVICE_VALIDATE_INVENTORY_OWNERSHIP(AddDeviceContext &ctx);
+		bool ADD_DEVICE_LOAD_SUBSCRIBER_INFO(AddDeviceContext &ctx);
+		bool ADD_DEVICE_SETUP_GATEWAY(AddDeviceContext &ctx);
+		bool ADD_DEVICE_SETUP_MESH(AddDeviceContext &ctx);
+		bool ADD_DEVICE_UPDATE_DB(AddDeviceContext &ctx);
 	};
 } // namespace OpenWifi

@@ -444,6 +444,7 @@ namespace OpenWifi::RESTAPI::Errors {
 		1193, "Invalid SSID. Allowed characters: 1 to 32 chars (letters, digits, dot, underscore, hyphen, space.)"};
 	static const struct msg AddDeviceFailed {1194, "Failed to add new device."};
 	static const struct msg ApplyConfigFailed {1195, "Failed to apply configuration to device."};
+	static const struct msg RecordNotFound {1196, "No Record Found."};
     static const struct msg SimulationDoesNotExist {
         7000, "Simulation Instance ID does not exist."
     };
