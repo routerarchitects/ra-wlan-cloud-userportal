@@ -7,9 +7,6 @@
 #include "framework/RESTAPI_Handler.h"
 
 namespace OpenWifi {
-
-	struct AddDeviceContext;
-
 	class RESTAPI_subscriber_handler : public RESTAPIHandler {
 	  public:
 		RESTAPI_subscriber_handler(const RESTAPIHandler::BindingMap &bindings, Poco::Logger &L,
@@ -18,7 +15,6 @@ namespace OpenWifi {
 			: RESTAPIHandler(bindings, L,
 							 std::vector<std::string>{Poco::Net::HTTPRequest::HTTP_GET,
 													  Poco::Net::HTTPRequest::HTTP_PUT,
-													  Poco::Net::HTTPRequest::HTTP_POST,
 													  Poco::Net::HTTPRequest::HTTP_DELETE,
 													  Poco::Net::HTTPRequest::HTTP_OPTIONS},
 							 Server, TransactionId, Internal, true, false,
@@ -27,16 +23,10 @@ namespace OpenWifi {
 		static auto PathName() { return std::list<std::string>{"/api/v1/subscriber"}; };
 
 		void DoGet() final;
-		void DoPost() final;
+		void DoPost() final{};
 		void DoPut() final;
 		void DoDelete() final;
 
 	  private:
-		bool ADD_DEVICE_VALIDATE_INPUTS(AddDeviceContext &ctx);
-		bool ADD_DEVICE_VALIDATE_INVENTORY_OWNERSHIP(AddDeviceContext &ctx);
-		bool ADD_DEVICE_LOAD_SUBSCRIBER_INFO(AddDeviceContext &ctx);
-		bool ADD_DEVICE_SETUP_GATEWAY(AddDeviceContext &ctx);
-		bool ADD_DEVICE_SETUP_MESH(AddDeviceContext &ctx);
-		bool ADD_DEVICE_UPDATE_DB(AddDeviceContext &ctx);
 	};
 } // namespace OpenWifi
