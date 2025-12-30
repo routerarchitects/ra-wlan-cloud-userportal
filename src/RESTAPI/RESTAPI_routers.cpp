@@ -1,3 +1,8 @@
+/*
+ * SPDX-License-Identifier: AGPL-3.0 OR LicenseRef-Commercial
+ * Copyright (c) 2025 Infernet Systems Pvt Ltd
+ * Portions copyright (c) Telecom Infra Project (TIP), BSD-3-Clause
+ */
 //
 // Created by stephane bourque on 2021-10-23.
 //
@@ -8,6 +13,7 @@
 #include "RESTAPI/RESTAPI_mfa_handler.h"
 #include "RESTAPI/RESTAPI_oauth2_handler.h"
 #include "RESTAPI/RESTAPI_signup_handler.h"
+#include "RESTAPI/RESTAPI_topology_handler.h"
 #include "RESTAPI/RESTAPI_stats_handler.h"
 #include "RESTAPI/RESTAPI_subscriber_handler.h"
 #include "RESTAPI/RESTAPI_wifiClients_handler.h"
@@ -25,7 +31,7 @@ namespace OpenWifi {
 							  RESTAPI_subscriber_handler, RESTAPI_oauth2_handler,
 							  RESTAPI_action_handler, RESTAPI_mfa_handler, RESTAPI_claim_handler,
 							  RESTAPI_signup_handler, RESTAPI_system_command, RESTAPI_system_configuration,
-                              RESTAPI_stats_handler,
+                              RESTAPI_stats_handler, RESTAPI_topology_handler,
 							  RESTAPI_webSocketServer>(Path, Bindings, L, S, TransactionId);
 	}
 
@@ -36,6 +42,7 @@ namespace OpenWifi {
 								RESTAPI_subscriber_handler, RESTAPI_oauth2_handler,
 								RESTAPI_action_handler, RESTAPI_mfa_handler, RESTAPI_claim_handler,
 								RESTAPI_signup_handler, RESTAPI_system_command, RESTAPI_system_configuration,
+								RESTAPI_topology_handler,
 								RESTAPI_stats_handler>(Path, Bindings, L, S, TransactionId);
 	}
 
