@@ -35,7 +35,15 @@ namespace OpenWifi::SDK::Prov {
 			}
 			return false;
 		}
-
+		bool DeleteInventoryDevice(RESTAPIHandler *client, const std::string &SerialNumber) {
+			std::string EndPoint = "/api/v1/inventory/" + SerialNumber;
+			auto API = OpenAPIRequestDelete(uSERVICE_PROVISIONING, EndPoint, {}, 60000);
+			auto ResponseStatus = API.Do(client == nullptr ? "" : client->UserInfo_.webtoken.access_token_);
+			if (ResponseStatus != Poco::Net::HTTPResponse::HTTP_OK) {
+				Poco::Logger::get("SDK_prov").error(fmt::format("Failed to delete inventory device [{}]", SerialNumber));
+			}
+			return ResponseStatus == Poco::Net::HTTPResponse::HTTP_OK;
+		}
 	} // namespace Device
 
 	namespace Configuration {

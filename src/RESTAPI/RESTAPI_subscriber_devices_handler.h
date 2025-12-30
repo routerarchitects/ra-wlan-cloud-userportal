@@ -9,6 +9,7 @@
 namespace OpenWifi {
 	
 	struct AddDeviceContext;
+	struct DeleteDeviceContext;
 
 	class RESTAPI_subscriber_devices_handler : public RESTAPIHandler {
 	  public:
@@ -36,5 +37,13 @@ namespace OpenWifi {
 		bool ADD_DEVICE_SETUP_GATEWAY(AddDeviceContext &ctx);
 		bool ADD_DEVICE_SETUP_MESH(AddDeviceContext &ctx);
 		bool ADD_DEVICE_UPDATE_DB(AddDeviceContext &ctx);
+
+        bool DELETE_DEVICE_VALIDATE_INPUTS(DeleteDeviceContext &ctx);
+        bool DELETE_DEVICE_VALIDATE_OWNERSHIP(DeleteDeviceContext &ctx);
+        bool DELETE_DEVICE_LOAD_SUBINFO_AND_SET_RESET_FLAG(DeleteDeviceContext &ctx);
+ 		bool DELETE_DEVICE_EXECUTE_GATEWAY_DELETE(DeleteDeviceContext &ctx);
+    	bool DELETE_DEVICE_EXECUTE_MESH_DELETE(DeleteDeviceContext &ctx);
+		bool DELETE_DEVICE_DELETE_FROM_ALL_DATABASES(const std::string &mac);
+
 	};
 } // namespace OpenWifi

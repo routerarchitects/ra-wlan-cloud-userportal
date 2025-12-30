@@ -66,7 +66,10 @@ namespace OpenWifi::SDK::GW {
 			auto API = OpenAPIRequestPost(uSERVICE_GATEWAY, EndPoint, {}, CommandRequest, 60000);
 			Poco::JSON::Object::Ptr CallResponse;
 
-			auto ResponseStatus = API.Do(CallResponse, client->UserInfo_.webtoken.access_token_);
+			auto ResponseStatus = API.Do(CallResponse, client ? client->UserInfo_.webtoken.access_token_ : "");
+			if (client == nullptr) {
+				return;
+			}
 			if (ResponseStatus == Poco::Net::HTTPServerResponse::HTTP_GATEWAY_TIMEOUT) {
 				Poco::JSON::Object ResponseObject;
 				ResponseObject.set("Code", Poco::Net::HTTPServerResponse::HTTP_GATEWAY_TIMEOUT);
@@ -506,5 +509,14 @@ namespace OpenWifi::SDK::GW {
 			return false;
 		}
 
+		bool GWDelete(RESTAPIHandler *client, const std::string &SerialNumber) {
+			auto API = OpenAPIRequestDelete(uSERVICE_GATEWAY, "/api/v1/device/" + SerialNumber, {}, 15000);
+			const auto status =	API.Do(client ? client->UserInfo_.webtoken.access_token_ : "");
+			if (status != Poco::Net::HTTPResponse::HTTP_OK) {
+				Poco::Logger::get("SDK_gw").error(fmt::format("Controller delete device [{}] failed.", SerialNumber));
+				return false;
+			}
+			return true;
+		}
 	} // namespace Device
 } // namespace OpenWifi::SDK::GW

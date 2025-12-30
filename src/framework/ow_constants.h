@@ -445,6 +445,7 @@ namespace OpenWifi::RESTAPI::Errors {
 	static const struct msg AddDeviceFailed {1194, "Failed to add new device."};
 	static const struct msg ApplyConfigFailed {1195, "Failed to apply configuration to device."};
 	static const struct msg RecordNotFound {1196, "No Record Found."};
+	static const struct msg RecordNotDeleted {1197, "Record could not be deleted."};
     static const struct msg SimulationDoesNotExist {
         7000, "Simulation Instance ID does not exist."
     };

@@ -21,6 +21,7 @@ namespace OpenWifi::SDK::Prov {
 				 ProvObjects::InventoryTag &Device);
 		bool SetConfiguration(RESTAPIHandler *client, const std::string &Mac,
 							  const std::string &ConfigUUID);
+		bool DeleteInventoryDevice(RESTAPIHandler *client, const std::string &SerialNumber);
 	} // namespace Device
 
 	namespace Configuration {

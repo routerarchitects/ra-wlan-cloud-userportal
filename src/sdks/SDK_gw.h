@@ -38,5 +38,6 @@ namespace OpenWifi::SDK::GW {
 		bool SetSubscriber(RESTAPIHandler *client, const std::string &SerialNumber,
 						   const std::string &uuid);
 		bool GetOUIs(RESTAPIHandler *client, Types::StringPairVec &MacList);
+		bool GWDelete(RESTAPIHandler *client, const std::string &SerialNumber);
 	} // namespace Device
 } // namespace OpenWifi::SDK::GW
