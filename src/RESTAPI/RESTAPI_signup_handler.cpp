@@ -15,7 +15,7 @@
 namespace OpenWifi {
 
 	void RESTAPI_signup_handler::DoPost() {
-		//  do dome basic checking before we send this over.
+	//  do dome basic checking before we send this over
 		auto UserName = GetParameter("email");
 		Poco::toLowerInPlace(UserName);
 		Poco::trimInPlace(UserName);
