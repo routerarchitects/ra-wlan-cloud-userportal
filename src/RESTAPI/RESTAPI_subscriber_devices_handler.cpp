@@ -54,13 +54,13 @@ namespace OpenWifi {
 	};
 
     /*
-        Add_Device_Validate_Ownership:
+        Add_Device_Validate_Subscriber:
         1. Ensure inventory has a record for the provided MAC.
         2. Ensure the device is not already provisioned to another subscriber.
         3. If already linked to this subscriber, check if device exists in SubInfoDB and return error if found.
         4. If linked to same subcriber but not in SubInfoDB, proceed with adding the device as Gateway or Mesh.
     */
-	bool RESTAPI_subscriber_devices_handler::Add_Device_Validate_Ownership(AddDeviceContext &ctx) {
+	bool RESTAPI_subscriber_devices_handler::Add_Device_Validate_Subscriber(AddDeviceContext &ctx) {
 
 		if (!SDK::Prov::Device::Get(this, ctx.Mac, ctx.InventoryTag)) {
 			Logger().error(fmt::format("Inventory table has no record for MAC: {}.", ctx.Mac));
@@ -242,7 +242,7 @@ namespace OpenWifi {
 		AddDeviceContext ctx;
 
 		if (!Validate_Inputs(ctx.Mac)) return;
-		if (!Add_Device_Validate_Ownership(ctx)) return;
+		if (!Add_Device_Validate_Subscriber(ctx)) return;
 		if (!Load_Subscriber_Info(ctx.SubscriberInfo)) return;
 
 		if (ctx.SubscriberInfo.accessPoints.list.empty()) {
@@ -297,7 +297,7 @@ namespace OpenWifi {
 	}
 
 	/*
-		Execute_Gateway_Delete:
+		Delete_Device_Execute_Gateway_Delete:
 		1) For each device in subscriber's device list:
 		   - Send factory reset command.
 		   - Delete device record from controller (owgw-devicesDB).
@@ -305,7 +305,7 @@ namespace OpenWifi {
 		   - Delete inventory record (owprov-inventoryDB).
 		2) Clear subscriber's device list in subscriber own database (owsub-SubInfoDB).
 	*/
-		bool RESTAPI_subscriber_devices_handler::Execute_Gateway_Delete(DeleteDeviceContext &ctx) {
+		bool RESTAPI_subscriber_devices_handler::Delete_Device_Execute_Gateway_Delete(DeleteDeviceContext &ctx) {
 		Logger().information(fmt::format("Deleting all devices for subscriber [{}].", UserInfo_.userinfo.id));
 
     	auto &SI = ctx.SubscriberInfo;
@@ -326,7 +326,7 @@ namespace OpenWifi {
 	}
 
 	/*
-		Execute_Mesh_Delete:
+		Delete_Device_Execute_Mesh_Delete:
 		1) For single mesh device:
 		   - Send factory reset command to that device.
 		   - Delete device record from controller (owgw-devicesDB).
@@ -334,7 +334,7 @@ namespace OpenWifi {
 		   - Delete inventory record (owprov-inventoryDB).
 		   - Delete single device data from susbcriber's own database (owsub-SubInfoDB).
 	*/
-	bool RESTAPI_subscriber_devices_handler::Execute_Mesh_Delete(DeleteDeviceContext &ctx) {
+	bool RESTAPI_subscriber_devices_handler::Delete_Device_Execute_Mesh_Delete(DeleteDeviceContext &ctx) {
 		Logger().information(fmt::format("Deleting mesh device [{}] for subscriber [{}].", ctx.RemoveMac, UserInfo_.userinfo.id));
 
 		auto &SI = ctx.SubscriberInfo;
@@ -395,17 +395,17 @@ namespace OpenWifi {
 		if (!Validate_Inputs(ctx.RemoveMac))
 			return;
 
-		if (!Delete_Device_Validate_Ownership(ctx))
+		if (!Delete_Device_Validate_Subscriber(ctx))
 			return;
 
 		if (!Load_Subscriber_Info(ctx.SubscriberInfo))
 			return;
 
 		if (!ctx.SubscriberInfo.accessPoints.list.empty() && ctx.SubscriberInfo.accessPoints.list.front().macAddress == ctx.RemoveMac) {
-			if (!Execute_Gateway_Delete(ctx))
+			if (!Delete_Device_Execute_Gateway_Delete(ctx))
 				return;
 		} else {
-			if (!Execute_Mesh_Delete(ctx))
+			if (!Delete_Device_Execute_Mesh_Delete(ctx))
 				return;
 		}
 		return OK();

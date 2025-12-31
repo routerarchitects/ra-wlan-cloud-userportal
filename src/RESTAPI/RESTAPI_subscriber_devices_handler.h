@@ -37,14 +37,14 @@ namespace OpenWifi {
 		bool Validate_Inputs(std::string &mac);
 		bool Load_Subscriber_Info(SubObjects::SubscriberInfo &subInfo);
 
-		bool Add_Device_Validate_Ownership(AddDeviceContext &ctx);
+		bool Add_Device_Validate_Subscriber(AddDeviceContext &ctx);
 		bool Add_Device_Setup_Gateway(AddDeviceContext &ctx);
 		bool Add_Device_Setup_Mesh(AddDeviceContext &ctx);
 		bool Add_Device_Update_Db(AddDeviceContext &ctx);
 
-		bool Delete_Device_Validate_Ownership(DeleteDeviceContext &ctx);
-		bool Execute_Gateway_Delete(DeleteDeviceContext &ctx);
-		bool Execute_Mesh_Delete(DeleteDeviceContext &ctx);
+		bool Delete_Device_Validate_Subscriber(DeleteDeviceContext &ctx);
+		bool Delete_Device_Execute_Gateway_Delete(DeleteDeviceContext &ctx);
+		bool Delete_Device_Execute_Mesh_Delete(DeleteDeviceContext &ctx);
 		bool Delete_Device_From_All_Databases(const std::string &mac);
 
 	};
