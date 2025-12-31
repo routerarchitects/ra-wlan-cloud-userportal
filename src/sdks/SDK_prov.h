@@ -48,6 +48,7 @@ namespace OpenWifi::SDK::Prov {
 		bool SetDevice(RESTAPIHandler *client, const ProvObjects::SubscriberDevice &D);
 		bool GetDevice(RESTAPIHandler *client, const std::string &SerialNumber,
 					   ProvObjects::SubscriberDevice &D);
+		bool DeleteProvSubscriberDevice(RESTAPIHandler *client, const std::string &SerialNumber);
 	} // namespace Subscriber
 
 } // namespace OpenWifi::SDK::Prov

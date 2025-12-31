@@ -35,6 +35,12 @@ namespace OpenWifi::SDK::Prov {
 			}
 			return false;
 		}
+		/*
+		   DeleteInventoryDevice:
+		   1. Send a delete request to Provisioning to remove this device from the Inventory list (by serial number).
+		   2. If Provisioning confirms the delete (HTTP 200 OK), return true.
+		   3. Otherwise log an error and return false.
+		*/
 		bool DeleteInventoryDevice(RESTAPIHandler *client, const std::string &SerialNumber) {
 			std::string EndPoint = "/api/v1/inventory/" + SerialNumber;
 			auto API = OpenAPIRequestDelete(uSERVICE_PROVISIONING, EndPoint, {}, 60000);
@@ -309,6 +315,27 @@ namespace OpenWifi::SDK::Prov {
 				return false;
 			}
 			return D.from_json(CallResponse);
+		}
+		/*
+		   DeleteProvSubscriberDevice:
+		   1. Find the device entry in Provisioning-subscriber_device database using the device serial number.
+		   2. If no device exist return error.
+		   3. If it is found, send a delete request to Provisioning to remove that device entry.
+		   4. Return success if Provisioning confirms the delete (HTTP 200 OK).
+		*/
+		bool DeleteProvSubscriberDevice(RESTAPIHandler *client, const std::string &SerialNumber) {
+			ProvObjects::SubscriberDevice device;
+			if (!GetDevice(client, SerialNumber, device) || device.info.id.empty()) {
+				Poco::Logger::get("SDK_prov").error(fmt::format("Could not find device [{}]", SerialNumber));
+				return false;
+			}
+			std::string EndPoint = "/api/v1/subscriberDevice/" + device.info.id;
+			auto API = OpenAPIRequestDelete(uSERVICE_PROVISIONING, EndPoint, {}, 60000);
+			auto ResponseStatus = API.Do(client ? client->UserInfo_.webtoken.access_token_ : "");
+			if (ResponseStatus != Poco::Net::HTTPResponse::HTTP_OK) {
+				Poco::Logger::get("SDK_prov").error(fmt::format("Failed to delete device [{}] from provisioning subdevice table ", SerialNumber));
+			}
+			return ResponseStatus == Poco::Net::HTTPResponse::HTTP_OK;
 		}
 	} // namespace Subscriber
 

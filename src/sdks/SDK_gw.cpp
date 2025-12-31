@@ -508,8 +508,12 @@ namespace OpenWifi::SDK::GW {
 			}
 			return false;
 		}
-
-		bool GWDelete(RESTAPIHandler *client, const std::string &SerialNumber) {
+		/*
+		   DeleteOwgwDevice:
+		   1. Issue a DELETE request to the gateway/controller for the given SerialNumber.
+		   2. Return success only when owgw responds with HTTP 200 OK.
+		*/
+		bool DeleteOwgwDevice(RESTAPIHandler *client, const std::string &SerialNumber) {
 			auto API = OpenAPIRequestDelete(uSERVICE_GATEWAY, "/api/v1/device/" + SerialNumber, {}, 15000);
 			const auto status =	API.Do(client ? client->UserInfo_.webtoken.access_token_ : "");
 			if (status != Poco::Net::HTTPResponse::HTTP_OK) {

@@ -4,9 +4,6 @@
  * Portions copyright (c) Telecom Infra Project (TIP), BSD-3-Clause
  */
 
-//
-// Created by stephane bourque on 2021-11-07.
-//
 #include "framework/ow_constants.h"
 #include "RESTAPI_subscriber_devices_handler.h"
 
@@ -23,7 +20,31 @@
 
 namespace OpenWifi {
 
-struct AddDeviceContext {
+	bool RESTAPI_subscriber_devices_handler::Validate_Inputs(std::string &mac) {
+		if (UserInfo_.userinfo.id.empty()) {
+			Logger().error("Subscriber id is missing.");
+			NotFound();
+			return false;
+		}
+		mac = GetBinding("mac", "");
+		if (!Utils::NormalizeMac(mac)) {
+			Logger().error(fmt::format("Invalid MAC: [{}]", mac));
+			BadRequest(RESTAPI::Errors::InvalidSerialNumber);
+			return false;
+		}
+		return true;
+	}
+
+	bool RESTAPI_subscriber_devices_handler::Load_Subscriber_Info(SubObjects::SubscriberInfo &subInfo) {
+		if (!StorageService()->SubInfoDB().GetRecord("id", UserInfo_.userinfo.id, subInfo)) {
+			Logger().error(fmt::format("Failed to fetch subscriber information for id: {}.", UserInfo_.userinfo.id));
+			InternalError(RESTAPI::Errors::RecordNotFound);
+			return false;
+		}
+		return true;
+	}
+
+	struct AddDeviceContext {
 		std::string Mac;
 		ProvObjects::InventoryTag InventoryTag{};
 		SubObjects::SubscriberInfo SubscriberInfo{};
@@ -33,35 +54,13 @@ struct AddDeviceContext {
 	};
 
     /*
-        ADD_DEVICE_VALIDATE_INPUTS:
-        1. Ensure subscriber id is present.
-        2. Ensure mac parameter is present and valid.
-    */
-	bool RESTAPI_subscriber_devices_handler::ADD_DEVICE_VALIDATE_INPUTS(AddDeviceContext &ctx) {
-
-		if (UserInfo_.userinfo.id.empty()) {
-			Logger().error("Subscriber id is missing.");
-			NotFound();
-			return false;
-		}
-
-		ctx.Mac = GetBinding("mac", "");
-		if (!Utils::NormalizeMac(ctx.Mac)) {
-			Logger().error(fmt::format("Invalid MAC: [{}]", ctx.Mac));
-			BadRequest(RESTAPI::Errors::InvalidSerialNumber);
-			return false;
-		}
-		return true;
-	}
-
-    /*
-        ADD_DEVICE_VALIDATE_INVENTORY_OWNERSHIP:
+        Add_Device_Validate_Ownership:
         1. Ensure inventory has a record for the provided MAC.
         2. Ensure the device is not already provisioned to another subscriber.
         3. If already linked to this subscriber, check if device exists in SubInfoDB and return error if found.
         4. If linked to same subcriber but not in SubInfoDB, proceed with adding the device as Gateway or Mesh.
     */
-	bool RESTAPI_subscriber_devices_handler::ADD_DEVICE_VALIDATE_INVENTORY_OWNERSHIP(AddDeviceContext &ctx) {
+	bool RESTAPI_subscriber_devices_handler::Add_Device_Validate_Ownership(AddDeviceContext &ctx) {
 
 		if (!SDK::Prov::Device::Get(this, ctx.Mac, ctx.InventoryTag)) {
 			Logger().error(fmt::format("Inventory table has no record for MAC: {}.", ctx.Mac));
@@ -87,25 +86,15 @@ struct AddDeviceContext {
 		return true;
 	}
 
-	bool RESTAPI_subscriber_devices_handler::ADD_DEVICE_LOAD_SUBSCRIBER_INFO(AddDeviceContext &ctx) {
-
-		if (!StorageService()->SubInfoDB().GetRecord("id", UserInfo_.userinfo.id, ctx.SubscriberInfo)) {
-			Logger().error(fmt::format("Failed to fetch subscriber information for id: {}.", UserInfo_.userinfo.id));
-			InternalError(RESTAPI::Errors::RecordNotFound);
-			return false;
-		}
-		return true;
-	}
-
     /*
-        ADD_DEVICE_SETUP_GATEWAY:
+        Add_Device_Setup_Gateway:
         1. Create provisioning-subdevice table record for gateway device.
         2. Create gateway device record in SubInfoDB.
         2. Prepare default configuration for the gateway device.
         3. Persist the configuration in provisioning.
         4. Send the configuration to the device.
     */
-	bool RESTAPI_subscriber_devices_handler::ADD_DEVICE_SETUP_GATEWAY(AddDeviceContext &ctx) {
+	bool RESTAPI_subscriber_devices_handler::Add_Device_Setup_Gateway(AddDeviceContext &ctx) {
         Logger().information(fmt::format("Adding a Gateway Device: {} for subscriber: {}.", ctx.Mac, UserInfo_.userinfo.id));
 
 		ProvObjects::SubscriberDevice dev;
@@ -140,14 +129,14 @@ struct AddDeviceContext {
 	}
 
     /*
-        ADD_DEVICE_SETUP_MESH:
+        Add_Device_Setup_Mesh:
         1. Ensure there is an existing gateway device for the subscriber.
         1. Fetch the gateway configuration and validate its mesh config block.
         3. Create provisioning subdevice record.
         4. Build the mesh configuration.
         5. Prepare/persist the configuration in provisioning-subdevice database and send config to device.
     */
-	bool RESTAPI_subscriber_devices_handler::ADD_DEVICE_SETUP_MESH(AddDeviceContext &ctx) {
+	bool RESTAPI_subscriber_devices_handler::Add_Device_Setup_Mesh(AddDeviceContext &ctx) {
         Logger().information(fmt::format("Adding a Mesh Device: {} for subscriber: {}.", ctx.Mac, UserInfo_.userinfo.id));
 
 		if (ctx.SubscriberInfo.accessPoints.list.empty()) {
@@ -201,12 +190,12 @@ struct AddDeviceContext {
 	}
 
     /*
-        ADD_DEVICE_UPDATE_DB:
+        Add_Device_Update_Db:
         1. Link the device to the subscriber in gateway.
         2. Link the device to the subscriber in provisioning.
         3. Update SubInfoDB with new device information.
     */
-	bool RESTAPI_subscriber_devices_handler::ADD_DEVICE_UPDATE_DB(AddDeviceContext &ctx) {
+	bool RESTAPI_subscriber_devices_handler::Add_Device_Update_Db(AddDeviceContext &ctx) {
 
 		if (ctx.SubDevice.serialNumber.empty()) {
 			Logger().error(fmt::format("Provisioned device information is missing for device {}.", ctx.Mac));
@@ -252,17 +241,17 @@ struct AddDeviceContext {
 
 		AddDeviceContext ctx;
 
-		if (!ADD_DEVICE_VALIDATE_INPUTS(ctx)) return;
-		if (!ADD_DEVICE_VALIDATE_INVENTORY_OWNERSHIP(ctx)) return;
-		if (!ADD_DEVICE_LOAD_SUBSCRIBER_INFO(ctx)) return;
+		if (!Validate_Inputs(ctx.Mac)) return;
+		if (!Add_Device_Validate_Ownership(ctx)) return;
+		if (!Load_Subscriber_Info(ctx.SubscriberInfo)) return;
 
 		if (ctx.SubscriberInfo.accessPoints.list.empty()) {
-			if (!ADD_DEVICE_SETUP_GATEWAY(ctx)) return;
+			if (!Add_Device_Setup_Gateway(ctx)) return;
 		} else {
-			if (!ADD_DEVICE_SETUP_MESH(ctx)) return;
+			if (!Add_Device_Setup_Mesh(ctx)) return;
 		}
 
-		if (!ADD_DEVICE_UPDATE_DB(ctx)) return;
+		if (!Add_Device_Update_Db(ctx)) return;
 
 		return OK();
 	}
@@ -271,37 +260,15 @@ struct AddDeviceContext {
 		std::string RemoveMac{};
 		ProvObjects::InventoryTag InventoryTag{};
 		SubObjects::SubscriberInfo SubscriberInfo{};
-		bool GotSubInfo{false};
-		bool ResetAllDevices{false};
 	};
 
 	/*
-		DELETE_DEVICE_VALIDATE_INPUTS:
-		1) Ensure subscriber id is present.
-		2) Read "mac" query parameter (must be present).
-	*/
-	bool RESTAPI_subscriber_devices_handler::DELETE_DEVICE_VALIDATE_INPUTS(DeleteDeviceContext &ctx) {
-		if (UserInfo_.userinfo.id.empty()) {
-			Logger().error("Received device delete request without subscriber id.");
-			NotFound();
-			return false;
-		}
-		ctx.RemoveMac = GetBinding("mac", "");
-		if (!Utils::NormalizeMac(ctx.RemoveMac)) {
-			Logger().error(fmt::format("Invalid MAC: {}", ctx.RemoveMac));
-			BadRequest(RESTAPI::Errors::InvalidSerialNumber);
-			return false;
-		}
-		return true;
-	}
-
-	/*
-		DELETE_DEVICE_VALIDATE_OWNERSHIP:
+		Delete_Device_Validate_Ownership:
 		- Check inventory: if another subscriber owns it, reject; if this subscriber owns it, allow deletion.
 		- If inventory shows no owner, but device still exists in subscriber's database, allow deletion.
 		- Otherwise return DeviceNotFound.
 	*/
-	bool RESTAPI_subscriber_devices_handler::DELETE_DEVICE_VALIDATE_OWNERSHIP(DeleteDeviceContext &ctx) {
+	bool RESTAPI_subscriber_devices_handler::Delete_Device_Validate_Ownership(DeleteDeviceContext &ctx) {
 
 		if (SDK::Prov::Device::Get(this, ctx.RemoveMac, ctx.InventoryTag)) {
 
@@ -324,27 +291,13 @@ struct AddDeviceContext {
 				}
 			}
 		}
-		Logger().error(fmt::format("No device found with MAC [{}].", ctx.RemoveMac));
+		Logger().error(fmt::format("No device found with MAC [{}] for subscriber [{}].", ctx.RemoveMac, UserInfo_.userinfo.id));
 		NotFound();
 		return false;
 	}
 
 	/*
-    	DELETE_DEVICE_LOAD_SUBINFO_AND_SET_RESET_FLAG:
-   		- Load subscriber info.
-		- If the device to be removed matches the gateway device, set ResetAllDevices flag to true.
-	*/
-	bool RESTAPI_subscriber_devices_handler::DELETE_DEVICE_LOAD_SUBINFO_AND_SET_RESET_FLAG(DeleteDeviceContext &ctx) {
-		ctx.GotSubInfo = StorageService()->SubInfoDB().GetRecord("id", UserInfo_.userinfo.id, ctx.SubscriberInfo);
-		if (ctx.GotSubInfo && !ctx.SubscriberInfo.accessPoints.list.empty()) {
-			const auto &gatewayAP = ctx.SubscriberInfo.accessPoints.list.front();
-			ctx.ResetAllDevices = (gatewayAP.macAddress == ctx.RemoveMac);
-		}
-		return true;
-	}
-
-	/*
-		DELETE_DEVICE_EXECUTE_GATEWAY_DELETE:
+		Execute_Gateway_Delete:
 		1) For each device in subscriber's device list:
 		   - Send factory reset command.
 		   - Delete device record from controller (owgw-devicesDB).
@@ -352,30 +305,28 @@ struct AddDeviceContext {
 		   - Delete inventory record (owprov-inventoryDB).
 		2) Clear subscriber's device list in subscriber own database (owsub-SubInfoDB).
 	*/
-		bool RESTAPI_subscriber_devices_handler::DELETE_DEVICE_EXECUTE_GATEWAY_DELETE(DeleteDeviceContext &ctx) {
+		bool RESTAPI_subscriber_devices_handler::Execute_Gateway_Delete(DeleteDeviceContext &ctx) {
 		Logger().information(fmt::format("Deleting all devices for subscriber [{}].", UserInfo_.userinfo.id));
 
     	auto &SI = ctx.SubscriberInfo;
 		for (const auto &ap : SI.accessPoints.list) {
-			if (!DELETE_DEVICE_DELETE_FROM_ALL_DATABASES(ap.macAddress)) {
+			if (!Delete_Device_From_All_Databases(ap.macAddress)) {
 				InternalError(RESTAPI::Errors::RecordNotDeleted);
 				return false;
 			}
 		}
 
-		if (ctx.GotSubInfo) {
-			SI.accessPoints.list.clear();
-			if (!StorageService()->SubInfoDB().UpdateRecord("id", UserInfo_.userinfo.id, SI)) {
-				Logger().error(fmt::format("Failed to clear owsub accessPoints for subscriber [{}].", UserInfo_.userinfo.id));
-				InternalError(RESTAPI::Errors::RecordNotUpdated);
-				return false;
-			}
+		SI.accessPoints.list.clear();
+		if (!StorageService()->SubInfoDB().UpdateRecord("id", UserInfo_.userinfo.id, SI)) {
+			Logger().error(fmt::format("Failed to clear owsub accessPoints for subscriber [{}].", UserInfo_.userinfo.id));
+			InternalError(RESTAPI::Errors::RecordNotUpdated);
+			return false;
 		}
 		return true;
 	}
 
 	/*
-		DELETE_DEVICE_EXECUTE_MESH_DELETE:
+		Execute_Mesh_Delete:
 		1) For single mesh device:
 		   - Send factory reset command to that device.
 		   - Delete device record from controller (owgw-devicesDB).
@@ -383,16 +334,15 @@ struct AddDeviceContext {
 		   - Delete inventory record (owprov-inventoryDB).
 		   - Delete single device data from susbcriber's own database (owsub-SubInfoDB).
 	*/
-	bool RESTAPI_subscriber_devices_handler::DELETE_DEVICE_EXECUTE_MESH_DELETE(DeleteDeviceContext &ctx) {
+	bool RESTAPI_subscriber_devices_handler::Execute_Mesh_Delete(DeleteDeviceContext &ctx) {
 		Logger().information(fmt::format("Deleting mesh device [{}] for subscriber [{}].", ctx.RemoveMac, UserInfo_.userinfo.id));
 
 		auto &SI = ctx.SubscriberInfo;
-		if (!DELETE_DEVICE_DELETE_FROM_ALL_DATABASES(ctx.RemoveMac)) {
+		if (!Delete_Device_From_All_Databases(ctx.RemoveMac)) {
 			InternalError(RESTAPI::Errors::RecordNotDeleted);
 			return false;
 		}
 
-		if (ctx.GotSubInfo && !SI.accessPoints.list.empty()) {
 			// Drop this MAC data from accessPoints and update the subscriber record
 			SubObjects::AccessPointList updatedList;
 			for (const auto &ap : SI.accessPoints.list) {
@@ -407,23 +357,22 @@ struct AddDeviceContext {
 				InternalError(RESTAPI::Errors::RecordNotUpdated);
 				return false;
 			}
-		}
 		return true;
 	}
 
 	/*
-		DELETE_DEVICE_DELETE_FROM_ALL_DATABASES:
+		Delete_Device_From_All_Databases:
 		1) Send factory reset command to device.
 		2) Delete device record from controller (owgw-devicesDB).
 		3) Delete provisioning subdevice record (owprov-sub_deviceDB).
 		4) Delete inventory record (owprov-inventoryDB).
 	*/
-	bool RESTAPI_subscriber_devices_handler::DELETE_DEVICE_DELETE_FROM_ALL_DATABASES(const std::string &mac) {
+	bool RESTAPI_subscriber_devices_handler::Delete_Device_From_All_Databases(const std::string &mac) {
 
 		Logger().information(fmt::format("Sending factory reset command to device [{}]", mac));
 		SDK::GW::Device::Factory(nullptr, mac, 0, true);
 
-		if (!SDK::GW::Device::GWDelete(this, mac)) {
+		if (!SDK::GW::Device::DeleteOwgwDevice(this, mac)) {
 			Logger().error(fmt::format("Controller delete failed (or already deleted) for [{}].", mac));
 			return false;
 		}
@@ -443,20 +392,20 @@ struct AddDeviceContext {
 	void RESTAPI_subscriber_devices_handler::DoDelete() {
 		DeleteDeviceContext ctx;
 
-		if (!DELETE_DEVICE_VALIDATE_INPUTS(ctx))
+		if (!Validate_Inputs(ctx.RemoveMac))
 			return;
 
-		if (!DELETE_DEVICE_VALIDATE_OWNERSHIP(ctx))
+		if (!Delete_Device_Validate_Ownership(ctx))
 			return;
 
-		if (!DELETE_DEVICE_LOAD_SUBINFO_AND_SET_RESET_FLAG(ctx))
+		if (!Load_Subscriber_Info(ctx.SubscriberInfo))
 			return;
 
-		if (ctx.ResetAllDevices) {
-			if (!DELETE_DEVICE_EXECUTE_GATEWAY_DELETE(ctx))
+		if (!ctx.SubscriberInfo.accessPoints.list.empty() && ctx.SubscriberInfo.accessPoints.list.front().macAddress == ctx.RemoveMac) {
+			if (!Execute_Gateway_Delete(ctx))
 				return;
 		} else {
-			if (!DELETE_DEVICE_EXECUTE_MESH_DELETE(ctx))
+			if (!Execute_Mesh_Delete(ctx))
 				return;
 		}
 		return OK();

@@ -1,10 +1,13 @@
-//
-// Created by stephane bourque on 2021-11-07.
-//
+/*
+ * SPDX-License-Identifier: AGPL-3.0 OR LicenseRef-Commercial
+ * Copyright (c) 2025 Infernet Systems Pvt Ltd
+ * Portions copyright (c) Telecom Infra Project (TIP), BSD-3-Clause
+ */
 
 #pragma once
 
 #include "framework/RESTAPI_Handler.h"
+#include "RESTObjects/RESTAPI_SubObjects.h"
 
 namespace OpenWifi {
 	
@@ -31,19 +34,18 @@ namespace OpenWifi {
 		void DoDelete() final;
 
 	  private:
-	  	bool ADD_DEVICE_VALIDATE_INPUTS(AddDeviceContext &ctx);
-		bool ADD_DEVICE_VALIDATE_INVENTORY_OWNERSHIP(AddDeviceContext &ctx);
-		bool ADD_DEVICE_LOAD_SUBSCRIBER_INFO(AddDeviceContext &ctx);
-		bool ADD_DEVICE_SETUP_GATEWAY(AddDeviceContext &ctx);
-		bool ADD_DEVICE_SETUP_MESH(AddDeviceContext &ctx);
-		bool ADD_DEVICE_UPDATE_DB(AddDeviceContext &ctx);
+		bool Validate_Inputs(std::string &mac);
+		bool Load_Subscriber_Info(SubObjects::SubscriberInfo &subInfo);
 
-        bool DELETE_DEVICE_VALIDATE_INPUTS(DeleteDeviceContext &ctx);
-        bool DELETE_DEVICE_VALIDATE_OWNERSHIP(DeleteDeviceContext &ctx);
-        bool DELETE_DEVICE_LOAD_SUBINFO_AND_SET_RESET_FLAG(DeleteDeviceContext &ctx);
- 		bool DELETE_DEVICE_EXECUTE_GATEWAY_DELETE(DeleteDeviceContext &ctx);
-    	bool DELETE_DEVICE_EXECUTE_MESH_DELETE(DeleteDeviceContext &ctx);
-		bool DELETE_DEVICE_DELETE_FROM_ALL_DATABASES(const std::string &mac);
+		bool Add_Device_Validate_Ownership(AddDeviceContext &ctx);
+		bool Add_Device_Setup_Gateway(AddDeviceContext &ctx);
+		bool Add_Device_Setup_Mesh(AddDeviceContext &ctx);
+		bool Add_Device_Update_Db(AddDeviceContext &ctx);
+
+		bool Delete_Device_Validate_Ownership(DeleteDeviceContext &ctx);
+		bool Execute_Gateway_Delete(DeleteDeviceContext &ctx);
+		bool Execute_Mesh_Delete(DeleteDeviceContext &ctx);
+		bool Delete_Device_From_All_Databases(const std::string &mac);
 
 	};
 } // namespace OpenWifi
