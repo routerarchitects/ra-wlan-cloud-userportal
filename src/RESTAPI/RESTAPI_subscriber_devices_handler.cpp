@@ -68,13 +68,14 @@ namespace OpenWifi {
 			return false;
 		}
 
-		StorageService()->SubInfoDB().GetRecord("id", UserInfo_.userinfo.id, ctx.SubscriberInfo);
 		if (!ctx.InventoryTag.subscriber.empty()) {
 			if (ctx.InventoryTag.subscriber != UserInfo_.userinfo.id) {
 				Logger().error(fmt::format("Device: {} is already provisioned to subscriber: {}", ctx.Mac, ctx.InventoryTag.subscriber));
 				BadRequest(RESTAPI::Errors::SerialNumberAlreadyProvisioned);
 				return false;
 			}
+
+			// If owsub-DB contain the device under this subscriber, Do not allow re-provisioning.
 			for (const auto &ap : ctx.SubscriberInfo.accessPoints.list) {
 				if (ap.macAddress == ctx.Mac) {
 					Logger().error(fmt::format("Device: {} is already linked to subscriber: {}", ctx.Mac, UserInfo_.userinfo.id));
@@ -242,8 +243,9 @@ namespace OpenWifi {
 		AddDeviceContext ctx;
 
 		if (!Validate_Inputs(ctx.Mac)) return;
-		if (!Add_Device_Validate_Subscriber(ctx)) return;
 		if (!Load_Subscriber_Info(ctx.SubscriberInfo)) return;
+
+		if (!Add_Device_Validate_Subscriber(ctx)) return;
 
 		if (ctx.SubscriberInfo.accessPoints.list.empty()) {
 			if (!Add_Device_Gateway(ctx)) return;
@@ -276,19 +278,16 @@ namespace OpenWifi {
 			return false;
 		}
 
-		if (!ctx.InventoryTag.subscriber.empty() && ctx.InventoryTag.subscriber != UserInfo_.userinfo.id) {
-			Logger().error(fmt::format("Subscriber [{}] trying to delete device [{}] owned by [{}].", UserInfo_.userinfo.id, ctx.Mac, ctx.InventoryTag.subscriber));
-			BadRequest(RESTAPI::Errors::SerialNumberAlreadyProvisioned);
-			return false;
-		}
-		if (ctx.InventoryTag.subscriber == UserInfo_.userinfo.id) {
-			Logger().information(fmt::format("Subscriber [{}] verified as owner of device [{}], allowing deletion.", UserInfo_.userinfo.id, ctx.Mac));
-			return true;
-		}
-		// If owsub-DB contains the device under this subscriber, allow delete.
-		if (StorageService()->SubInfoDB().GetRecord("id", UserInfo_.userinfo.id, ctx.SubscriberInfo)) {
+		if (!ctx.InventoryTag.subscriber.empty()) {
+			if (ctx.InventoryTag.subscriber != UserInfo_.userinfo.id) {
+				Logger().error(fmt::format("Subscriber [{}] trying to delete device [{}] owned by [{}].", UserInfo_.userinfo.id, ctx.Mac, ctx.InventoryTag.subscriber));
+				BadRequest(RESTAPI::Errors::SerialNumberAlreadyProvisioned);
+				return false;
+			}
+
+			// If owsub-DB contains the device under this subscriber, Allow deletion.
 			for (const auto &ap : ctx.SubscriberInfo.accessPoints.list) {
-				if (ap.macAddress == ctx.Mac) {
+				if (ap.macAddress == ctx.Mac)  {
 					Logger().information(fmt::format("Subscriber [{}] verified as owner of device [{}], allowing deletion.", UserInfo_.userinfo.id, ctx.Mac));
 					return true;
 				}
@@ -300,71 +299,6 @@ namespace OpenWifi {
 	}
 
 	/*
-		Delete_Device_Gateway:
-		1) For each device in subscriber's device list:
-		   - Send factory reset command.
-		   - Delete device record from controller (owgw-devicesDB).
-		   - Delete provisioning subdevice record (owprov-sub_deviceDB).
-		   - Delete inventory record (owprov-inventoryDB).
-		2) Clear subscriber's device list in subscriber own database (owsub-SubInfoDB).
-	*/
-		bool RESTAPI_subscriber_devices_handler::Delete_Device_Gateway(DeleteDeviceContext &ctx) {
-		Logger().information(fmt::format("Deleting all devices for subscriber [{}].", UserInfo_.userinfo.id));
-
-    	auto &SI = ctx.SubscriberInfo;
-		for (const auto &ap : SI.accessPoints.list) {
-			ctx.Mac = ap.macAddress;
-			if (!Delete_Device_Update_Database(ctx)) {
-				InternalError(RESTAPI::Errors::RecordNotDeleted);
-				return false;
-			}
-		}
-
-		SI.accessPoints.list.clear();
-		if (!StorageService()->SubInfoDB().UpdateRecord("id", UserInfo_.userinfo.id, SI)) {
-			Logger().error(fmt::format("Failed to clear owsub accessPoints for subscriber [{}].", UserInfo_.userinfo.id));
-			InternalError(RESTAPI::Errors::RecordNotUpdated);
-			return false;
-		}
-		return true;
-	}
-
-	/*
-		Delete_Device_Mesh:
-		1) For single mesh device:
-		   - Send factory reset command to that device.
-		   - Delete device record from controller (owgw-devicesDB).
-		   - Delete provisioning subdevice record (owprov-sub_deviceDB).
-		   - Delete inventory record (owprov-inventoryDB).
-		   - Delete single device data from susbcriber's own database (owsub-SubInfoDB).
-	*/
-	bool RESTAPI_subscriber_devices_handler::Delete_Device_Mesh(DeleteDeviceContext &ctx) {
-		Logger().information(fmt::format("Deleting mesh device [{}] for subscriber [{}].", ctx.Mac, UserInfo_.userinfo.id));
-
-		auto &SI = ctx.SubscriberInfo;
-		if (!Delete_Device_Update_Database(ctx)) {
-			InternalError(RESTAPI::Errors::RecordNotDeleted);
-			return false;
-		}
-
-			// Drop this MAC data from accessPoints and update the subscriber record
-			SubObjects::AccessPointList updatedList;
-			for (const auto &ap : SI.accessPoints.list) {
-				if (ap.macAddress != ctx.Mac) {
-					updatedList.list.push_back(ap);
-				}
-			}
-			SI.accessPoints.list = updatedList.list;
-
-			if (!StorageService()->SubInfoDB().UpdateRecord("id", UserInfo_.userinfo.id, SI)) {
-				Logger().error(fmt::format("Failed to update owsub record for subscriber [{}].", UserInfo_.userinfo.id));
-				InternalError(RESTAPI::Errors::RecordNotUpdated);
-				return false;
-			}
-		return true;
-	}
-
-	/*
 		Delete_Device_Update_Database:
 		1) Send factory reset command to device.
 		2) Delete device record from controller (owgw-devicesDB).
@@ -372,45 +306,40 @@ namespace OpenWifi {
 		4) Delete inventory record (owprov-inventoryDB).
 	*/
 	bool RESTAPI_subscriber_devices_handler::Delete_Device_Update_Database(DeleteDeviceContext &ctx) {
-
-		Logger().information(fmt::format("Sending factory reset command to device [{}]", ctx.Mac));
+		Logger().information(fmt::format("Sending factory reset command to device [{}] and deleting "
+			"records from gateway, provisioning and inventory.", ctx.Mac));
 		SDK::GW::Device::Factory(nullptr, ctx.Mac, 0, true);
-
-		if (!SDK::GW::Device::DeleteOwgwDevice(this, ctx.Mac)) {
-			Logger().error(fmt::format("Controller delete failed (or already deleted) for [{}].", ctx.Mac));
-			return false;
-		}
-
-		if (!SDK::Prov::Subscriber::DeleteProvSubscriberDevice(this, ctx.Mac)) {
-			Logger().error(fmt::format("Provisioning subdevice delete failed (or already deleted) for [{}].", ctx.Mac));
-			return false;
-		}
-
-		if (!SDK::Prov::Device::DeleteInventoryDevice(this, ctx.Mac)) {
-			Logger().error(fmt::format("Inventory delete failed (or already deleted) for [{}].", ctx.Mac));
-			return false;
-		}
+		SDK::GW::Device::DeleteOwgwDevice(this, ctx.Mac);
+		SDK::Prov::Subscriber::DeleteProvSubscriberDevice(this, ctx.Mac);
+		SDK::Prov::Device::DeleteInventoryDevice(this, ctx.Mac);
+		StorageService()->SubInfoDB().UpdateRecord("id", UserInfo_.userinfo.id, ctx.SubscriberInfo);
 		return true;
 	}
 
 	void RESTAPI_subscriber_devices_handler::DoDelete() {
+		Logger().information(fmt::format("Processing Delete Device {} request for subscriber: {}.", UserInfo_.userinfo.id));
+
 		DeleteDeviceContext ctx;
 
-		if (!Validate_Inputs(ctx.Mac))
-			return;
+		if (!Validate_Inputs(ctx.Mac)) return;
+		if (!Load_Subscriber_Info(ctx.SubscriberInfo)) return;
+		if (!Delete_Device_Validate_Subscriber(ctx)) return;
 
-		if (!Delete_Device_Validate_Subscriber(ctx))
-			return;
-
-		if (!Load_Subscriber_Info(ctx.SubscriberInfo))
-			return;
-
-		if (!ctx.SubscriberInfo.accessPoints.list.empty() && ctx.SubscriberInfo.accessPoints.list.front().macAddress == ctx.Mac) {
-			if (!Delete_Device_Gateway(ctx))
-				return;
+		auto &apList = ctx.SubscriberInfo.accessPoints.list;
+		if (apList.front().macAddress == ctx.Mac) {
+			for (const auto &ap : apList) {
+				ctx.Mac = ap.macAddress;
+				if (!Delete_Device_Update_Database(ctx)) return;
+			}
+			apList.clear();  // deleting gateway -> clear all
 		} else {
-			if (!Delete_Device_Mesh(ctx))
-				return;
+			SubObjects::AccessPointList updated;
+			for (const auto &ap : apList) {
+				if (ap.macAddress != ctx.Mac)
+					updated.list.push_back(ap);
+			}
+			apList = updated.list; // deleting mesh -> remove only that device
+			if (!Delete_Device_Update_Database(ctx)) return;
 		}
 		return OK();
 	}
