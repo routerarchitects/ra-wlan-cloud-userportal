@@ -66,7 +66,10 @@ namespace OpenWifi::SDK::GW {
 			auto API = OpenAPIRequestPost(uSERVICE_GATEWAY, EndPoint, {}, CommandRequest, 60000);
 			Poco::JSON::Object::Ptr CallResponse;
 
-			auto ResponseStatus = API.Do(CallResponse, client->UserInfo_.webtoken.access_token_);
+			auto ResponseStatus = API.Do(CallResponse, client ? client->UserInfo_.webtoken.access_token_ : "");
+			if (client == nullptr) {
+				return;
+			}
 			if (ResponseStatus == Poco::Net::HTTPServerResponse::HTTP_GATEWAY_TIMEOUT) {
 				Poco::JSON::Object ResponseObject;
 				ResponseObject.set("Code", Poco::Net::HTTPServerResponse::HTTP_GATEWAY_TIMEOUT);
@@ -157,6 +160,51 @@ namespace OpenWifi::SDK::GW {
             }
 			return Poco::Net::HTTPServerResponse::HTTP_OK;
         }
+
+		/*
+			ValidateMeshSSID:
+			1. Take the full device config, ensure the "configuration" block exists.
+			2. Check interfaces are present and upstream ports have no SSIDs.
+			3. Require at least one SSID with bss-mode == "mesh".
+		*/
+		bool ValidateMeshSSID(const Poco::JSON::Object::Ptr &deviceConfig, const std::string &serialNumber, Poco::Logger &logger) {
+			if (!deviceConfig || !deviceConfig->has("configuration")) {
+				logger.error(fmt::format("Invalid configuration for device {}: missing configuration block.", serialNumber));
+				return false;
+			}
+			auto configuration = deviceConfig->getObject("configuration");
+			if (!configuration) {
+				logger.error(fmt::format("Invalid configuration for device {}: Empty configuration.", serialNumber));
+				return false;
+			}
+			auto interfaces = configuration->getArray("interfaces");
+			if (!interfaces || interfaces->size() == 0) {
+				logger.error(fmt::format("Invalid configuration for device {}: missing interfaces.", serialNumber));
+				return false;
+			}
+			bool meshSsidFound = false;
+			for (std::size_t i = 0; i < interfaces->size(); ++i) {
+				auto iface = interfaces->getObject(i);
+				auto ssids = iface->getArray("ssids");
+				std::string role = iface->getValue<std::string>("role");
+				if (role == "upstream" && ssids && ssids->size() > 0) {
+					logger.error(fmt::format("Invalid configuration for device {}: upstream interface contains SSIDs.", serialNumber));
+					return false;
+				}
+				if (!ssids)
+					continue;
+				for (std::size_t j = 0; j < ssids->size(); ++j) {
+					auto ssid = ssids->getObject(j);
+					if (ssid && ssid->getValue<std::string>("bss-mode") == "mesh")
+						meshSsidFound = true;
+				}
+			}
+			if (!meshSsidFound) {
+				logger.error(fmt::format("Invalid configuration for device {}: missing mesh SSID.", serialNumber));
+				return false;
+			}
+			return true;
+		}
 
 		bool Configure(RESTAPIHandler *client, const std::string &Mac,
 					   Poco::JSON::Object::Ptr &Configuration, Poco::JSON::Object::Ptr &Response) {
@@ -460,6 +508,19 @@ namespace OpenWifi::SDK::GW {
 			}
 			return false;
 		}
-
+		/*
+		   DeleteOwgwDevice:
+		   1. Issue a DELETE request to the gateway/controller for the given SerialNumber.
+		   2. Return success only when owgw responds with HTTP 200 OK.
+		*/
+		bool DeleteOwgwDevice(RESTAPIHandler *client, const std::string &SerialNumber) {
+			auto API = OpenAPIRequestDelete(uSERVICE_GATEWAY, "/api/v1/device/" + SerialNumber, {}, 15000);
+			const auto status =	API.Do(client ? client->UserInfo_.webtoken.access_token_ : "");
+			if (status != Poco::Net::HTTPResponse::HTTP_OK) {
+				Poco::Logger::get("SDK_gw").error(fmt::format("Controller delete device [{}] failed.", SerialNumber));
+				return false;
+			}
+			return true;
+		}
 	} // namespace Device
 } // namespace OpenWifi::SDK::GW

@@ -23,6 +23,8 @@ namespace OpenWifi {
 		void CreateDefaultSubscriberInfo(const SecurityObjects::UserInfoAndPolicy &UI,
 										 SubObjects::SubscriberInfo &SI,
 										 const ProvObjects::SubscriberDeviceList &Devices);
+		void AddAccessPoint(SubObjects::SubscriberInfo &SI, const std::string &macAddress,
+							const std::string &deviceType, const ProvObjects::SubscriberDevice &ProvisionedDevice);
 
 	  private:
 	};

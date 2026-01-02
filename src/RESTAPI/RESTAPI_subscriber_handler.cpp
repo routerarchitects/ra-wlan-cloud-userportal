@@ -7,6 +7,7 @@
 //
 // Created by stephane bourque on 2021-11-07.
 //
+#include "framework/ow_constants.h"
 
 #include "RESTAPI_subscriber_handler.h"
 #include "ConfigMaker.h"
@@ -28,16 +29,13 @@ namespace OpenWifi {
 			Mods++;
 		}
 	}
-
+/*
+	GET /api/v1/subscriber on a first call:
+	1. Fetch provisioning subdevice record + device current config from controller.
+	2. Build default SSID/password and provisioning config from the controller data.
+	3. Persist the provisioning subdevice record, link the device to the subscriber (gateway + inventory), then store the subscriber record in the database.
+*/
 	void RESTAPI_subscriber_handler::DoGet() {
-		/*
-		Flow of GET /api/v1/subscriber when the subscriber calls this api for the first time:
-		1. RESTAPI_subscriber_handler::DoGet() calls ConfigMaker::DefaultConfig()
-		2. DefaultConfig() will fetch the current config from controller(owgw) (/api/v1/device/MAC)
-		3. It will then update ssid and password according to mac address.
-		4. Then it will call UpdateSubDevices() to update the provisioning database with the new config.
-		5. Finally, DefaultConfig() will call owprov to push the updated config to the device (/api/v1/inventory/MAC?applyConfiguration=true).
-		*/
 
 		if (UserInfo_.userinfo.id.empty()) {
 			return NotFound();
@@ -153,13 +151,32 @@ namespace OpenWifi {
 			fmt::format("{}: Creating default user information.", UserInfo_.userinfo.email));
 		StorageService()->SubInfoDB().CreateDefaultSubscriberInfo(UserInfo_, SI, Devices);
 		Logger().information(
-			fmt::format("{}: Creating default configuration.", UserInfo_.userinfo.email));
-		StorageService()->SubInfoDB().CreateRecord(SI);
-
-		Logger().information(
 			fmt::format("{}: Fetching Current configuration from controller", UserInfo_.userinfo.email));
 		ConfigMaker InitialConfig(Logger(), SI.id);
-		InitialConfig.DefaultConfig(SI);
+		
+		ProvObjects::SubscriberDevice subDevice;
+		const std::string targetMac = SI.accessPoints.list[0].macAddress;
+
+		if (!SDK::Prov::Subscriber::GetDevice(this, targetMac, subDevice)) {
+			Logger().error(fmt::format("Could not find provisioning subdevice for {}.", targetMac));
+			return InternalError(RESTAPI::Errors::ConfigBlockInvalid);
+		}
+		if (!InitialConfig.PrepareDefaultConfig(SI.accessPoints.list[0], subDevice)) {
+			Logger().error(fmt::format("Failed to create PrepareDefaultConfig: Fetched config is invalid for MAC {}.", SI.accessPoints.list[0].macAddress));
+			return InternalError(RESTAPI::Errors::ConfigBlockInvalid);
+		}
+		if (!SDK::Prov::Subscriber::SetDevice(this, subDevice)) {
+			Logger().error(fmt::format("Failed to persist provisioning config for {}.", subDevice.serialNumber));
+			return InternalError(RESTAPI::Errors::ConfigBlockInvalid);
+		}
+		if (!SDK::GW::Device::SetSubscriber(this, subDevice.serialNumber, SI.id)) {
+			Logger().error(fmt::format("Failed to link device {} to subscriber {} in gateway.", subDevice.serialNumber, SI.id));
+		}
+		if (!SDK::Prov::Subscriber::UpdateSubscriber(this, SI.id, subDevice.serialNumber, false)) {
+			Logger().error(fmt::format("Couldn't link device {} to subscriber {} in inventory.", subDevice.serialNumber, SI.id));
+		}
+		Logger().information(fmt::format("{}: Creating default configuration.", UserInfo_.userinfo.email));
+		StorageService()->SubInfoDB().CreateRecord(SI);
 		StorageService()->SubInfoDB().GetRecord("id", SI.id, SI);
 
 		Poco::JSON::Object Answer;
