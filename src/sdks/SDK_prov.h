@@ -51,4 +51,9 @@ namespace OpenWifi::SDK::Prov {
 		bool DeleteProvSubscriberDevice(RESTAPIHandler *client, const std::string &SerialNumber);
 	} // namespace Subscriber
 
+	namespace Signup {
+		bool Get_Signup_By_Email(RESTAPIHandler *client, const std::string &email, ProvObjects::SignupEntry &entry);
+		bool Update_Signup_Mac(RESTAPIHandler *client, const std::string &signupUUID, const std::string &macAddress);
+	} // namespace Signup
+
 } // namespace OpenWifi::SDK::Prov

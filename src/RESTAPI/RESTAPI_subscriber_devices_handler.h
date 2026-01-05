@@ -8,6 +8,7 @@
 
 #include "framework/RESTAPI_Handler.h"
 #include "RESTObjects/RESTAPI_SubObjects.h"
+#include "RESTObjects/RESTAPI_ProvObjects.h"
 
 namespace OpenWifi {
 	
@@ -43,9 +44,9 @@ namespace OpenWifi {
 		bool Add_Device_Update_Database(AddDeviceContext &ctx);
 
 		bool Delete_Device_Validate_Subscriber(DeleteDeviceContext &ctx);
-		bool Delete_Device_Gateway(DeleteDeviceContext &ctx);
-		bool Delete_Device_Mesh(DeleteDeviceContext &ctx);
 		bool Delete_Device_Update_Database(DeleteDeviceContext &ctx);
+		bool Get_Signup_Record(const std::string &email, ProvObjects::SignupEntry &entry);
+		bool Update_Prov_Signup_DB(const std::string &email, const std::string &mac);
 
 	};
 } // namespace OpenWifi

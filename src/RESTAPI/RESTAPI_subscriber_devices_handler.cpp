@@ -44,6 +44,22 @@ namespace OpenWifi {
 		return true;
 	}
 
+	bool RESTAPI_subscriber_devices_handler::Get_Signup_Record(const std::string &email, ProvObjects::SignupEntry &SE) {
+		if (!SDK::Prov::Signup::Get_Signup_By_Email(this, email, SE)) {
+			Logger().error(fmt::format("Failed to fetch signup record for email: {}.", email));
+			return false;
+		}
+		return true;
+	}
+
+	bool RESTAPI_subscriber_devices_handler::Update_Prov_Signup_DB(const std::string &email, const std::string &mac) {
+		ProvObjects::SignupEntry SE;
+		if (!Get_Signup_Record(email, SE)) {
+			return false;
+		}
+		return SDK::Prov::Signup::Update_Signup_Mac(this, SE.info.id, mac);
+	}
+
 	struct AddDeviceContext {
 		std::string Mac;
 		ProvObjects::InventoryTag InventoryTag{};
@@ -223,6 +239,14 @@ namespace OpenWifi {
 			InternalError(RESTAPI::Errors::RecordNotUpdated);
 			return false;
 		}
+		if ((ctx.SubscriberInfo.accessPoints.list.front().macAddress == ctx.Mac)) {
+			Logger().information(fmt::format("Linking gateway device: [{}] to subscriber: [{}] in signup table.", ctx.Mac, UserInfo_.userinfo.email));
+			if (!Update_Prov_Signup_DB(UserInfo_.userinfo.email, ctx.Mac)) {
+				Logger().error(fmt::format("Failed to link device: {} to subscriber: {} in signup table.", ctx.Mac, UserInfo_.userinfo.email));
+				InternalError(RESTAPI::Errors::RecordNotUpdated);
+				return false;
+			}
+		}
 		return true;
 	}
 
@@ -305,12 +329,16 @@ namespace OpenWifi {
 		1) Send factory reset command to device.
 		2) Delete device record from controller (owgw-devicesDB).
 		3) Delete provisioning subdevice record (owprov-sub_deviceDB).
-		4) Delete inventory record (owprov-inventoryDB).
+		4) Clear signup mac/serial if present.
+		5) Delete inventory record (owprov-inventoryDB).
 	*/
 	bool RESTAPI_subscriber_devices_handler::Delete_Device_Update_Database(DeleteDeviceContext &ctx) {
 		Logger().information(fmt::format("Sending factory reset command to device [{}] and deleting "
 			"records from gateway, provisioning and subscriber.", ctx.Mac));
 		SDK::GW::Device::Factory(nullptr, ctx.Mac, 0, true);
+		if (ctx.SubscriberInfo.accessPoints.list.front().macAddress == ctx.Mac) {
+			Update_Prov_Signup_DB(UserInfo_.userinfo.email, "");
+		}
 		SDK::GW::Device::DeleteOwgwDevice(this, ctx.Mac);
 		SDK::Prov::Subscriber::DeleteProvSubscriberDevice(this, ctx.Mac);
 		SDK::Prov::Device::DeleteInventoryDevice(this, ctx.Mac);
@@ -330,6 +358,7 @@ namespace OpenWifi {
 
 		auto &apList = ctx.SubscriberInfo.accessPoints.list;
 		if (apList.front().macAddress == ctx.Mac) {
+			Logger().information(fmt::format("Deleting all devices present under subscriber: [{}].", ctx.SubscriberInfo.id));
 			for (const auto &ap : apList) {
 				ctx.Mac = ap.macAddress;
 				if (!Delete_Device_Update_Database(ctx)) return;
@@ -341,6 +370,7 @@ namespace OpenWifi {
 				if (ap.macAddress != ctx.Mac)
 					updated.list.push_back(ap);
 			}
+			Logger().information(fmt::format("Deleting mesh device: [{}] for subscriber: [{}].", ctx.Mac, ctx.SubscriberInfo.id));
 			apList = updated.list; // deleting mesh -> remove only that device
 			if (!Delete_Device_Update_Database(ctx)) return;
 		}
