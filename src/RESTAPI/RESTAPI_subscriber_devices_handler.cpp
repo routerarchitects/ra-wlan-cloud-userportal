@@ -238,11 +238,13 @@ namespace OpenWifi {
         6. Return OK on success or appropriate error response on failure.
     */
 	void RESTAPI_subscriber_devices_handler::DoPost() {
-		Logger().information(fmt::format("Processing Add Device request for subscriber: {}.", UserInfo_.userinfo.id));
 
 		AddDeviceContext ctx;
 
 		if (!Validate_Inputs(ctx.Mac)) return;
+
+		Logger().information(fmt::format("Processing Add Device: [{}] request for subscriber: [{}].", ctx.Mac, UserInfo_.userinfo.id));
+
 		if (!Load_Subscriber_Info(ctx.SubscriberInfo)) return;
 
 		if (!Add_Device_Validate_Subscriber(ctx)) return;
@@ -307,21 +309,22 @@ namespace OpenWifi {
 	*/
 	bool RESTAPI_subscriber_devices_handler::Delete_Device_Update_Database(DeleteDeviceContext &ctx) {
 		Logger().information(fmt::format("Sending factory reset command to device [{}] and deleting "
-			"records from gateway, provisioning and inventory.", ctx.Mac));
+			"records from gateway, provisioning and subscriber.", ctx.Mac));
 		SDK::GW::Device::Factory(nullptr, ctx.Mac, 0, true);
 		SDK::GW::Device::DeleteOwgwDevice(this, ctx.Mac);
 		SDK::Prov::Subscriber::DeleteProvSubscriberDevice(this, ctx.Mac);
 		SDK::Prov::Device::DeleteInventoryDevice(this, ctx.Mac);
-		StorageService()->SubInfoDB().UpdateRecord("id", UserInfo_.userinfo.id, ctx.SubscriberInfo);
 		return true;
 	}
 
 	void RESTAPI_subscriber_devices_handler::DoDelete() {
-		Logger().information(fmt::format("Processing Delete Device {} request for subscriber: {}.", UserInfo_.userinfo.id));
 
 		DeleteDeviceContext ctx;
 
 		if (!Validate_Inputs(ctx.Mac)) return;
+
+		Logger().information(fmt::format("Processing Delete Device [{}] request for subscriber: [{}].", ctx.Mac, UserInfo_.userinfo.id));
+
 		if (!Load_Subscriber_Info(ctx.SubscriberInfo)) return;
 		if (!Delete_Device_Validate_Subscriber(ctx)) return;
 
@@ -341,6 +344,7 @@ namespace OpenWifi {
 			apList = updated.list; // deleting mesh -> remove only that device
 			if (!Delete_Device_Update_Database(ctx)) return;
 		}
+		if (!StorageService()->SubInfoDB().UpdateRecord("id", ctx.SubscriberInfo.id, ctx.SubscriberInfo)) return;
 		return OK();
 	}
 } // namespace OpenWifi
