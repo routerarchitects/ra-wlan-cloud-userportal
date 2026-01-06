@@ -44,21 +44,6 @@ namespace OpenWifi {
 		return true;
 	}
 
-	bool RESTAPI_subscriber_devices_handler::Get_Signup_Record(const std::string &email, ProvObjects::SignupEntry &SE) {
-		if (!SDK::Prov::Signup::Get_Signup_By_Email(this, email, SE)) {
-			Logger().error(fmt::format("Failed to fetch signup record for email: {}.", email));
-			return false;
-		}
-		return true;
-	}
-
-	bool RESTAPI_subscriber_devices_handler::Update_Prov_Signup_DB(const std::string &email, const std::string &mac) {
-		ProvObjects::SignupEntry SE;
-		if (!Get_Signup_Record(email, SE)) {
-			return false;
-		}
-		return SDK::Prov::Signup::Update_Signup_Mac(this, SE.info.id, mac);
-	}
 
 	struct AddDeviceContext {
 		std::string Mac;
@@ -232,17 +217,17 @@ namespace OpenWifi {
 			return false;
 		}
 
-		Logger().information(fmt::format("Linking device: {} to subscriber: {} in owsub db.", ctx.Mac, UserInfo_.userinfo.id));
+		Logger().debug(fmt::format("Linking device: {} to subscriber: {} in owsub db.", ctx.Mac, UserInfo_.userinfo.id));
 		StorageService()->SubInfoDB().AddAccessPoint(ctx.SubscriberInfo, ctx.Mac, ctx.InventoryTag.deviceType, ctx.SubDevice);
 		if (!StorageService()->SubInfoDB().UpdateRecord("id", ctx.SubscriberInfo.id, ctx.SubscriberInfo)) {
 			Logger().error(fmt::format("Failed to update subscriber info for device: {} in SubInfoDB.", ctx.Mac));
 			InternalError(RESTAPI::Errors::RecordNotUpdated);
 			return false;
 		}
-		if ((ctx.SubscriberInfo.accessPoints.list.front().macAddress == ctx.Mac)) {
-			Logger().information(fmt::format("Linking gateway device: [{}] to subscriber: [{}] in signup table.", ctx.Mac, UserInfo_.userinfo.email));
-			if (!Update_Prov_Signup_DB(UserInfo_.userinfo.email, ctx.Mac)) {
-				Logger().error(fmt::format("Failed to link device: {} to subscriber: {} in signup table.", ctx.Mac, UserInfo_.userinfo.email));
+		if (ctx.SubscriberInfo.accessPoints.list.front().macAddress == ctx.Mac) {
+			Logger().debug(fmt::format("Linking gateway device: [{}] to subscriber: [{}] in signup table.", ctx.Mac, UserInfo_.userinfo.id));
+			if (!SDK::Prov::Signup::Update_Signup_Device(this, UserInfo_.userinfo.id, ctx.Mac)) {
+				Logger().error(fmt::format("Failed to link device: {} to subscriber: {} in signup table.", ctx.Mac, UserInfo_.userinfo.id));
 				InternalError(RESTAPI::Errors::RecordNotUpdated);
 				return false;
 			}
@@ -337,7 +322,7 @@ namespace OpenWifi {
 			"records from gateway, provisioning and subscriber.", ctx.Mac));
 		SDK::GW::Device::Factory(nullptr, ctx.Mac, 0, true);
 		if (ctx.SubscriberInfo.accessPoints.list.front().macAddress == ctx.Mac) {
-			Update_Prov_Signup_DB(UserInfo_.userinfo.email, "");
+			SDK::Prov::Signup::Update_Signup_Device(this, UserInfo_.userinfo.id, "");
 		}
 		SDK::GW::Device::DeleteOwgwDevice(this, ctx.Mac);
 		SDK::Prov::Subscriber::DeleteProvSubscriberDevice(this, ctx.Mac);
@@ -345,6 +330,13 @@ namespace OpenWifi {
 		return true;
 	}
 
+    /*
+        DoDelete():
+        1. Validate subscriber-ID and MAC format, then load subscriber info.
+        2. Ensure the subscriber owns the device (inventory/subinfo checks).
+        3. If deleting the gateway device, delete all devices for this subscriber and clear the signup MAC.
+        4. If deleting a mesh device, remove only that device from databases.
+    */
 	void RESTAPI_subscriber_devices_handler::DoDelete() {
 
 		DeleteDeviceContext ctx;
@@ -358,7 +350,7 @@ namespace OpenWifi {
 
 		auto &apList = ctx.SubscriberInfo.accessPoints.list;
 		if (apList.front().macAddress == ctx.Mac) {
-			Logger().information(fmt::format("Deleting all devices present under subscriber: [{}].", ctx.SubscriberInfo.id));
+			Logger().debug(fmt::format("Deleting all devices present under subscriber: [{}].", ctx.SubscriberInfo.id));
 			for (const auto &ap : apList) {
 				ctx.Mac = ap.macAddress;
 				if (!Delete_Device_Update_Database(ctx)) return;
@@ -368,13 +360,13 @@ namespace OpenWifi {
 			SubObjects::AccessPointList updated;
 			for (const auto &ap : apList) {
 				if (ap.macAddress != ctx.Mac)
-					updated.list.push_back(ap);
+				updated.list.push_back(ap);
 			}
-			Logger().information(fmt::format("Deleting mesh device: [{}] for subscriber: [{}].", ctx.Mac, ctx.SubscriberInfo.id));
+			Logger().debug(fmt::format("Deleting mesh device: [{}] for subscriber: [{}].", ctx.Mac, ctx.SubscriberInfo.id));
 			apList = updated.list; // deleting mesh -> remove only that device
 			if (!Delete_Device_Update_Database(ctx)) return;
 		}
-		if (!StorageService()->SubInfoDB().UpdateRecord("id", ctx.SubscriberInfo.id, ctx.SubscriberInfo)) return;
+		StorageService()->SubInfoDB().UpdateRecord("id", ctx.SubscriberInfo.id, ctx.SubscriberInfo);
 		return OK();
 	}
 } // namespace OpenWifi

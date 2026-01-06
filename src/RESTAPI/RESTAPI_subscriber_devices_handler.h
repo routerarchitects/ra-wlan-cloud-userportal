@@ -45,8 +45,5 @@ namespace OpenWifi {
 
 		bool Delete_Device_Validate_Subscriber(DeleteDeviceContext &ctx);
 		bool Delete_Device_Update_Database(DeleteDeviceContext &ctx);
-		bool Get_Signup_Record(const std::string &email, ProvObjects::SignupEntry &entry);
-		bool Update_Prov_Signup_DB(const std::string &email, const std::string &mac);
-
 	};
 } // namespace OpenWifi

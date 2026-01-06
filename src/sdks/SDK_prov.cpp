@@ -340,47 +340,16 @@ namespace OpenWifi::SDK::Prov {
 	} // namespace Subscriber
 
 	namespace Signup {
-		/*
-			Get_Signup_By_Email:
-			1. Send a GET request to provisioning service to fetch signup records by email.
-			2. Iterate through the returned list of signups.
-			3. If a valid signup entry is found, populate the provided SE object and return true.
-			4. If no valid entry is found, return false.
-		*/
-		bool Get_Signup_By_Email(RESTAPIHandler *client, const std::string &email, ProvObjects::SignupEntry &SE) {
-			auto API = OpenAPIRequestGet(uSERVICE_PROVISIONING, "/api/v1/signup", {{"email", email}}, 10000);
-			auto Response = Poco::makeShared<Poco::JSON::Object>();
-			const auto status = API.Do(Response, client ? client->UserInfo_.webtoken.access_token_ : "");
-			if (status != Poco::Net::HTTPResponse::HTTP_OK) {
-				Poco::Logger::get("SDK_prov").debug(fmt::format("Signup record fetch for email [{}] failed.", email));
-				return false;
-			}
-			const auto list = Response->getArray("signups");
-			for (size_t i = 0; i < list->size(); ++i) {
-				const auto obj = list->getObject(i);
-				if (obj && SE.from_json(obj)) {
-					return true;
-				}
-			}
-			Poco::Logger::get("SDK_prov").error(fmt::format("Signup record fetch for email [{}] returned no valid entry", email));
-			return false;
-		}
-		/*
-			Update_Signup_Mac:
-			1. Send a PUT request to provisioning service to update the MAC address of a signup record.
-			2. The request includes the signup UUID and the new MAC address.
-			3. If the update is successful, return true; otherwise, return false.
-		*/
-		bool Update_Signup_Mac(RESTAPIHandler *client, const std::string &signupUUID, const std::string &macAddress) {
+		bool Update_Signup_Device(RESTAPIHandler *client, const std::string &userId, const std::string &macAddress) {
 			Poco::JSON::Object body;
 
 			std::string endpoint = "/api/v1/signup";
-			auto API = OpenAPIRequestPut(uSERVICE_PROVISIONING, endpoint, {{"signupUUID", signupUUID}, {"operation", "updateMac"}, {"mac", macAddress}}, body, 10000);
+			auto API = OpenAPIRequestPut(uSERVICE_PROVISIONING, endpoint, {{"userId", userId}, {"operation", "updateMac"}, {"mac", macAddress}}, body, 10000);
 			auto Response = Poco::makeShared<Poco::JSON::Object>();
 			const auto status = API.Do(Response, client ? client->UserInfo_.webtoken.access_token_ : "");
 
 			if (status != Poco::Net::HTTPResponse::HTTP_OK) {
-				Poco::Logger::get("SDK_prov").error(fmt::format("Failed to update signup mac for [{}]", signupUUID));
+				Poco::Logger::get("SDK_prov").error(fmt::format("Failed to update signup mac for [{}]", userId));
 				return false;
 			}
 			return true;
