@@ -165,8 +165,9 @@ namespace OpenWifi::SDK::Prov {
 			3. Convert that JSON back into a Poco object so callers can use the new config as needed.
 		*/
 		Poco::JSON::Object::Ptr BuildMeshConfig(const Poco::JSON::Object::Ptr &configuration) {
+			auto gatewayConfig = configuration->getObject("configuration");
 			std::ostringstream OS;
-			Poco::JSON::Stringifier::stringify(configuration, OS);
+			Poco::JSON::Stringifier::stringify(gatewayConfig, OS);
 			auto cfg = nlohmann::json::parse(OS.str());
 			if (cfg.contains("interfaces") && cfg["interfaces"].is_array() && !cfg["interfaces"].empty()) {
 				nlohmann::json meshInterfaces = nlohmann::json::array();
@@ -340,7 +341,7 @@ namespace OpenWifi::SDK::Prov {
 	} // namespace Subscriber
 
 	namespace Signup {
-		bool Update_Signup_Device(RESTAPIHandler *client, const std::string &userId, const std::string &macAddress) {
+		bool UpdateSignupDevice(RESTAPIHandler *client, const std::string &userId, const std::string &macAddress) {
 			Poco::JSON::Object body;
 
 			std::string endpoint = "/api/v1/signup";

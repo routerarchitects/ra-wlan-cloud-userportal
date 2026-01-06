@@ -8,7 +8,6 @@
 
 #include "framework/RESTAPI_Handler.h"
 #include "RESTObjects/RESTAPI_SubObjects.h"
-#include "RESTObjects/RESTAPI_ProvObjects.h"
 
 namespace OpenWifi {
 	

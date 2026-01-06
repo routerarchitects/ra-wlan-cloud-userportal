@@ -10,13 +10,9 @@
 #include "ConfigMaker.h"
 #include "RESTObjects/RESTAPI_SubObjects.h"
 #include "StorageService.h"
-#include "SubscriberCache.h"
 #include "framework/utils.h"
-#include "nlohmann/json.hpp"
-#include "sdks/SDK_fms.h"
 #include "sdks/SDK_gw.h"
 #include "sdks/SDK_prov.h"
-#include "sdks/SDK_sec.h"
 
 namespace OpenWifi {
 
@@ -49,18 +45,16 @@ namespace OpenWifi {
 		std::string Mac;
 		ProvObjects::InventoryTag InventoryTag{};
 		SubObjects::SubscriberInfo SubscriberInfo{};
-		Poco::JSON::Object::Ptr GatewayConfig{nullptr};
 		ProvObjects::SubscriberDevice SubDevice{};
-		ProvObjects::InventoryConfigApplyResult ApplyResult{};
 	};
 
-    /*
-        Add_Device_Validate_Subscriber:
-        1. Ensure inventory has a record for the provided MAC.
-        2. Ensure the device is not already provisioned to another subscriber.
-        3. If already linked to this subscriber, check if device exists in SubInfoDB and return error if found.
-        4. If linked to same subcriber but not in SubInfoDB, proceed with adding the device as Gateway or Mesh.
-    */
+	/*
+		Add_Device_Validate_Subscriber:
+		- Ensure inventory has a record for the provided MAC.
+		- Ensure the device is not already provisioned to another subscriber.
+		- If already linked to this subscriber, check if device exists in SubInfoDB and return error if found.
+		- If linked to same subcriber but not in SubInfoDB, proceed with adding the device as Gateway or Mesh.
+	*/
 	bool RESTAPI_subscriber_devices_handler::Add_Device_Validate_Subscriber(AddDeviceContext &ctx) {
 
 		if (!SDK::Prov::Device::Get(this, ctx.Mac, ctx.InventoryTag)) {
@@ -88,16 +82,16 @@ namespace OpenWifi {
 		return true;
 	}
 
-    /*
-        Add_Device_Gateway:
-        1. Create provisioning-subdevice table record for gateway device.
-        2. Create gateway device record in SubInfoDB.
-        2. Prepare default configuration for the gateway device.
-        3. Persist the configuration in provisioning.
-        4. Send the configuration to the device.
-    */
+	/*
+		Add_Device_Gateway:
+		- Create provisioning-subdevice table record for gateway device.
+		- Create gateway device record in SubInfoDB.
+		- Prepare default configuration for the gateway device.
+		- Persist the configuration in provisioning.
+		- Send the configuration to the device.
+	*/
 	bool RESTAPI_subscriber_devices_handler::Add_Device_Gateway(AddDeviceContext &ctx) {
-        Logger().information(fmt::format("Adding a Gateway Device: {} for subscriber: {}.", ctx.Mac, UserInfo_.userinfo.id));
+		Logger().information(fmt::format("Adding a Gateway Device: {} for subscriber: {}.", ctx.Mac, UserInfo_.userinfo.id));
 
 		ProvObjects::SubscriberDevice dev;
 		if (!SDK::Prov::Subscriber::CreateSubDeviceInfo(this, ctx.InventoryTag, UserInfo_.userinfo, dev)) {
@@ -130,22 +124,15 @@ namespace OpenWifi {
 		return true;
 	}
 
-    /*
-        Add_Device_Mesh:
-        1. Ensure there is an existing gateway device for the subscriber.
-        1. Fetch the gateway configuration and validate its mesh config block.
-        3. Create provisioning subdevice record.
-        4. Build the mesh configuration.
-        5. Prepare/persist the configuration in provisioning-subdevice database and send config to device.
-    */
+	/*
+		Add_Device_Mesh:
+		- Fetch the gateway configuration and validate its mesh config block.
+		- Create provisioning subdevice record.
+		- Build the mesh configuration.
+		- Prepare/persist the configuration in provisioning-subdevice database and send config to device.
+	*/
 	bool RESTAPI_subscriber_devices_handler::Add_Device_Mesh(AddDeviceContext &ctx) {
-        Logger().information(fmt::format("Adding a Mesh Device: {} for subscriber: {}.", ctx.Mac, UserInfo_.userinfo.id));
-
-		if (ctx.SubscriberInfo.accessPoints.list.empty()) {
-			Logger().error("Mesh setup requested but no existing gateway device found.");
-			InternalError(RESTAPI::Errors::AddDeviceFailed);
-			return false;
-		}
+		Logger().information(fmt::format("Adding a Mesh Device: {} for subscriber: {}.", ctx.Mac, UserInfo_.userinfo.id));
 
 		const auto gatewayMac = ctx.SubscriberInfo.accessPoints.list.front().serialNumber;
 		Poco::JSON::Object::Ptr config;
@@ -163,7 +150,6 @@ namespace OpenWifi {
 			return false;
 		}
 
-		ctx.GatewayConfig = config->getObject("configuration");
 		Logger().information(fmt::format("Fetched gateway configuration for: {}.", gatewayMac));
 
 		if (!SDK::Prov::Subscriber::CreateSubDeviceInfo(this, ctx.InventoryTag, UserInfo_.userinfo, ctx.SubDevice)) {
@@ -172,7 +158,7 @@ namespace OpenWifi {
 			return false;
 		}
 
-		auto meshConfig = SDK::Prov::Subscriber::BuildMeshConfig(ctx.GatewayConfig);
+		auto meshConfig = SDK::Prov::Subscriber::BuildMeshConfig(config);
 		if (!meshConfig) {
 			Logger().error("Failed to convert mesh configuration for provisioning.");
 			InternalError(RESTAPI::Errors::ConfigurationMustExist);
@@ -186,24 +172,22 @@ namespace OpenWifi {
 			return false;
 		}
 
-		SDK::Prov::Subscriber::SetDevice(this, ctx.SubDevice);
+		if (!SDK::Prov::Subscriber::SetDevice(this, ctx.SubDevice)) {
+			Logger().error(fmt::format("Failed to persist provisioning config for: {}.", ctx.SubDevice.serialNumber));
+			InternalError(RESTAPI::Errors::ApplyConfigFailed);
+			return false;
+		}
 
 		return true;
 	}
 
-    /*
-        Add_Device_Update_Database:
-        1. Link the device to the subscriber in gateway.
-        2. Link the device to the subscriber in provisioning.
-        3. Update SubInfoDB with new device information.
-    */
+	/*
+		Add_Device_Update_Database:
+		1. Link the device to the subscriber in gateway.
+		2. Link the device to the subscriber in provisioning.
+		3. Update SubInfoDB with new device information.
+	*/
 	bool RESTAPI_subscriber_devices_handler::Add_Device_Update_Database(AddDeviceContext &ctx) {
-
-		if (ctx.SubDevice.serialNumber.empty()) {
-			Logger().error(fmt::format("Provisioned device information is missing for device {}.", ctx.Mac));
-			InternalError(RESTAPI::Errors::RecordNotUpdated);
-			return false;
-		}
 
 		if (!SDK::GW::Device::SetSubscriber(this, ctx.Mac, UserInfo_.userinfo.id)) {
 			Logger().error(fmt::format("Failed to link device: {} to subscriber: {} in gateway.", ctx.Mac, UserInfo_.userinfo.id));
@@ -226,7 +210,7 @@ namespace OpenWifi {
 		}
 		if (ctx.SubscriberInfo.accessPoints.list.front().macAddress == ctx.Mac) {
 			Logger().debug(fmt::format("Linking gateway device: [{}] to subscriber: [{}] in signup table.", ctx.Mac, UserInfo_.userinfo.id));
-			if (!SDK::Prov::Signup::Update_Signup_Device(this, UserInfo_.userinfo.id, ctx.Mac)) {
+			if (!SDK::Prov::Signup::UpdateSignupDevice(this, UserInfo_.userinfo.id, ctx.Mac)) {
 				Logger().error(fmt::format("Failed to link device: {} to subscriber: {} in signup table.", ctx.Mac, UserInfo_.userinfo.id));
 				InternalError(RESTAPI::Errors::RecordNotUpdated);
 				return false;
@@ -235,17 +219,17 @@ namespace OpenWifi {
 		return true;
 	}
 
-    /*
-        DoPost():
-        1. Validate subscriber-ID and MAC address format.
-        2. Verify MAC exists in inventory and isn't already provisioned to another/same subscriber.
-        3. Load subscriber information from database.
-        4. Setup device based on subscriber's existing device record:
-        - First device: Configure as Gateway device with default config.
-        - Additional devices: Configure as Mesh node using gateway's mesh settings.
-        5. Update device record in Gateway, Provisioning, SubInfo database.
-        6. Return OK on success or appropriate error response on failure.
-    */
+	/*
+	DoPost():
+	- Validate subscriber-ID and MAC address format.
+	- Verify MAC exists in inventory and isn't already provisioned to another/same subscriber.
+	- Load subscriber information from database.
+	- Setup device based on subscriber's existing device record:
+		- First device: Configure as Gateway device with default config.
+		- Additional devices: Configure as Mesh node using gateway's mesh settings.
+	- Update device record in Gateway, Provisioning, SubInfo database.
+	- Return OK on success or appropriate error response on failure.
+	*/
 	void RESTAPI_subscriber_devices_handler::DoPost() {
 
 		AddDeviceContext ctx;
@@ -311,18 +295,18 @@ namespace OpenWifi {
 
 	/*
 		Delete_Device_Update_Database:
-		1) Send factory reset command to device.
-		2) Delete device record from controller (owgw-devicesDB).
-		3) Delete provisioning subdevice record (owprov-sub_deviceDB).
-		4) Clear signup mac/serial if present.
-		5) Delete inventory record (owprov-inventoryDB).
+		- Send factory reset command to device.
+		- Delete device record from controller (owgw-devicesDB).
+		- Delete provisioning subdevice record (owprov-sub_deviceDB).
+		- Clear signup mac/serial if present.
+		- Delete inventory record (owprov-inventoryDB).
 	*/
 	bool RESTAPI_subscriber_devices_handler::Delete_Device_Update_Database(DeleteDeviceContext &ctx) {
 		Logger().information(fmt::format("Sending factory reset command to device [{}] and deleting "
 			"records from gateway, provisioning and subscriber.", ctx.Mac));
 		SDK::GW::Device::Factory(nullptr, ctx.Mac, 0, true);
 		if (ctx.SubscriberInfo.accessPoints.list.front().macAddress == ctx.Mac) {
-			SDK::Prov::Signup::Update_Signup_Device(this, UserInfo_.userinfo.id, "");
+			SDK::Prov::Signup::UpdateSignupDevice(this, UserInfo_.userinfo.id, "");
 		}
 		SDK::GW::Device::DeleteOwgwDevice(this, ctx.Mac);
 		SDK::Prov::Subscriber::DeleteProvSubscriberDevice(this, ctx.Mac);
@@ -330,13 +314,13 @@ namespace OpenWifi {
 		return true;
 	}
 
-    /*
-        DoDelete():
-        1. Validate subscriber-ID and MAC format, then load subscriber info.
-        2. Ensure the subscriber owns the device (inventory/subinfo checks).
-        3. If deleting the gateway device, delete all devices for this subscriber and clear the signup MAC.
-        4. If deleting a mesh device, remove only that device from databases.
-    */
+	/*
+		DoDelete():
+		- Validate subscriber-ID and MAC format, then load subscriber info.
+		- Ensure the subscriber owns the device (inventory/subinfo checks).
+		- If deleting the gateway device, delete all devices for this subscriber and clear the signup MAC.
+		- If deleting a mesh device, remove only that device from databases.
+	*/
 	void RESTAPI_subscriber_devices_handler::DoDelete() {
 
 		DeleteDeviceContext ctx;
