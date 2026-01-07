@@ -122,18 +122,14 @@ namespace OpenWifi {
 		The function extracts each relevant section (object or array) from the controller config,
 		adds name and weight to it, and stores it in the provisioning database for that AP.
 	*/
-	static bool UpdateSubDevices(const Poco::JSON::Object::Ptr &Config, const std::string &serial, Poco::Logger &logger) {
-		ProvObjects::SubscriberDevice subDevice;
-		if (!SDK::Prov::Subscriber::GetDevice(nullptr, serial, subDevice)) {
-			logger.error(fmt::format("Could not find provisioning subdevice for {}", serial));
-			return false;
-		}
+	bool ConfigMaker::PrepareProvSubDeviceConfig(const Poco::JSON::Object::Ptr &Config, ProvObjects::DeviceConfigurationElementVec &ProvConfig){
+		// Clear existing configuration to prevent duplicate sections in case of retries
+		ProvConfig.clear();
 		std::vector<std::string> sectionNames;
 		Config->getNames(sectionNames);
 		for (size_t i = 0; i < sectionNames.size(); ++i) {
 			const std::string &name = sectionNames[i];
 			if (!(Config->isObject(name) || Config->isArray(name))) {
-				logger.information(fmt::format("Skipping extra key value '{}' for device {}", name, serial));
 				continue;
 			}
 			Poco::JSON::Object::Ptr sectionObj = new Poco::JSON::Object();
@@ -147,37 +143,36 @@ namespace OpenWifi {
 			elem.name = name;
 			elem.weight = DEFAULT_DEVICE_CONFIG_WEIGHT;
 			elem.configuration = jsonOutput.str();
-			subDevice.configuration.push_back(elem);
-			logger.information(fmt::format("Stored section {} for device {}", name, serial));
-		}
-		if (!SDK::Prov::Subscriber::SetDevice(nullptr, subDevice)) {
-			logger.error(fmt::format("Cannot update provisioning subdevice for {}", serial));
-			return false;
+			ProvConfig.push_back(elem);
 		}
 		return true;
 	}
 
 	/*
-		DefaultConfig() will:
-		1. For each AP of the subscriber, fetch current config from controller (owgw) (/api/v1/device/MAC)
-		2. Update ssid and password according to mac address.
-		3. Call UpdateSubDevices() to update the provisioning database with the new config.
-		4. Call owprov to push the updated config to the device (/api/v1/inventory/MAC?applyConfiguration=true).
+		PrepareDefaultConfig():
+		1. Fetch current config for the provided AccessPoint from the controller (/api/v1/device/MAC).
+		2. Validate mesh settings (no upstream SSIDs, mesh present).
+		3. Update SSID/password based on the device MAC (AP + mesh).
+		4. Return the updated configuration object so the caller can decide how to persist/apply it.
 	*/
-	bool OpenWifi::ConfigMaker::DefaultConfig(const SubObjects::SubscriberInfo &SI) {
-		for (size_t i = 0; i < SI.accessPoints.list.size(); ++i) {
-			const auto &ap = SI.accessPoints.list[i];
+	bool ConfigMaker::PrepareDefaultConfig(const SubObjects::AccessPoint &ap, ProvObjects::SubscriberDevice &subDevice) {
 			Poco::JSON::Object::Ptr ConfigObj;
 			auto ResponseStatus = SDK::GW::Device::GetConfig(nullptr, ap.serialNumber, ConfigObj);
 			if (ResponseStatus != Poco::Net::HTTPResponse::HTTP_OK) {
-				Logger_.warning(fmt::format("Failed to fetch current configuration for device {}.",
-					ap.serialNumber));
+				Logger_.error(fmt::format("Failed to fetch current configuration for device {}.", ap.serialNumber));
+				return false;
+			}
+			if (!SDK::GW::Device::ValidateMeshSSID(ConfigObj, ap.serialNumber, Logger_)) {
+				Logger_.error(fmt::format("Invalid configuration for device {}: wrong mesh config.", ap.serialNumber));
 				return false;
 			}
 			auto NewConfig = ConfigObj->getObject("configuration");
 			auto interfaces = NewConfig->getArray("interfaces");
 			std::string NewSsid = DEFAULT_SSID_PREFIX + ap.macAddress.substr(MAC_SUFFIX_START_INDEX);
 			std::string NewPassword = Poco::toUpper(ap.macAddress);
+			Logger_.information(fmt::format("Preparing default configuration for device {}  with SSID '{}' and Password '{}'.",
+											ap.serialNumber, NewSsid, NewPassword));
+			//  Update SSID and Password
 			for (std::size_t i = 0; i < interfaces->size(); ++i) {
 				auto iface = interfaces->getObject(i);
 				auto ssids = iface->getArray("ssids");
@@ -185,27 +180,17 @@ namespace OpenWifi {
 					continue; // if no ssids to update, skip this interface
 				for (std::size_t j = 0; j < ssids->size(); ++j) {
 					auto ssid = ssids->getObject(j);
-					ssid->set("name", NewSsid);
-					ssid->getObject("encryption")->set("key", NewPassword);
-					Logger_.information(fmt::format("Updated SSID to {} and Password to {} for device {}",
-						NewSsid, NewPassword, ap.serialNumber));
+					auto encryption = ssid->getObject("encryption");
+					auto bssMode = ssid->getValue<std::string>("bss-mode");
+					if (bssMode == "ap") {
+						ssid->set("name", NewSsid);
+						encryption->set("key", NewPassword);
+					} else if (bssMode == "mesh") {
+						encryption->set("key", NewPassword);
+					}
 				}
 			}
-			if (UpdateSubDevices(NewConfig, ap.serialNumber, Logger_)) {
-				Logger_.information(fmt::format("Updated configuration for device {} in provisioning", ap.serialNumber));
-				ProvObjects::InventoryConfigApplyResult applyResult;
-				if (SDK::Prov::Configuration::Push(nullptr, ap.serialNumber, applyResult)) {
-					Logger_.information(fmt::format("Provisioning applied updated configuration to device {}.", ap.serialNumber));
-				} else {
-					Logger_.error(fmt::format("Provisioning failed to apply updated configuration to device {}.", ap.serialNumber));
-				}
-				SDK::GW::Device::SetSubscriber(nullptr, ap.serialNumber, SI.id);
-				SDK::Prov::Subscriber::UpdateSubscriber(nullptr, SI.id, ap.serialNumber, false);
-			} else {
-				Logger_.error(fmt::format("Failed to store updated configuration for device {} in provisioning.", ap.serialNumber));
-			}
-		}
-		return true;
+		return PrepareProvSubDeviceConfig(NewConfig, subDevice.configuration);
 	}
 	bool ConfigMaker::Prepare() {
 

@@ -3,7 +3,6 @@
  * Copyright (c) 2025 Infernet Systems Pvt Ltd
  * Portions copyright (c) Telecom Infra Project (TIP), BSD-3-Clause
  */
-
 //
 // Created by stephane bourque on 2021-11-29.
 //
@@ -65,85 +64,36 @@ namespace OpenWifi {
 		if (!UI.userinfo.userTypeProprietaryInfo.mobiles.empty())
 			SI.phoneNumber = UI.userinfo.userTypeProprietaryInfo.mobiles[0].number;
 
-		int ap_num = 1;
-		for (const auto &i : Devices.subscriberDevices) {
-			SubObjects::AccessPoint AP;
-			AP.macAddress = i.serialNumber;
-			AP.serialNumber = i.serialNumber;
-			AP.deviceType = i.deviceType;
-			AP.id = i.info.id;
-			AP.name = "Access Point #" + std::to_string(ap_num++);
-			AP.deviceMode.created = AP.deviceMode.modified = Now;
-			AP.deviceMode.type = "nat";
-			AP.deviceMode.enableLEDS = true;
-			AP.internetConnection.modified = AP.internetConnection.created = Now;
-			AP.internetConnection.type = "automatic";
-			AP.deviceMode.subnet = "192.168.1./24";
-			AP.deviceMode.subnetMask = "24";
-			AP.deviceMode.startIP = "192.168.1.10";
-			AP.deviceMode.endIP = "192.168.1.100";
-			AP.deviceMode.leaseTime = "24h";
-
-			SubObjects::WifiNetwork WN;
-			WN.type = "main";
-			WN.name = "OpenWifi-" + AP.macAddress.substr(6);
-			WN.password = Poco::toUpper(AP.macAddress);
-			WN.encryption = "wpa2-personal";
-			if (AP.deviceType == "linksys_ea8300") {
-				WN.bands.emplace_back("2G");
-				WN.bands.emplace_back("5GL");
-				WN.bands.emplace_back("5GU");
-			} else {
-				WN.bands.emplace_back("2G");
-				WN.bands.emplace_back("5G");
-			}
-
-			AP.wifiNetworks.created = AP.wifiNetworks.modified = Now;
-			AP.wifiNetworks.wifiNetworks.push_back(WN);
-
-			for (const auto &b : WN.bands) {
-				SubObjects::RadioInformation RI;
-
-				RI.band = b;
-				RI.rates.beacon = 6000;
-				RI.rates.multicast = 24000;
-				RI.channel = 0;
-				RI.country = i.locale;
-				RI.maximumClients = 64;
-				RI.legacyRates = false;
-				RI.he.bssColor = 1;
-				RI.he.ema = false;
-				RI.he.multipleBSSID = false;
-				RI.beaconInterval = 100;
-				RI.dtimPeriod = 2;
-				RI.allowDFS = false;
-				RI.mimo = "";
-				RI.txpower = 24;
-				if (b == "2G") {
-					RI.bandwidth = 20;
-					RI.channelWidth = 20;
-					RI.channelMode = "VHT";
-				} else if (b == "5G") {
-					RI.bandwidth = 20;
-					RI.channelWidth = 40;
-					RI.channelMode = "VHT";
-				} else if (b == "5GU") {
-					RI.bandwidth = 20;
-					RI.channelWidth = 40;
-					RI.channelMode = "VHT";
-				} else if (b == "5GL") {
-					RI.bandwidth = 20;
-					RI.channelWidth = 40;
-					RI.channelMode = "VHT";
-				} else if (b == "6G") {
-					RI.bandwidth = 20;
-					RI.channelWidth = 40;
-					RI.channelMode = "HE";
-				}
-				AP.radios.emplace_back(RI);
-			}
-			SI.accessPoints.list.push_back(AP);
+		// Populate the subscriber's access point list with provisioned subdevices
+		for (const auto &Device : Devices.subscriberDevices) {
+			AddAccessPoint(SI, Device.serialNumber, Device.deviceType, Device);
 		}
+	}
+
+	/*
+		AddAccessPoint():
+		Checks whether the subscriber already has an entry for the provided MAC address.
+		If found, it prevents adding duplicate entries.
+		If not found, it builds the AccessPoint data from the provisioning record and stores it in its own DB.
+	*/
+	void SubscriberInfoDB::AddAccessPoint(SubObjects::SubscriberInfo &SI, const std::string &macAddress,
+										  const std::string &deviceType, const ProvObjects::SubscriberDevice &ProvisionedDevice) {
+
+	// If this MAC is already present, do nothing
+	for (const auto &AP : SI.accessPoints.list) {
+        if (AP.macAddress == macAddress) {
+			Logger().information(fmt::format("Device {} already exists for subscriber {}. Skipping addition.", macAddress, SI.id));
+           return ;
+        }
+    }
+    // Otherwise, add a new Access Point entry.
+		SubObjects::AccessPoint AP;
+		AP.name = "Access Point #" + std::to_string(SI.accessPoints.list.size() + 1);
+		AP.macAddress = macAddress;
+		AP.serialNumber = macAddress;
+		AP.id = ProvisionedDevice.info.id;
+		AP.deviceType = deviceType;
+		SI.accessPoints.list.push_back(AP);
 	}
 } // namespace OpenWifi
 
