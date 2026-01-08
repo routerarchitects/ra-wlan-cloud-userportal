@@ -61,18 +61,20 @@ namespace OpenWifi {
 					return SDK::GW::Device::Factory(this, i.serialNumber, When, keepRedirector);
 				} else if (Command == "configure") {
 					std::string status{};
-					auto Response = SDK::GW::Device::SetConfig(this, i.serialNumber, Body, status);
-					if (Response != Poco::Net::HTTPServerResponse::HTTP_OK) {
-						if (status == "MissingOrInvalidParameters") {
-							return BadRequest(RESTAPI::Errors::MissingOrInvalidParameters,"Required Parameters are missing.");
-						} else if (status == "DeviceNotConnected") {
-							return BadRequest(RESTAPI::Errors::DeviceNotConnected);
-						} else if (status == "SSIDInvalidName") {
-							return BadRequest(RESTAPI::Errors::SSIDInvalidName);
-						} else if (status == "SSIDInvalidPassword") {
-							return BadRequest(RESTAPI::Errors::SSIDInvalidPassword);
+					for (const auto &ap : SubInfo->accessPoints.list) { //Send new config to all devices present in subscriber's database
+						auto Response = SDK::GW::Device::SetConfig(this, ap.serialNumber, Body, status);
+						if (Response != Poco::Net::HTTPServerResponse::HTTP_OK) {
+							if (status == "MissingOrInvalidParameters") {
+								return BadRequest(RESTAPI::Errors::MissingOrInvalidParameters,"Required Parameters are missing.");
+							} else if (status == "DeviceNotConnected") {
+								return BadRequest(RESTAPI::Errors::DeviceNotConnected);
+							} else if (status == "SSIDInvalidName") {
+								return BadRequest(RESTAPI::Errors::SSIDInvalidName);
+							} else if (status == "SSIDInvalidPassword") {
+								return BadRequest(RESTAPI::Errors::SSIDInvalidPassword);
+							}
+							return BadRequest(RESTAPI::Errors::InternalError, status);
 						}
-						return BadRequest(RESTAPI::Errors::InternalError, status);
 					}
 					return OK();
 				} else {
