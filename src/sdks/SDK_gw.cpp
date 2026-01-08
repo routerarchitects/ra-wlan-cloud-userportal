@@ -456,6 +456,9 @@ namespace OpenWifi::SDK::GW {
 						iface_ssids = true;
 						for (std::size_t j = 0; j < ssids->size(); ++j) {
 							auto ssid = ssids->getObject(j);
+							if (!ssid->has("bss-mode") || ssid->getValue<std::string>("bss-mode") != "ap") {
+								continue; //skipping ssid if bss-mode is not "ap" ...e.g mesh ssid
+							}
 							auto encrypt = ssid->getObject("encryption");
 							if (!encrypt || encrypt->size() == 0) {
 								Poco::Logger::get("Configure").error(fmt::format("Missing or invalid 'encryption' for device {}.", SerialNumber));
