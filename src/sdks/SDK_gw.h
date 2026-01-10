@@ -24,13 +24,12 @@ namespace OpenWifi::SDK::GW {
 					 const std::string &ImageName, bool KeepRedirector);
 		void PerformCommand(RESTAPIHandler *client, const std::string &Command,
 							const std::string &EndPoint, Poco::JSON::Object &CommandRequest);
-		bool Configure(RESTAPIHandler *client, const std::string &Mac,
+		Poco::Net::HTTPResponse::HTTPStatus Configure(RESTAPIHandler *client, const std::string &Mac,
 					   Poco::JSON::Object::Ptr &Configuration, Poco::JSON::Object::Ptr &Response);
 		Poco::Net::HTTPResponse::HTTPStatus GetConfig(RESTAPIHandler *client, const std::string &Mac,
 					Poco::JSON::Object::Ptr &Response);
 		bool ValidateMeshSSID(const Poco::JSON::Object::Ptr &deviceConfig, const std::string &serialNumber, Poco::Logger &logger);
-		Poco::Net::HTTPResponse::HTTPStatus SetConfig(RESTAPIHandler *client, const std::string &SerialNumber,
-				   const Poco::JSON::Object::Ptr &Body, std::string &status);
+		bool SetConfig(RESTAPIHandler *client, const std::string &SerialNumber, const Poco::JSON::Object::Ptr &Body);
 		bool SetVenue(RESTAPIHandler *client, const std::string &SerialNumber,
 					  const std::string &uuid);
 		bool GetLastStats(RESTAPIHandler *client, const std::string &Mac,
