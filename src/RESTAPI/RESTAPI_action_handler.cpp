@@ -60,20 +60,9 @@ namespace OpenWifi {
 				} else if (Command == "factory") {
 					return SDK::GW::Device::Factory(this, i.serialNumber, When, keepRedirector);
 				} else if (Command == "configure") {
-					std::string status{};
 					for (const auto &ap : SubInfo->accessPoints.list) { //Send new config to all devices present in subscriber's database
-						auto Response = SDK::GW::Device::SetConfig(this, ap.serialNumber, Body, status);
-						if (Response != Poco::Net::HTTPServerResponse::HTTP_OK) {
-							if (status == "MissingOrInvalidParameters") {
-								return BadRequest(RESTAPI::Errors::MissingOrInvalidParameters,"Required Parameters are missing.");
-							} else if (status == "DeviceNotConnected") {
-								return BadRequest(RESTAPI::Errors::DeviceNotConnected);
-							} else if (status == "SSIDInvalidName") {
-								return BadRequest(RESTAPI::Errors::SSIDInvalidName);
-							} else if (status == "SSIDInvalidPassword") {
-								return BadRequest(RESTAPI::Errors::SSIDInvalidPassword);
-							}
-							return BadRequest(RESTAPI::Errors::InternalError, status);
+						if (!SDK::GW::Device::SetConfig(this, ap.serialNumber, Body)) {
+							return;
 						}
 					}
 					return OK();
