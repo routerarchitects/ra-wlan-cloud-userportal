@@ -52,6 +52,7 @@ namespace OpenWifi::SDK::Prov {
 	} // namespace Subscriber
 
 	namespace Signup {
+		bool GetSignupDevice(RESTAPIHandler *client, const std::string &macAddress);
 		bool UpdateSignupDevice(RESTAPIHandler *client, const std::string &userId, const std::string &macAddress);
 	} // namespace Signup
 
