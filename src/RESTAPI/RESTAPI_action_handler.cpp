@@ -62,6 +62,7 @@ namespace OpenWifi {
 				} else if (Command == "configure") {
 					for (const auto &ap : SubInfo->accessPoints.list) { //Send new config to all devices present in subscriber's database
 						if (!SDK::GW::Device::SetConfig(this, ap.serialNumber, Body)) {
+							Poco::Logger::get("SetConfig").error(fmt::format("Failed for device: [{}].", ap.serialNumber, ));
 							return;
 						}
 					}
