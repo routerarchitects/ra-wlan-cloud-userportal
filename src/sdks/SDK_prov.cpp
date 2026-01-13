@@ -349,10 +349,8 @@ namespace OpenWifi::SDK::Prov {
 			const auto status = API.Do(Response, client ? client->UserInfo_.webtoken.access_token_ : "");
 
 			if (status != Poco::Net::HTTPResponse::HTTP_OK) {
-				Poco::Logger::get("SDK_prov").information(fmt::format("No signup record found for device: [{}]", macAddress));
 				return false;
 			}
-			Poco::Logger::get("SDK_prov").information(fmt::format("Found signup record for device: [{}]", macAddress));
 			return true;
 		}
 
