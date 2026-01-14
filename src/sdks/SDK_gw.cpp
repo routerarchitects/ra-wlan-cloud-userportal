@@ -160,11 +160,10 @@ namespace OpenWifi::SDK::GW {
             }
 			return Poco::Net::HTTPServerResponse::HTTP_OK;
         }
-
 		/*
 			ValidateMeshSSID:
 			1. Take the full device config, ensure the "configuration" block exists.
-			2. Check interfaces are present and upstream ports have no SSIDs.
+			2. Check interfaces are present, upstream ports have no SSIDs and downstream ports do not have dynamic IpV4 addressing.
 			3. Require at least one SSID with bss-mode == "mesh".
 		*/
 		bool ValidateMeshSSID(const Poco::JSON::Object::Ptr &deviceConfig, const std::string &serialNumber, Poco::Logger &logger) {
@@ -190,6 +189,13 @@ namespace OpenWifi::SDK::GW {
 				if (role == "upstream" && ssids && ssids->size() > 0) {
 					logger.error(fmt::format("Invalid configuration for device {}: upstream interface contains SSIDs.", serialNumber));
 					return false;
+				}
+				if (role == "downstream") {
+					auto ipv4 = iface->getObject("ipv4");
+					if (ipv4->getValue<std::string>("addressing") == "dynamic") {
+						logger.error(fmt::format("Invalid configuration for device {}: downstream interface cannot have IPv4 dynamic.", serialNumber));
+						return false;
+					}
 				}
 				if (!ssids)
 					continue;
