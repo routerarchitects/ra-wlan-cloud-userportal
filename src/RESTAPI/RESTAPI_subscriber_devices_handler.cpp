@@ -50,12 +50,19 @@ namespace OpenWifi {
 
 	/*
 		Add_Device_Validate_Subscriber:
+		- Ensure device is not used in signup of another subscriber.
 		- Ensure inventory has a record for the provided MAC.
 		- Ensure the device is not already provisioned to another subscriber.
 		- If already linked to this subscriber, check if device exists in SubInfoDB and return error if found.
 		- If linked to same subcriber but not in SubInfoDB, proceed with adding the device as Gateway or Mesh.
 	*/
 	bool RESTAPI_subscriber_devices_handler::Add_Device_Validate_Subscriber(AddDeviceContext &ctx) {
+
+		if (SDK::Prov::Signup::GetSignupDevice(this, ctx.Mac)){
+			Logger().error(fmt::format("Device: [{}] is already used in signup of another subscriber.", ctx.Mac));
+			BadRequest(RESTAPI::Errors::SerialNumberAlreadyProvisioned);
+			return false;
+		}
 
 		if (!SDK::Prov::Device::Get(this, ctx.Mac, ctx.InventoryTag)) {
 			Logger().error(fmt::format("Inventory table has no record for MAC: {}.", ctx.Mac));
