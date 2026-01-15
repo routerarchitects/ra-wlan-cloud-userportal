@@ -163,7 +163,7 @@ namespace OpenWifi::SDK::GW {
 		/*
 			ValidateMeshSSID:
 			1. Take the full device config, ensure the "configuration" block exists.
-			2. Check interfaces are present, upstream ports have no SSIDs and downstream ports do not have dynamic IpV4 addressing.
+			2. Check interfaces are present, upstream ports have no SSIDs and ensure downstream interface contains static IpV4 addressing.
 			3. Require at least one SSID with bss-mode == "mesh".
 		*/
 		bool ValidateMeshSSID(const Poco::JSON::Object::Ptr &deviceConfig, const std::string &serialNumber, Poco::Logger &logger) {
