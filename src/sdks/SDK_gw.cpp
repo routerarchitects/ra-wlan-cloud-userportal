@@ -192,8 +192,8 @@ namespace OpenWifi::SDK::GW {
 				}
 				if (role == "downstream") {
 					auto ipv4 = iface->getObject("ipv4");
-					if (ipv4->getValue<std::string>("addressing") == "dynamic") {
-						logger.error(fmt::format("Invalid configuration for device {}: downstream interface cannot have IPv4 dynamic.", serialNumber));
+					if (!ipv4 || ipv4->getValue<std::string>("addressing") != "static") {
+						logger.error(fmt::format("Invalid configuration for device {}: downstream interface should have static IPv4 addressing.", serialNumber));
 						return false;
 					}
 				}
