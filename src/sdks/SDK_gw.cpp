@@ -160,14 +160,98 @@ namespace OpenWifi::SDK::GW {
             }
 			return Poco::Net::HTTPServerResponse::HTTP_OK;
         }
+		/*
+			Example of valid configuration format:
+			{
+				"interfaces": [
+					{
+						"ethernet": [
+							{
+								"select-ports": [
+									"WAN*"
+								]
+							}
+						],
+						"ipv4": {
+							"addressing": "dynamic"
+						},
+						"name": "WAN",
+						"role": "upstream",
+						"ssids": []
+					},
+					{
+						"ethernet": [
+							{
+								"select-ports": [
+									"LAN*"
+								]
+							}
+						],
+						"ipv4": {
+							"addressing": "static",
+							"dhcp": {
+								"lease-count": 128,
+								"lease-first": 1,
+								"lease-time": "6h"
+							},
+							"gateway": "192.168.1.1",
+							"subnet": "192.168.1.1/24"
+						},
+						"name": "LAN",
+						"role": "downstream",
+						"services": [
+							"ssh",
+							"lldp"
+						],
+						"ssids": [
+							{
+								"bss-mode": "ap",
+								"encryption": {
+									"ieee80211w": "required",
+									"key": "Password-SSID",
+									"proto": "psk2"
+								},
+								"hidden-ssid": false,
+								"isolate-clients": false,
+								"maximum-clients": 64,
+								"name": "OpenWiFi-SSID",
+								"roaming": true,
+								"wifi-bands": [
+									"2G",
+									"5G"
+								]
+							},
+							{
+								"bss-mode": "mesh",
+								"encryption": {
+									"ieee80211w": "required",
+									"key": "openwifi",
+									"proto": "psk2"
+								},
+								"hidden-ssid": true,
+								"isolate-clients": false,
+								"maximum-clients": 64,
+								"name": "Backhaul-SSID",
+								"wifi-bands": [
+									"5G"
+								]
+							}
+						],
+						"tunnel": {
+							"proto": "mesh"
+						}
+					}
+				]
+			}
+		*/
 
 		/*
-			ValidateMeshSSID:
-			1. Take the full device config, ensure the "configuration" block exists.
-			2. Check interfaces are present and upstream ports have no SSIDs.
+			ValidateConfig:
+			1. Take the full device config, ensure the "configuration" field exists.
+			2. Check interfaces are present, upstream ports have no SSIDs and ensure downstream interface contains static IpV4 addressing.
 			3. Require at least one SSID with bss-mode == "mesh".
 		*/
-		bool ValidateMeshSSID(const Poco::JSON::Object::Ptr &deviceConfig, const std::string &serialNumber, Poco::Logger &logger) {
+		bool ValidateConfig(const Poco::JSON::Object::Ptr &deviceConfig, const std::string &serialNumber, Poco::Logger &logger) {
 			if (!deviceConfig || !deviceConfig->has("configuration")) {
 				logger.error(fmt::format("Invalid configuration for device {}: missing configuration block.", serialNumber));
 				return false;
@@ -190,6 +274,13 @@ namespace OpenWifi::SDK::GW {
 				if (role == "upstream" && ssids && ssids->size() > 0) {
 					logger.error(fmt::format("Invalid configuration for device {}: upstream interface contains SSIDs.", serialNumber));
 					return false;
+				}
+				if (role == "downstream") {
+					auto ipv4 = iface->getObject("ipv4");
+					if (!ipv4 || ipv4->getValue<std::string>("addressing") != "static") {
+						logger.error(fmt::format("Invalid configuration for device {}: downstream interface should have static IPv4 addressing.", serialNumber));
+						return false;
+					}
 				}
 				if (!ssids)
 					continue;

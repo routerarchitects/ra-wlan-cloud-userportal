@@ -151,7 +151,7 @@ namespace OpenWifi {
 			return false;
 		}
 
-		if (!SDK::GW::Device::ValidateMeshSSID(config, gatewayMac, Logger())) {
+		if (!SDK::GW::Device::ValidateConfig(config, gatewayMac, Logger())) {
 			Logger().error(fmt::format("Wrong mesh configuration found on fetched gateway device:{} for mesh device: {}.", gatewayMac, ctx.Mac));
 			InternalError(RESTAPI::Errors::ConfigBlockInvalid);
 			return false;
