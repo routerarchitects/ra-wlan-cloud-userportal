@@ -162,7 +162,7 @@ namespace OpenWifi {
 				Logger_.error(fmt::format("Failed to fetch current configuration for device {}.", ap.serialNumber));
 				return false;
 			}
-			if (!SDK::GW::Device::ValidateMeshSSID(ConfigObj, ap.serialNumber, Logger_)) {
+			if (!SDK::GW::Device::ValidateConfig(ConfigObj, ap.serialNumber, Logger_)) {
 				Logger_.error(fmt::format("Invalid configuration for device {}: wrong mesh config.", ap.serialNumber));
 				return false;
 			}
