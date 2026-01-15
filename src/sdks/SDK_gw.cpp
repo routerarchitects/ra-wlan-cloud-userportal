@@ -161,12 +161,97 @@ namespace OpenWifi::SDK::GW {
 			return Poco::Net::HTTPServerResponse::HTTP_OK;
         }
 		/*
-			ValidateMeshSSID:
-			1. Take the full device config, ensure the "configuration" block exists.
+			Example of valid configuration format:
+				{
+				"interfaces": [
+					{
+					"ethernet": [
+						{
+						"select-ports": [
+							"WAN*"
+						]
+						}
+					],
+					"ipv4": {
+						"addressing": "dynamic"
+					},
+					"name": "WAN",
+					"role": "upstream",
+					"ssids": []
+					},
+					{
+					"ethernet": [
+						{
+						"select-ports": [
+							"LAN*"
+						]
+						}
+					],
+					"ipv4": {
+						"addressing": "static",
+						"dhcp": {
+						"lease-count": 128,
+						"lease-first": 1,
+						"lease-time": "6h"
+						},
+						"gateway": "192.168.17.1",
+						"subnet": "192.168.17.1/24"
+					},
+					"name": "LAN",
+					"role": "downstream",
+					"services": [
+						"ssh",
+						"lldp"
+					],
+					"ssids": [
+						{
+						"bss-mode": "ap",
+						"encryption": {
+							"ieee80211w": "required",
+							"key": "Iotina@123",
+							"proto": "psk2"
+						},
+						"hidden-ssid": false,
+						"isolate-clients": false,
+						"maximum-clients": 64,
+						"name": "Default-SSID",
+						"roaming": true,
+						"wifi-bands": [
+							"2G",
+							"5G"
+						]
+						},
+					{
+						"bss-mode": "mesh",
+						"encryption": {
+							"ieee80211w": "required",
+							"key": "openwifi",
+							"proto": "psk2"
+						},
+						"hidden-ssid": true,
+						"isolate-clients": false,
+						"maximum-clients": 64,
+						"name": "DEFAULT-MESH",
+						"wifi-bands": [
+							"5G"
+						]
+						}
+					],
+					"tunnel": {
+					"proto": "mesh"
+					}
+					}
+				]
+				}
+		*/
+
+		/*
+			ValidateConfig:
+			1. Take the full device config, ensure the "configuration" field exists.
 			2. Check interfaces are present, upstream ports have no SSIDs and ensure downstream interface contains static IpV4 addressing.
 			3. Require at least one SSID with bss-mode == "mesh".
 		*/
-		bool ValidateMeshSSID(const Poco::JSON::Object::Ptr &deviceConfig, const std::string &serialNumber, Poco::Logger &logger) {
+		bool ValidateConfig(const Poco::JSON::Object::Ptr &deviceConfig, const std::string &serialNumber, Poco::Logger &logger) {
 			if (!deviceConfig || !deviceConfig->has("configuration")) {
 				logger.error(fmt::format("Invalid configuration for device {}: missing configuration block.", serialNumber));
 				return false;
