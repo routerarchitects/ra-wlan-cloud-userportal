@@ -162,87 +162,87 @@ namespace OpenWifi::SDK::GW {
         }
 		/*
 			Example of valid configuration format:
-				{
+			{
 				"interfaces": [
 					{
-					"ethernet": [
-						{
-						"select-ports": [
-							"WAN*"
-						]
-						}
-					],
-					"ipv4": {
-						"addressing": "dynamic"
-					},
-					"name": "WAN",
-					"role": "upstream",
-					"ssids": []
+						"ethernet": [
+							{
+								"select-ports": [
+									"WAN*"
+								]
+							}
+						],
+						"ipv4": {
+							"addressing": "dynamic"
+						},
+						"name": "WAN",
+						"role": "upstream",
+						"ssids": []
 					},
 					{
-					"ethernet": [
-						{
-						"select-ports": [
-							"LAN*"
-						]
+						"ethernet": [
+							{
+								"select-ports": [
+									"LAN*"
+								]
+							}
+						],
+						"ipv4": {
+							"addressing": "static",
+							"dhcp": {
+								"lease-count": 128,
+								"lease-first": 1,
+								"lease-time": "6h"
+							},
+							"gateway": "192.168.1.1",
+							"subnet": "192.168.1.1/24"
+						},
+						"name": "LAN",
+						"role": "downstream",
+						"services": [
+							"ssh",
+							"lldp"
+						],
+						"ssids": [
+							{
+								"bss-mode": "ap",
+								"encryption": {
+									"ieee80211w": "required",
+									"key": "Password-SSID",
+									"proto": "psk2"
+								},
+								"hidden-ssid": false,
+								"isolate-clients": false,
+								"maximum-clients": 64,
+								"name": "OpenWiFi-SSID",
+								"roaming": true,
+								"wifi-bands": [
+									"2G",
+									"5G"
+								]
+							},
+							{
+								"bss-mode": "mesh",
+								"encryption": {
+									"ieee80211w": "required",
+									"key": "openwifi",
+									"proto": "psk2"
+								},
+								"hidden-ssid": true,
+								"isolate-clients": false,
+								"maximum-clients": 64,
+								"name": "Backhaul-SSID",
+								"wifi-bands": [
+									"5G"
+								]
+							}
+						],
+						"tunnel": {
+							"proto": "mesh"
 						}
-					],
-					"ipv4": {
-						"addressing": "static",
-						"dhcp": {
-						"lease-count": 128,
-						"lease-first": 1,
-						"lease-time": "6h"
-						},
-						"gateway": "192.168.17.1",
-						"subnet": "192.168.17.1/24"
-					},
-					"name": "LAN",
-					"role": "downstream",
-					"services": [
-						"ssh",
-						"lldp"
-					],
-					"ssids": [
-						{
-						"bss-mode": "ap",
-						"encryption": {
-							"ieee80211w": "required",
-							"key": "Iotina@123",
-							"proto": "psk2"
-						},
-						"hidden-ssid": false,
-						"isolate-clients": false,
-						"maximum-clients": 64,
-						"name": "Default-SSID",
-						"roaming": true,
-						"wifi-bands": [
-							"2G",
-							"5G"
-						]
-						},
-					{
-						"bss-mode": "mesh",
-						"encryption": {
-							"ieee80211w": "required",
-							"key": "openwifi",
-							"proto": "psk2"
-						},
-						"hidden-ssid": true,
-						"isolate-clients": false,
-						"maximum-clients": 64,
-						"name": "DEFAULT-MESH",
-						"wifi-bands": [
-							"5G"
-						]
-						}
-					],
-					"tunnel": {
-					"proto": "mesh"
-					}
 					}
 				]
-				}
+			}
 		*/
 
 		/*
