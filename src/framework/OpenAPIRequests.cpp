@@ -52,9 +52,10 @@ namespace OpenWifi {
 
 					Poco::Net::HTTPResponse Response;
 					std::istream &is = Session.receiveResponse(Response);
-					if (Response.getStatus() == Poco::Net::HTTPResponse::HTTP_OK) {
+					try {
 						Poco::JSON::Parser P;
 						ResponseObject = P.parse(is).extract<Poco::JSON::Object::Ptr>();
+					} catch (...) {
 					}
 					return Response.getStatus();
 				} else {
@@ -65,9 +66,10 @@ namespace OpenWifi {
 
 					Poco::Net::HTTPResponse Response;
 					std::istream &is = Session.receiveResponse(Response);
-					if (Response.getStatus() == Poco::Net::HTTPResponse::HTTP_OK) {
+					try {
 						Poco::JSON::Parser P;
 						ResponseObject = P.parse(is).extract<Poco::JSON::Object::Ptr>();
+					} catch (...) {
 					}
 					return Response.getStatus();
 				}

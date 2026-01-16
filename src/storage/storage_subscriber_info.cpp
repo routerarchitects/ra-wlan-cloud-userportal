@@ -21,6 +21,7 @@ namespace OpenWifi {
 											ORM::Field{"lastName", ORM::FieldType::FT_TEXT},
 											ORM::Field{"phoneNumber", ORM::FieldType::FT_TEXT},
 											ORM::Field{"secondaryEmail", ORM::FieldType::FT_TEXT},
+											ORM::Field{"boardId", ORM::FieldType::FT_TEXT},
 											ORM::Field{"accessPoints", ORM::FieldType::FT_TEXT},
 											ORM::Field{"serviceAddress", ORM::FieldType::FT_TEXT},
 											ORM::Field{"billingAddress", ORM::FieldType::FT_TEXT},
@@ -107,14 +108,15 @@ void ORM::DB<OpenWifi::SubInfoDBRecordType, OpenWifi::SubObjects::SubscriberInfo
 	Out.lastName = In.get<4>();
 	Out.phoneNumber = In.get<5>();
 	Out.secondaryEmail = In.get<6>();
+	Out.boardId = In.get<7>();
 	Out.accessPoints =
-		OpenWifi::RESTAPI_utils::to_object<OpenWifi::SubObjects::AccessPointList>(In.get<7>());
+		OpenWifi::RESTAPI_utils::to_object<OpenWifi::SubObjects::AccessPointList>(In.get<8>());
 	Out.serviceAddress =
-		OpenWifi::RESTAPI_utils::to_object<OpenWifi::SubObjects::Location>(In.get<8>());
-	Out.billingAddress =
 		OpenWifi::RESTAPI_utils::to_object<OpenWifi::SubObjects::Location>(In.get<9>());
-	Out.created = In.get<10>();
-	Out.modified = In.get<11>();
+	Out.billingAddress =
+		OpenWifi::RESTAPI_utils::to_object<OpenWifi::SubObjects::Location>(In.get<10>());
+	Out.created = In.get<11>();
+	Out.modified = In.get<12>();
 }
 
 template <>
@@ -127,9 +129,10 @@ void ORM::DB<OpenWifi::SubInfoDBRecordType, OpenWifi::SubObjects::SubscriberInfo
 	Out.set<4>(In.lastName);
 	Out.set<5>(In.phoneNumber);
 	Out.set<6>(In.secondaryEmail);
-	Out.set<7>(OpenWifi::RESTAPI_utils::to_string(In.accessPoints));
-	Out.set<8>(OpenWifi::RESTAPI_utils::to_string(In.serviceAddress));
-	Out.set<9>(OpenWifi::RESTAPI_utils::to_string(In.billingAddress));
-	Out.set<10>(In.created);
-	Out.set<11>(In.modified);
+	Out.set<7>(In.boardId);
+	Out.set<8>(OpenWifi::RESTAPI_utils::to_string(In.accessPoints));
+	Out.set<9>(OpenWifi::RESTAPI_utils::to_string(In.serviceAddress));
+	Out.set<10>(OpenWifi::RESTAPI_utils::to_string(In.billingAddress));
+	Out.set<11>(In.created);
+	Out.set<12>(In.modified);
 }

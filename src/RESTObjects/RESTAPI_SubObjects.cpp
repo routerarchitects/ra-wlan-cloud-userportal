@@ -291,6 +291,7 @@ namespace OpenWifi::SubObjects {
 		field_to_json(Obj, "lastName", lastName);
 		field_to_json(Obj, "phoneNumber", phoneNumber);
 		field_to_json(Obj, "secondaryEmail", secondaryEmail);
+		field_to_json(Obj, "boardId", boardId);
 		field_to_json(Obj, "accessPoints", accessPoints);
 		field_to_json(Obj, "serviceAddress", serviceAddress);
 		field_to_json(Obj, "billingAddress", billingAddress);
@@ -307,6 +308,7 @@ namespace OpenWifi::SubObjects {
 			field_from_json(Obj, "lastName", lastName);
 			field_from_json(Obj, "phoneNumber", phoneNumber);
 			field_from_json(Obj, "secondaryEmail", secondaryEmail);
+			field_from_json(Obj, "boardId", boardId);
 			field_from_json(Obj, "accessPoints", accessPoints);
 			field_from_json(Obj, "serviceAddress", serviceAddress);
 			field_from_json(Obj, "billingAddress", billingAddress);

@@ -291,6 +291,7 @@ namespace OpenWifi::SubObjects {
 		std::string lastName;
 		std::string phoneNumber;
 		std::string secondaryEmail;
+		std::string boardId;
 		AccessPointList accessPoints;
 		Location serviceAddress;
 		Location billingAddress;

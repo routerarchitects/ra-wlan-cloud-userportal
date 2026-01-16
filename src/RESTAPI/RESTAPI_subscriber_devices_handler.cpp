@@ -202,7 +202,7 @@ namespace OpenWifi {
 			return false;
 		}
 
-		if (!SDK::Prov::Subscriber::UpdateSubscriber(this, UserInfo_.userinfo.id, ctx.Mac, false)) {
+		if (!SDK::Prov::Subscriber::SetSubscriber(this, UserInfo_.userinfo.id, ctx.Mac, false)) {
 			Logger().error(fmt::format("Couldn't link device: {} to subscriber: {} in inventory.", ctx.Mac, UserInfo_.userinfo.id));
 			InternalError(RESTAPI::Errors::RecordNotUpdated);
 			return false;

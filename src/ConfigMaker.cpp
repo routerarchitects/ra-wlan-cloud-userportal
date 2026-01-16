@@ -503,7 +503,7 @@ namespace OpenWifi {
 					"Could not find Subscriber device in provisioning for {}", i.serialNumber));
 			}
 			SDK::GW::Device::SetSubscriber(nullptr, i.serialNumber, SI.id);
-			SDK::Prov::Subscriber::UpdateSubscriber(nullptr, SI.id, i.serialNumber, false);
+			SDK::Prov::Subscriber::SetSubscriber(nullptr, SI.id, i.serialNumber, false);
 		}
 		SI.modified = Utils::Now();
 		return StorageService()->SubInfoDB().UpdateRecord("id", id_, SI);

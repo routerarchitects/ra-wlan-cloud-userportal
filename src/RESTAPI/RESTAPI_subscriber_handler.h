@@ -7,6 +7,14 @@
 #include "framework/RESTAPI_Handler.h"
 
 namespace OpenWifi {
+	namespace SubObjects {
+		struct SubscriberInfo;
+	}
+	namespace ProvObjects {
+		struct SubscriberDeviceList;
+		struct SubscriberDevice;
+	}
+
 	class RESTAPI_subscriber_handler : public RESTAPIHandler {
 	  public:
 		RESTAPI_subscriber_handler(const RESTAPIHandler::BindingMap &bindings, Poco::Logger &L,
@@ -24,9 +32,21 @@ namespace OpenWifi {
 
 		void DoGet() final;
 		void DoPost() final{};
-		void DoPut() final;
+		void DoPut() final{};
 		void DoDelete() final;
 
 	  private:
+		bool ValidateUserInfo();
+		bool LoadSubscriberInfo(SubObjects::SubscriberInfo &subInfo);
+		bool LoadProvisioningDevices(ProvObjects::SubscriberDeviceList &devices);
+		bool PrepareSubInfoObject(SubObjects::SubscriberInfo &subInfo,
+								  const ProvObjects::SubscriberDeviceList &devices);
+		bool PrepareDefaultConfig(SubObjects::SubscriberInfo &subInfo,
+									ProvObjects::SubscriberDevice &subDevice);
+		bool LinkSubscriberDevice(const SubObjects::SubscriberInfo &subInfo,
+											const ProvObjects::SubscriberDevice &subDevice);
+		bool CreateDbEntry(SubObjects::SubscriberInfo &subInfo);
+		bool ProvisionSubscriber(SubObjects::SubscriberInfo &subInfo);
+		bool DeletePostSubscriber();
 	};
 } // namespace OpenWifi
