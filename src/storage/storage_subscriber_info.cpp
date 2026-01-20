@@ -37,7 +37,7 @@ namespace OpenWifi {
 									   Poco::Logger &L)
 		: DB(T, "subscriberinfo", SubInfoDBDB_Fields, SubInfoDBDB_Fields_Indexes, P, L, "sui") {}
 
-	void SubscriberInfoDB::CreateDefaultSubscriberInfo(
+	void SubscriberInfoDB::BuildDefaultSubscriberInfo(
 		const SecurityObjects::UserInfoAndPolicy &UI, SubObjects::SubscriberInfo &SI,
 		const ProvObjects::SubscriberDeviceList &Devices) {
 		auto Now = Utils::Now();

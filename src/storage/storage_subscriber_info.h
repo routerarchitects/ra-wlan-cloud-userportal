@@ -1,3 +1,8 @@
+/*
+ * SPDX-License-Identifier: AGPL-3.0 OR LicenseRef-Commercial
+ * Copyright (c) 2025 Infernet Systems Pvt Ltd
+ * Portions copyright (c) Telecom Infra Project (TIP), BSD-3-Clause
+ */
 //
 // Created by stephane bourque on 2021-11-29.
 //
@@ -20,7 +25,7 @@ namespace OpenWifi {
 	  public:
 		SubscriberInfoDB(OpenWifi::DBType T, Poco::Data::SessionPool &P, Poco::Logger &L);
 		virtual ~SubscriberInfoDB(){};
-		void CreateDefaultSubscriberInfo(const SecurityObjects::UserInfoAndPolicy &UI,
+		void BuildDefaultSubscriberInfo(const SecurityObjects::UserInfoAndPolicy &UI,
 										 SubObjects::SubscriberInfo &SI,
 										 const ProvObjects::SubscriberDeviceList &Devices);
 		void AddAccessPoint(SubObjects::SubscriberInfo &SI, const std::string &macAddress,

@@ -21,14 +21,147 @@
 #include "sdks/SDK_prov.h"
 #include "sdks/SDK_sec.h"
 
+#include <optional>
+
 namespace OpenWifi {
 
-	template <typename T> void AssignIfModified(T &Var, const T &Value, int &Mods) {
-		if (Var != Value) {
-			Var = Value;
-			Mods++;
+	bool RESTAPI_subscriber_handler::ValidateUserInfo() {
+		if (UserInfo_.userinfo.id.empty()) {
+			NotFound();
+			return false;
 		}
+		return true;
 	}
+
+	bool RESTAPI_subscriber_handler::LoadSubscriberInfo(SubObjects::SubscriberInfo &subInfo) {
+		if (StorageService()->SubInfoDB().GetRecord("id", UserInfo_.userinfo.id, subInfo)) {
+			Poco::JSON::Object Answer;
+			subInfo.to_json(Answer);
+			Logger().debug(
+				fmt::format("{}: Returning existing subscriber information.", UserInfo_.userinfo.email));
+			ReturnObject(Answer);
+			return true;
+		}
+		return false;
+	}
+
+	static void SetErrorResponse(RESTAPIHandler *client, Poco::Net::HTTPResponse::HTTPStatus callStatus,
+								const Poco::JSON::Object::Ptr &callResponse) {
+		auto Forward = callResponse ? callResponse : Poco::makeShared<Poco::JSON::Object>();
+		if (client && client->Request && Forward->has("ErrorDetails")) {
+			Forward->set("ErrorDetails", client->Request->getMethod());
+		}
+		client->Response->setStatus(callStatus);
+		std::stringstream ss;
+		Poco::JSON::Stringifier::condense(Forward, ss);
+		client->Response->setContentType("application/json");
+		client->Response->setContentLength(ss.str().size());
+		auto &os = client->Response->send();
+		os << ss.str();
+	}
+
+	bool RESTAPI_subscriber_handler::LoadProvisioningDevices(ProvObjects::SubscriberDeviceList &devices) {
+
+		Poco::Net::HTTPServerResponse::HTTPStatus callStatus = Poco::Net::HTTPServerResponse::HTTP_INTERNAL_SERVER_ERROR;
+		Poco::JSON::Object::Ptr callResponse = Poco::makeShared<Poco::JSON::Object>();
+
+		if (!SDK::Prov::Subscriber::GetDevices(this, UserInfo_.userinfo.id,
+												UserInfo_.userinfo.owner, devices, callStatus, callResponse)) {
+			SetErrorResponse(this, callStatus, callResponse);
+			return false;
+		}
+
+		if (devices.subscriberDevices.empty()) {
+			BadRequest(RESTAPI::Errors::SubNoDeviceActivated);
+			return false;
+		}
+		return true;
+	}
+
+	bool RESTAPI_subscriber_handler::PrepareSubInfoObject(
+		SubObjects::SubscriberInfo &subInfo, const ProvObjects::SubscriberDeviceList &devices) {
+		StorageService()->SubInfoDB().BuildDefaultSubscriberInfo(UserInfo_, subInfo, devices);
+		return true;
+	}
+
+	bool RESTAPI_subscriber_handler::PrepareDefaultConfig(
+		SubObjects::SubscriberInfo &subInfo, ProvObjects::SubscriberDevice &subDevice) {
+		Logger().debug(
+			fmt::format("{}: Fetching Current configuration from controller", UserInfo_.userinfo.email));
+		if (subInfo.accessPoints.list.empty()) {
+			Logger().error("Subscriber access points list is empty.");
+			InternalError(RESTAPI::Errors::ConfigBlockInvalid);
+			return false;
+		}
+
+		ConfigMaker InitialConfig(Logger(), subInfo.id);
+		const std::string targetMac = subInfo.accessPoints.list[0].macAddress;
+
+		if (!SDK::Prov::Subscriber::GetDevice(this, targetMac, subDevice)) {
+			Logger().error(fmt::format("Could not find provisioning subdevice for {}.", targetMac));
+			InternalError(RESTAPI::Errors::SubNoDeviceActivated);
+			return false;
+		}
+		if (!InitialConfig.PrepareDefaultConfig(subInfo.accessPoints.list[0], subDevice)) {
+			Logger().error(fmt::format("Failed to create PrepareDefaultConfig: Fetched config is invalid for MAC {}.",
+									   subInfo.accessPoints.list[0].macAddress));
+			InternalError(RESTAPI::Errors::ConfigBlockInvalid);
+			return false;
+		}
+		return true;
+	}
+
+	bool RESTAPI_subscriber_handler::LinkSubscriberDevice(
+		const SubObjects::SubscriberInfo &subInfo, const ProvObjects::SubscriberDevice &subDevice) {
+		if (!SDK::Prov::Subscriber::SetDevice(this, subDevice)) {
+			Logger().error(
+				fmt::format("Failed to persist provisioning config for {}.", subDevice.serialNumber));
+			InternalError(RESTAPI::Errors::ConfigBlockInvalid);
+			return false;
+		}
+		if (!SDK::GW::Device::SetSubscriber(this, subDevice.serialNumber, subInfo.id)) {
+			Logger().error(fmt::format("Failed to link device {} to subscriber {} in gateway.",
+									   subDevice.serialNumber, subInfo.id));
+		}
+		if (!SDK::Prov::Subscriber::SetSubscriber(this, subInfo.id, subDevice.serialNumber, false)) {
+			Logger().error(fmt::format("Couldn't link device {} to subscriber {} in inventory.",
+									   subDevice.serialNumber, subInfo.id));
+		}
+		return true;
+	}
+
+	bool RESTAPI_subscriber_handler::CreateDbEntry(
+		SubObjects::SubscriberInfo &subInfo) {
+		Logger().debug(
+			fmt::format("{}: Creating default user information.", UserInfo_.userinfo.email));
+		StorageService()->SubInfoDB().CreateRecord(subInfo);
+		return true;
+	}
+
+	bool RESTAPI_subscriber_handler::ProvisionSubscriber(SubObjects::SubscriberInfo &subInfo) {
+		Poco::Net::HTTPServerResponse::HTTPStatus provisionStatus =
+			Poco::Net::HTTPServerResponse::HTTP_INTERNAL_SERVER_ERROR;
+		auto provisionResponse = Poco::makeShared<Poco::JSON::Object>();
+		if (!SDK::Prov::Subscriber::ProvisionSubscriber(
+				this, UserInfo_.userinfo.id, true, std::nullopt, std::nullopt, std::nullopt,
+				provisionStatus, provisionResponse)) {
+			SetErrorResponse(this, provisionStatus, provisionResponse);
+			return false;
+		}
+		return true;
+	}
+
+	bool RESTAPI_subscriber_handler::DeletePostSubscriber() {
+		Poco::Net::HTTPServerResponse::HTTPStatus provisionStatus =
+			Poco::Net::HTTPServerResponse::HTTP_INTERNAL_SERVER_ERROR;
+		if (!SDK::Prov::Subscriber::DeleteProvisionSubscriber(
+				this, UserInfo_.userinfo.id, provisionStatus)) {
+			SetErrorResponse(this, provisionStatus, Poco::makeShared<Poco::JSON::Object>());
+			return false;
+		}
+		return true;
+	}
+
 /*
 	GET /api/v1/subscriber on a first call:
 	1. Fetch provisioning subdevice record + device current config from controller.
@@ -36,325 +169,25 @@ namespace OpenWifi {
 	3. Persist the provisioning subdevice record, link the device to the subscriber (gateway + inventory), then store the subscriber record in the database.
 */
 	void RESTAPI_subscriber_handler::DoGet() {
+		struct InitSubscriberContext {
+			SubObjects::SubscriberInfo SubscriberInfo{};
+			ProvObjects::SubscriberDeviceList Devices{};
+			ProvObjects::SubscriberDevice SubDevice{};
+		} ctx;
 
-		if (UserInfo_.userinfo.id.empty()) {
-			return NotFound();
-		}
+		if (!ValidateUserInfo()) return;
+		Logger().debug(fmt::format("{}: Get Subscriber", UserInfo_.userinfo.email));
 
-		Logger().information(fmt::format("{}: Get basic info.", UserInfo_.userinfo.email));
-		SubObjects::SubscriberInfo SI;
-		if (StorageService()->SubInfoDB().GetRecord("id", UserInfo_.userinfo.id, SI)) {
-
-			int Mods = 0;
-
-			//  we need to get the stats for each AP
-			for (auto &i : SI.accessPoints.list) {
-				if (i.macAddress.empty())
-					continue;
-				Poco::JSON::Object::Ptr LastStats;
-				if (SDK::GW::Device::GetLastStats(nullptr, i.serialNumber, LastStats)) {
-					std::ostringstream OS;
-					LastStats->stringify(OS);
-					try {
-						nlohmann::json LA = nlohmann::json::parse(OS.str());
-						for (const auto &j : LA["interfaces"]) {
-							if (j.contains("location") &&
-								j["location"].get<std::string>() == "/interfaces/0" &&
-								j.contains("ipv4")) {
-
-								if (j["ipv4"]["addresses"].is_array() &&
-									!j["ipv4"]["addresses"].empty()) {
-									auto IPParts = Poco::StringTokenizer(
-										j["ipv4"]["addresses"][0].get<std::string>(), "/");
-									AssignIfModified(i.internetConnection.ipAddress, IPParts[0],
-													 Mods);
-									i.internetConnection.subnetMask = IPParts[1];
-								}
-								if (j["ipv4"].contains("dhcp_server"))
-									AssignIfModified(i.internetConnection.defaultGateway,
-													 j["ipv4"]["dhcp_server"].get<std::string>(),
-													 Mods);
-								else
-									AssignIfModified(i.internetConnection.defaultGateway,
-													 std::string{"---"}, Mods);
-
-								if (j.contains("dns_servers") && j["dns_servers"].is_array()) {
-									auto dns = j["dns_servers"];
-									if (!dns.empty())
-										AssignIfModified(i.internetConnection.primaryDns,
-														 dns[0].get<std::string>(), Mods);
-									else
-										AssignIfModified(i.internetConnection.primaryDns,
-														 std::string{"---"}, Mods);
-									if (dns.size() > 1)
-										AssignIfModified(i.internetConnection.secondaryDns,
-														 dns[1].get<std::string>(), Mods);
-									else
-										AssignIfModified(i.internetConnection.secondaryDns,
-														 std::string{"---"}, Mods);
-								}
-							}
-						}
-					} catch (...) {
-						AssignIfModified(i.internetConnection.ipAddress, std::string{"--"}, Mods);
-						i.internetConnection.subnetMask = "--";
-						i.internetConnection.defaultGateway = "--";
-						i.internetConnection.primaryDns = "--";
-						i.internetConnection.secondaryDns = "--";
-					}
-				} else {
-					AssignIfModified(i.internetConnection.ipAddress, std::string{"-"}, Mods);
-					i.internetConnection.subnetMask = "-";
-					i.internetConnection.defaultGateway = "-";
-					i.internetConnection.primaryDns = "-";
-					i.internetConnection.secondaryDns = "-";
-				}
-
-				FMSObjects::DeviceInformation DI;
-				if (SDK::FMS::Firmware::GetDeviceInformation(nullptr, i.serialNumber, DI)) {
-					AssignIfModified(i.currentFirmwareDate, DI.currentFirmwareDate, Mods);
-					AssignIfModified(i.currentFirmware, DI.currentFirmware, Mods);
-					AssignIfModified(i.latestFirmwareDate, DI.latestFirmwareDate, Mods);
-					AssignIfModified(i.latestFirmware, DI.latestFirmware, Mods);
-					AssignIfModified(i.newFirmwareAvailable, DI.latestFirmwareAvailable, Mods);
-					AssignIfModified(i.latestFirmwareURI, DI.latestFirmwareURI, Mods);
-				}
-			}
-
-			if (Mods) {
-				auto now = Utils::Now();
-				if (SI.modified == now)
-					SI.modified++;
-				else
-					SI.modified = now;
-				StorageService()->SubInfoDB().UpdateRecord("id", UserInfo_.userinfo.id, SI);
-			}
-
-			Poco::JSON::Object Answer;
-			SI.to_json(Answer);
-			return ReturnObject(Answer);
-		}
-
-		//  if the user does not have a device, we cannot continue.
-		ProvObjects::SubscriberDeviceList Devices;
-
-		if (!SDK::Prov::Subscriber::GetDevices(this, UserInfo_.userinfo.id,
-											   UserInfo_.userinfo.owner, Devices)) {
-			return BadRequest(RESTAPI::Errors::ProvServiceNotAvailable);
-		}
-
-		if (Devices.subscriberDevices.empty()) {
-			return BadRequest(RESTAPI::Errors::SubNoDeviceActivated);
-		}
-
-		Logger().information(
-			fmt::format("{}: Creating default user information.", UserInfo_.userinfo.email));
-		StorageService()->SubInfoDB().CreateDefaultSubscriberInfo(UserInfo_, SI, Devices);
-		Logger().information(
-			fmt::format("{}: Fetching Current configuration from controller", UserInfo_.userinfo.email));
-		ConfigMaker InitialConfig(Logger(), SI.id);
-		
-		ProvObjects::SubscriberDevice subDevice;
-		const std::string targetMac = SI.accessPoints.list[0].macAddress;
-
-		if (!SDK::Prov::Subscriber::GetDevice(this, targetMac, subDevice)) {
-			Logger().error(fmt::format("Could not find provisioning subdevice for {}.", targetMac));
-			return InternalError(RESTAPI::Errors::ConfigBlockInvalid);
-		}
-		if (!InitialConfig.PrepareDefaultConfig(SI.accessPoints.list[0], subDevice)) {
-			Logger().error(fmt::format("Failed to create PrepareDefaultConfig: Fetched config is invalid for MAC {}.", SI.accessPoints.list[0].macAddress));
-			return InternalError(RESTAPI::Errors::ConfigBlockInvalid);
-		}
-		if (!SDK::Prov::Subscriber::SetDevice(this, subDevice)) {
-			Logger().error(fmt::format("Failed to persist provisioning config for {}.", subDevice.serialNumber));
-			return InternalError(RESTAPI::Errors::ConfigBlockInvalid);
-		}
-		if (!SDK::GW::Device::SetSubscriber(this, subDevice.serialNumber, SI.id)) {
-			Logger().error(fmt::format("Failed to link device {} to subscriber {} in gateway.", subDevice.serialNumber, SI.id));
-		}
-		if (!SDK::Prov::Subscriber::UpdateSubscriber(this, SI.id, subDevice.serialNumber, false)) {
-			Logger().error(fmt::format("Couldn't link device {} to subscriber {} in inventory.", subDevice.serialNumber, SI.id));
-		}
-		Logger().information(fmt::format("{}: Creating default configuration.", UserInfo_.userinfo.email));
-		StorageService()->SubInfoDB().CreateRecord(SI);
-		StorageService()->SubInfoDB().GetRecord("id", SI.id, SI);
-
+		if (LoadSubscriberInfo(ctx.SubscriberInfo)) return;
+		if (!LoadProvisioningDevices(ctx.Devices)) return;
+		if (!PrepareSubInfoObject(ctx.SubscriberInfo, ctx.Devices)) return;
+		if (!PrepareDefaultConfig(ctx.SubscriberInfo, ctx.SubDevice)) return;
+		if (!LinkSubscriberDevice(ctx.SubscriberInfo, ctx.SubDevice)) return;
+		if (!CreateDbEntry(ctx.SubscriberInfo)) return;
+		if (!ProvisionSubscriber(ctx.SubscriberInfo)) return;
 		Poco::JSON::Object Answer;
-		SI.to_json(Answer);
+		ctx.SubscriberInfo.to_json(Answer);
 		ReturnObject(Answer);
-	}
-
-	static bool ValidIPv4(const std::string &IP) {
-		if (IP.empty())
-			return false;
-		Poco::Net::IPAddress A;
-
-		if (!Poco::Net::IPAddress::tryParse(IP, A) || A.family() != Poco::Net::AddressFamily::IPv4)
-			return false;
-
-		return true;
-	}
-
-	[[maybe_unused]] static bool ValidIPv6(const std::string &IP) {
-		if (IP.empty())
-			return false;
-		Poco::Net::IPAddress A;
-
-		if (!Poco::Net::IPAddress::tryParse(IP, A) || A.family() != Poco::Net::AddressFamily::IPv6)
-			return false;
-
-		return true;
-	}
-
-	[[maybe_unused]] static bool ValidIPv4v6(const std::string &IP) {
-		if (IP.empty())
-			return false;
-		Poco::Net::IPAddress A;
-
-		if (!Poco::Net::IPAddress::tryParse(IP, A))
-			return false;
-
-		return true;
-	}
-
-	static bool ValidateIPv4Subnet(const std::string &IP) {
-		auto IPParts = Poco::StringTokenizer(IP, "/");
-		if (IPParts.count() != 2) {
-			return false;
-		}
-		if (!ValidIPv4(IPParts[0])) {
-			return false;
-		}
-		auto X = std::atoll(IPParts[1].c_str());
-		if (X < 8 || X > 24) {
-			return false;
-		}
-		return true;
-	}
-
-	void RESTAPI_subscriber_handler::DoPut() {
-
-		auto ConfigChanged = GetParameter("configChanged", "true") == "true";
-		auto ApplyConfigOnly = GetParameter("applyConfigOnly", "true") == "true";
-
-		if (UserInfo_.userinfo.id.empty()) {
-			return NotFound();
-		}
-
-		SubObjects::SubscriberInfo Existing;
-		if (!StorageService()->SubInfoDB().GetRecord("id", UserInfo_.userinfo.id, Existing)) {
-			return NotFound();
-		}
-
-		if (ApplyConfigOnly) {
-			ConfigMaker InitialConfig(Logger(), UserInfo_.userinfo.id);
-			if (InitialConfig.Prepare())
-				return OK();
-			else
-				return InternalError(RESTAPI::Errors::SubConfigNotRefreshed);
-		}
-
-		const auto &Body = ParsedBody_;
-		SubObjects::SubscriberInfo Changes;
-		if (!Changes.from_json(Body)) {
-			return BadRequest(RESTAPI::Errors::InvalidJSONDocument);
-		}
-
-		auto Now = Utils::Now();
-		if (Body->has("firstName"))
-			Existing.firstName = Changes.firstName;
-		if (Body->has("initials"))
-			Existing.initials = Changes.initials;
-		if (Body->has("lastName"))
-			Existing.lastName = Changes.lastName;
-		if (Body->has("secondaryEmail") && Utils::ValidEMailAddress(Changes.secondaryEmail))
-			Existing.secondaryEmail = Changes.secondaryEmail;
-		if (Body->has("serviceAddress"))
-			Existing.serviceAddress = Changes.serviceAddress;
-		if (Body->has("billingAddress"))
-			Existing.billingAddress = Changes.billingAddress;
-		if (Body->has("phoneNumber"))
-			Existing.phoneNumber = Changes.phoneNumber;
-		Existing.modified = Now;
-
-		//  Look at the access points
-		for (auto &NewAP : Changes.accessPoints.list) {
-			for (auto &ExistingAP : Existing.accessPoints.list) {
-				if (NewAP.macAddress == ExistingAP.macAddress) {
-					for (const auto &ssid : NewAP.wifiNetworks.wifiNetworks) {
-						if (ssid.password.length() < 8 || ssid.password.length() > 32) {
-							return BadRequest(RESTAPI::Errors::SSIDInvalidPassword);
-						}
-					}
-					if (NewAP.deviceMode.type == "nat") {
-						if (!ValidIPv4(NewAP.deviceMode.startIP) ||
-							!ValidIPv4(NewAP.deviceMode.endIP)) {
-							return BadRequest(RESTAPI::Errors::InvalidStartingIPAddress);
-						}
-						if (!ValidateIPv4Subnet(NewAP.deviceMode.subnet)) {
-							return BadRequest(RESTAPI::Errors::SubnetFormatError);
-						}
-					} else if (NewAP.deviceMode.type == "bridge") {
-
-					} else if (NewAP.deviceMode.type == "manual") {
-						if (!ValidateIPv4Subnet(NewAP.deviceMode.subnet)) {
-							return BadRequest(RESTAPI::Errors::DeviceModeError);
-						}
-						if (!ValidIPv4(NewAP.deviceMode.startIP)) {
-							return BadRequest(RESTAPI::Errors::DeviceModeError);
-						}
-						if (!ValidIPv4(NewAP.deviceMode.endIP)) {
-							return BadRequest(RESTAPI::Errors::DeviceModeError);
-						}
-					} else {
-						return BadRequest(RESTAPI::Errors::BadDeviceMode);
-					}
-
-					if (NewAP.internetConnection.type == "manual") {
-						if (!ValidateIPv4Subnet(NewAP.internetConnection.subnetMask)) {
-							return BadRequest(RESTAPI::Errors::SubnetFormatError);
-						}
-						if (!ValidIPv4(NewAP.internetConnection.defaultGateway)) {
-							return BadRequest(RESTAPI::Errors::DefaultGatewayFormat);
-						}
-						if (!ValidIPv4(NewAP.internetConnection.primaryDns)) {
-							return BadRequest(RESTAPI::Errors::PrimaryDNSFormat);
-						}
-						if (!NewAP.internetConnection.secondaryDns.empty() &&
-							!ValidIPv4(NewAP.internetConnection.secondaryDns)) {
-							return BadRequest(RESTAPI::Errors::SecondaryDNSFormat);
-						}
-					} else if (NewAP.internetConnection.type == "pppoe") {
-
-					} else if (NewAP.internetConnection.type == "automatic") {
-
-					} else {
-						return BadRequest(RESTAPI::Errors::BadConnectionType);
-					}
-
-					ExistingAP = NewAP;
-					ExistingAP.internetConnection.modified = Now;
-					ExistingAP.deviceMode.modified = Now;
-					ExistingAP.wifiNetworks.modified = Now;
-					ExistingAP.subscriberDevices.modified = Now;
-				}
-			}
-			Changes.modified = Utils::Now();
-		}
-
-		if (StorageService()->SubInfoDB().UpdateRecord("id", UserInfo_.userinfo.id, Existing)) {
-			if (ConfigChanged) {
-				ConfigMaker InitialConfig(Logger(), UserInfo_.userinfo.id);
-				InitialConfig.Prepare();
-			}
-			SubObjects::SubscriberInfo Modified;
-			StorageService()->SubInfoDB().GetRecord("id", UserInfo_.userinfo.id, Modified);
-			SubscriberCache()->UpdateSubInfo(UserInfo_.userinfo.id, Modified);
-			Poco::JSON::Object Answer;
-			Modified.to_json(Answer);
-			return ReturnObject(Answer);
-		}
-		return InternalError(RESTAPI::Errors::RecordNotUpdated);
 	}
 
 	void RESTAPI_subscriber_handler::DoDelete() {
@@ -364,11 +197,16 @@ namespace OpenWifi {
 		}
 
 		Logger().information(fmt::format("Deleting subscriber {}.", UserInfo_.userinfo.id));
+
+		if (!DeletePostSubscriber()) {
+			return;
+		}
+
 		SubObjects::SubscriberInfo SI;
 		if (StorageService()->SubInfoDB().GetRecord("id", UserInfo_.userinfo.id, SI)) {
 			for (const auto &i : SI.accessPoints.list) {
 				if (!i.serialNumber.empty()) {
-					SDK::Prov::Subscriber::UpdateSubscriber(nullptr, UserInfo_.userinfo.id,
+					SDK::Prov::Subscriber::SetSubscriber(nullptr, UserInfo_.userinfo.id,
 																   i.serialNumber, true);
 					SDK::GW::Device::SetSubscriber(nullptr, i.serialNumber, "");
 				}

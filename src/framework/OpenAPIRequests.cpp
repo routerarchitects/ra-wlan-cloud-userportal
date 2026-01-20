@@ -1,3 +1,8 @@
+/*
+ * SPDX-License-Identifier: AGPL-3.0 OR LicenseRef-Commercial
+ * Copyright (c) 2025 Infernet Systems Pvt Ltd
+ * Portions copyright (c) Telecom Infra Project (TIP), BSD-3-Clause
+ */
 //
 // Created by stephane bourque on 2022-10-25.
 //
@@ -52,9 +57,10 @@ namespace OpenWifi {
 
 					Poco::Net::HTTPResponse Response;
 					std::istream &is = Session.receiveResponse(Response);
-					if (Response.getStatus() == Poco::Net::HTTPResponse::HTTP_OK) {
+					try {
 						Poco::JSON::Parser P;
 						ResponseObject = P.parse(is).extract<Poco::JSON::Object::Ptr>();
+					} catch (...) {
 					}
 					return Response.getStatus();
 				} else {
@@ -65,9 +71,10 @@ namespace OpenWifi {
 
 					Poco::Net::HTTPResponse Response;
 					std::istream &is = Session.receiveResponse(Response);
-					if (Response.getStatus() == Poco::Net::HTTPResponse::HTTP_OK) {
+					try {
 						Poco::JSON::Parser P;
 						ResponseObject = P.parse(is).extract<Poco::JSON::Object::Ptr>();
+					} catch (...) {
 					}
 					return Response.getStatus();
 				}
