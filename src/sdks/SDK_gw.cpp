@@ -267,6 +267,7 @@ namespace OpenWifi::SDK::GW {
 				return false;
 			}
 			bool meshSsidFound = false;
+			bool apSsidFound = false;
 			for (std::size_t i = 0; i < interfaces->size(); ++i) {
 				auto iface = interfaces->getObject(i);
 				auto ssids = iface->getArray("ssids");
@@ -281,6 +282,11 @@ namespace OpenWifi::SDK::GW {
 						logger.error(fmt::format("Invalid configuration for device {}: downstream interface should have static IPv4 addressing.", serialNumber));
 						return false;
 					}
+					auto tunnel = iface->getObject("tunnel");
+					if (!tunnel || tunnel->getValue<std::string>("proto") != "mesh") {
+						logger.error(fmt::format("Invalid configuration for device {}: downstream interface must have tunnel-proto='mesh'.", serialNumber));
+						return false;
+					}
 				}
 				if (!ssids)
 					continue;
@@ -288,10 +294,16 @@ namespace OpenWifi::SDK::GW {
 					auto ssid = ssids->getObject(j);
 					if (ssid && ssid->getValue<std::string>("bss-mode") == "mesh")
 						meshSsidFound = true;
+					if (ssid && ssid->getValue<std::string>("bss-mode") == "ap")
+						apSsidFound = true;
 				}
 			}
 			if (!meshSsidFound) {
 				logger.error(fmt::format("Invalid configuration for device {}: missing mesh SSID.", serialNumber));
+				return false;
+			}
+			if (!apSsidFound) {
+				logger.error(fmt::format("Invalid configuration for device {}: missing ap-SSID on downstream interface.", serialNumber));
 				return false;
 			}
 			return true;
