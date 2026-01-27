@@ -268,7 +268,7 @@ namespace OpenWifi::SDK::GW {
 			}
 			bool meshSsidFound = false;
 			bool apSsidFound = false;
-			bool downstreamInterfaceFound = false;
+			bool downstreamFound = false;
 			for (std::size_t i = 0; i < interfaces->size(); ++i) {
 				auto iface = interfaces->getObject(i);
 				auto ssids = iface->getArray("ssids");
@@ -279,7 +279,7 @@ namespace OpenWifi::SDK::GW {
 						return false;
 					}
 				} else if (role == "downstream") {
-					downstreamInterfaceFound = true;
+					downstreamFound = true;
 					auto ipv4 = iface->getObject("ipv4");
 					if (!ipv4 || ipv4->getValue<std::string>("addressing") != "static") {
 						logger.error(fmt::format("Invalid configuration for device {}: downstream interface should have static IPv4 addressing.", serialNumber));
@@ -290,28 +290,32 @@ namespace OpenWifi::SDK::GW {
 						logger.error(fmt::format("Invalid configuration for device {}: downstream interface must have tunnel-proto='mesh'.", serialNumber));
 						return false;
 					}
+					if (!ssids || ssids->empty()) {
+						logger.error(fmt::format("Invalid configuration for device {}: downstream interface missing SSIDs.", serialNumber));
+						return false;
+					}
 					for (std::size_t j = 0; j < ssids->size(); ++j) {
 						auto ssid = ssids->getObject(j);
-						if (ssid && ssid->getValue<std::string>("bss-mode") == "mesh")
-							meshSsidFound = true;
 						if (ssid && ssid->getValue<std::string>("bss-mode") == "ap")
-							apSsidFound = true;
+						apSsidFound = true;
+						if (ssid && ssid->getValue<std::string>("bss-mode") == "mesh")
+						meshSsidFound = true;
 					}
 				} else {
 					logger.error(fmt::format("Invalid configuration for device {}: invalid interface role (expected 'upstream' or 'downstream').", serialNumber));
 					return false;
 				}
 			}
-			if (!downstreamInterfaceFound) {
+			if (!downstreamFound) {
 				logger.error(fmt::format("Invalid configuration for device {}: missing downstream interface.", serialNumber));
-				return false;
-			}
-			if (!meshSsidFound) {
-				logger.error(fmt::format("Invalid configuration for device {}: missing mesh SSID.", serialNumber));
 				return false;
 			}
 			if (!apSsidFound) {
 				logger.error(fmt::format("Invalid configuration for device {}: missing ap-SSID on downstream interface.", serialNumber));
+				return false;
+			}
+			if (!meshSsidFound) {
+				logger.error(fmt::format("Invalid configuration for device {}: missing mesh-SSID on downstream interface.", serialNumber));
 				return false;
 			}
 			return true;
