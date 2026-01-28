@@ -14,6 +14,8 @@
 #include "framework/ow_constants.h"
 #include "nlohmann/json.hpp"
 
+#include <iostream>
+
 namespace OpenWifi::SDK::Prov {
 
 	namespace Device {
@@ -185,17 +187,18 @@ namespace OpenWifi::SDK::Prov {
 			return parsed.extract<Poco::JSON::Object::Ptr>();
 		}
 
-		bool GetDevices(RESTAPIHandler *client, const std::string &SubscriberId,
-						const std::string &OperatorId, ProvObjects::SubscriberDeviceList &devList) {
+		bool GetDevices(RESTAPIHandler *client, const std::string &SubscriberId, const std::string &OperatorId,
+						ProvObjects::SubscriberDeviceList &devList,
+						Poco::Net::HTTPServerResponse::HTTPStatus &CallStatus,
+						Poco::JSON::Object::Ptr &CallResponse) {
 
 			std::string EndPoint = "/api/v1/subscriberDevice";
 			auto API = OpenAPIRequestGet(
 				uSERVICE_PROVISIONING, EndPoint,
 				{{"subscriberId", SubscriberId}, {"operatorId", OperatorId}}, 60000);
-			auto CallResponse = Poco::makeShared<Poco::JSON::Object>();
-			auto ResponseStatus = API.Do(
+			CallStatus = API.Do(
 				CallResponse, client == nullptr ? "" : client->UserInfo_.webtoken.access_token_);
-			if (ResponseStatus == Poco::Net::HTTPServerResponse::HTTP_OK) {
+			if (CallStatus == Poco::Net::HTTPServerResponse::HTTP_OK) {
 				try {
 					return devList.from_json(CallResponse);
 				} catch (...) {
@@ -205,7 +208,7 @@ namespace OpenWifi::SDK::Prov {
 			return false;
 		}
 
-		bool UpdateSubscriber(RESTAPIHandler *client, const std::string &subscriberId,
+		bool SetSubscriber(RESTAPIHandler *client, const std::string &subscriberId,
 							const std::string &serialNumber, bool removeSubscriber /* = false */) {
 			const std::string endpoint = "/api/v1/inventory/" + serialNumber;
 
@@ -337,6 +340,54 @@ namespace OpenWifi::SDK::Prov {
 				Poco::Logger::get("SDK_prov").error(fmt::format("Failed to delete device [{}] from provisioning subdevice table ", SerialNumber));
 			}
 			return ResponseStatus == Poco::Net::HTTPResponse::HTTP_OK;
+		}
+
+		bool DeleteProvisionSubscriber(RESTAPIHandler *client, const std::string &subscriberId,
+									   Poco::Net::HTTPServerResponse::HTTPStatus &callStatus) {
+			const std::string endpoint = "/api/v1/subscriber/provision/" + subscriberId;
+			auto api = OpenAPIRequestDelete(uSERVICE_PROVISIONING, endpoint, {}, 60000);
+			callStatus = api.Do(client == nullptr ? "" : client->UserInfo_.webtoken.access_token_);
+			return callStatus >= Poco::Net::HTTPResponse::HTTP_OK &&
+				   callStatus <= Poco::Net::HTTPResponse::HTTP_NO_CONTENT;
+		}
+
+		bool ProvisionSubscriber(RESTAPIHandler *client, const std::string &subscriberId,
+								 bool enableMonitoring, const std::optional<uint64_t> &retention,
+								 const std::optional<uint64_t> &interval,
+								 const std::optional<bool> &monitorSubVenues,
+								 Poco::Net::HTTPServerResponse::HTTPStatus &callStatus,
+								 Poco::JSON::Object::Ptr &callResponse) {
+			const std::string endpoint = "/api/v1/subscriber/provision";
+			Poco::JSON::Object body;
+			Poco::JSON::Object monitoring;
+			body.set("subscriberId", subscriberId);
+			body.set("enableMonitoring", enableMonitoring);
+			if (enableMonitoring) {
+				bool hasMonitoring = false;
+				if (retention.has_value()) {
+					monitoring.set("retention", *retention);
+					hasMonitoring = true;
+				}
+				if (interval.has_value()) {
+					monitoring.set("interval", *interval);
+					hasMonitoring = true;
+				}
+				if (monitorSubVenues.has_value()) {
+					monitoring.set("monitorSubVenues", *monitorSubVenues);
+					hasMonitoring = true;
+				}
+				if (hasMonitoring) {
+					body.set("monitoring", monitoring);
+				}
+			}
+
+			auto api = OpenAPIRequestPost(uSERVICE_PROVISIONING, endpoint, {}, body, 60000);
+			if (!callResponse) {
+				callResponse = Poco::makeShared<Poco::JSON::Object>();
+			}
+			callStatus = api.Do(
+				callResponse, client == nullptr ? "" : client->UserInfo_.webtoken.access_token_);
+			return callStatus == Poco::Net::HTTPResponse::HTTP_OK;
 		}
 	} // namespace Subscriber
 

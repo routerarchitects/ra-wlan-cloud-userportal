@@ -110,7 +110,7 @@ namespace OpenWifi {
 		ProvObjects::SubscriberDeviceList devices;
 		devices.subscriberDevices.push_back(dev);
 
-		StorageService()->SubInfoDB().CreateDefaultSubscriberInfo(UserInfo_, ctx.SubscriberInfo, devices);
+		StorageService()->SubInfoDB().BuildDefaultSubscriberInfo(UserInfo_, ctx.SubscriberInfo, devices);
 
 		ConfigMaker InitialConfig(Logger(), ctx.SubscriberInfo.id);
 		if (!SDK::Prov::Subscriber::GetDevice(this, ctx.SubscriberInfo.accessPoints.list[0].macAddress, ctx.SubDevice)) {
@@ -202,7 +202,7 @@ namespace OpenWifi {
 			return false;
 		}
 
-		if (!SDK::Prov::Subscriber::UpdateSubscriber(this, UserInfo_.userinfo.id, ctx.Mac, false)) {
+		if (!SDK::Prov::Subscriber::SetSubscriber(this, UserInfo_.userinfo.id, ctx.Mac, false)) {
 			Logger().error(fmt::format("Couldn't link device: {} to subscriber: {} in inventory.", ctx.Mac, UserInfo_.userinfo.id));
 			InternalError(RESTAPI::Errors::RecordNotUpdated);
 			return false;
