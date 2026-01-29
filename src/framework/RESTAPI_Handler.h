@@ -391,6 +391,19 @@ namespace OpenWifi {
 			Poco::JSON::Stringifier::stringify(ErrorObject, Answer);
 		}
 
+		inline void ForwardErrorResponse(RESTAPIHandler *client,
+											Poco::Net::HTTPResponse::HTTPStatus callStatus,
+											const Poco::JSON::Object::Ptr &callResponse) {
+			auto Forward = callResponse ? callResponse : Poco::makeShared<Poco::JSON::Object>();
+			client->Response->setStatus(callStatus);
+			std::stringstream ss;
+			Poco::JSON::Stringifier::condense(Forward, ss);
+			client->Response->setContentType("application/json");
+			client->Response->setContentLength(ss.str().size());
+			auto &os = client->Response->send();
+			os << ss.str();
+		}
+
 		inline void UnAuthorized(const OpenWifi::RESTAPI::Errors::msg &E) {
 			PrepareResponse(Poco::Net::HTTPResponse::HTTP_FORBIDDEN);
 			Poco::JSON::Object ErrorObject;

@@ -38,6 +38,12 @@ namespace OpenWifi::SDK::Prov {
 				  ProvObjects::InventoryConfigApplyResult &Results);
 	} // namespace Configuration
 
+	namespace Venue {
+		bool Get(RESTAPIHandler *client, const std::string &VenueUUID, ProvObjects::Venue &Venue,
+				 Poco::Net::HTTPServerResponse::HTTPStatus &CallStatus,
+				 Poco::JSON::Object::Ptr &CallResponse);
+	} // namespace Venue
+
 	namespace Subscriber {
 		bool GetDevices(RESTAPIHandler *client, const std::string &SubscriberId,
 						const std::string &OperatorId, ProvObjects::SubscriberDeviceList &devList,
