@@ -29,7 +29,7 @@ namespace OpenWifi {
 
 		Poco::toLowerInPlace(Mac);
 		Poco::trimInPlace(Mac);
-		if (Mac.empty()) {
+		if (Mac.empty() && Command != "configure") {
 			return BadRequest(RESTAPI::Errors::MissingSerialNumber);
 		}
 		uint64_t When = 0, Duration = 30;
@@ -48,6 +48,13 @@ namespace OpenWifi {
 				return BadRequest(RESTAPI::Errors::SubNoDeviceActivated);
 		}
 
+		if (Command == "configure") {
+			if (!SDK::GW::Device::SetConfig(this, Body, SubInfo)) {
+				return;
+			}
+			return OK();
+		}
+
 		for (const auto &i : SubInfo->accessPoints.list) {
 			if (i.macAddress == Mac) {
 				if (Command == "reboot") {
@@ -59,14 +66,6 @@ namespace OpenWifi {
 													keepRedirector);
 				} else if (Command == "factory") {
 					return SDK::GW::Device::Factory(this, i.serialNumber, When, keepRedirector);
-				} else if (Command == "configure") {
-					for (const auto &ap : SubInfo->accessPoints.list) { //Send new config to all devices present in subscriber's database
-						if (!SDK::GW::Device::SetConfig(this, ap.serialNumber, Body)) {
-							Poco::Logger::get("SetConfig").error(fmt::format("Failed for device: [{}].", ap.serialNumber, ));
-							return;
-						}
-					}
-					return OK();
 				} else {
 					return BadRequest(RESTAPI::Errors::MissingOrInvalidParameters);
 				}

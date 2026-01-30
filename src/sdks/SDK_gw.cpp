@@ -11,6 +11,7 @@
 #include "framework/RESTAPI_Handler.h"
 
 #include "SDK_gw.h"
+#include "sdks/SDK_prov.h"
 #include "framework/MicroServiceNames.h"
 #include "framework/OpenAPIRequests.h"
 #include "framework/utils.h"
@@ -156,13 +157,8 @@ namespace OpenWifi::SDK::GW {
             if (!Response || !Response->has("configuration")) {
                 Poco::Logger::get("SDK_gw").error(fmt::format(
                     "GetConfig: Could not get configuration from controller for device id {}.", Mac));
-                return Poco::Net::HTTPServerResponse::HTTP_INTERNAL_SERVER_ERROR;
+                return ResponseStatus;
             }
-			auto Config = Response->getObject("configuration");
-			if (!Config) {
-				Poco::Logger::get("SDK_gw").error(fmt::format("GetConfig: Empty configuration for device [{}].", Mac));
-				return Poco::Net::HTTPServerResponse::HTTP_INTERNAL_SERVER_ERROR;
-			}
 			return Poco::Net::HTTPServerResponse::HTTP_OK;
         }
 		/*
@@ -302,7 +298,7 @@ namespace OpenWifi::SDK::GW {
 			return true;
 		}
 
-		Poco::Net::HTTPResponse::HTTPStatus Configure(RESTAPIHandler *client, const std::string &Mac,
+		bool Configure(RESTAPIHandler *client, const std::string &Mac,
 					   Poco::JSON::Object::Ptr &Configuration, Poco::JSON::Object::Ptr &Response) {
 
 			Poco::JSON::Object Body;
@@ -321,24 +317,13 @@ namespace OpenWifi::SDK::GW {
 
 			auto ResponseStatus =
 				R.Do(Response, client ? client->UserInfo_.webtoken.access_token_ : "");
-			return ResponseStatus;
-		}
+			if (ResponseStatus == Poco::Net::HTTPResponse::HTTP_OK) {
+				std::ostringstream os;
+				Poco::JSON::Stringifier::stringify(Response, os);
+				return true;
+			}
 
-		/*
-			ForwardJsonResponse:
-			- Used when owgw returns an error and we want to expose it as-is to the client.
-			- Reuse owgw’s HTTP status code.
-			- Forward owgw's JSON body unchanged.
-		*/
-		static void ForwardJsonResponse(RESTAPIHandler *client, Poco::Net::HTTPResponse::HTTPStatus status, const Poco::JSON::Object::Ptr &Answer) {
-			auto Forward = Answer ? Answer : Poco::makeShared<Poco::JSON::Object>();
-			client->Response->setStatus(status);
-			std::stringstream ss;
-			Poco::JSON::Stringifier::condense(Forward, ss);
-			client->Response->setContentType("application/json");
-			client->Response->setContentLength(ss.str().size());
-			auto &os = client->Response->send();
-			os << ss.str();
+			return false;
 		}
 
 		/*
@@ -425,33 +410,56 @@ namespace OpenWifi::SDK::GW {
 			}
 			return true;
 		}
+
+		/*
+			SetInterfacesSsids():
+			1. Read Body["ssid"] and extract required fields "name" and "password".
+			2. Validate SSID name and password format.
+			3. For each interface in Config["interfaces"], update non-mesh SSID entries:
+			   - ssid["name"] = requested name
+			   - ssid["encryption"]["key"] = requested password
+			4. Return success if at least one SSID was updated; otherwise return error.
+		*/
 		static bool SetInterfacesSsids(RESTAPIHandler *client, Poco::JSON::Object::Ptr &Config, const std::string &SerialNumber, const Poco::JSON::Object::Ptr &Body) {
 			std::string override_ssid{};
 			std::string override_password{};
 
-			// require at least one parameter
-			if (!Body->has("ssid") && !Body->has("password")) {
-				Poco::Logger::get("Configure").error("Missing Required Parameters.");
-				client->BadRequest(RESTAPI::Errors::MissingOrInvalidParameters, "Required Parameters are missing.");
+			/*
+			  Request body shape:
+				"ssid": {
+					"name": " SSID_Name",
+					"password": "SSID_Password"
+				}
+			*/
+
+			auto ssidObj = Body->getObject("ssid");
+			if (!ssidObj) {
+				client->BadRequest(RESTAPI::Errors::MissingOrInvalidParameters);
 				return false;
 			}
-			// SSID validation first
-			if (Body->has("ssid")) {
-				std::string temp_ssid{};
-				OpenWifi::RESTAPIHandler::AssignIfPresent(Body, "ssid", temp_ssid);
-				if (!validateSsid(client, temp_ssid)) {
-					return false;
-				}
-				override_ssid = temp_ssid;
+
+			if (!ssidObj->has("name") || !ssidObj->has("password")) {
+				client->BadRequest(RESTAPI::Errors::MissingOrInvalidParameters);
+				return false;
 			}
-			// Password validation next
-			if (Body->has("password")) {
-				std::string temp_password{};
-				OpenWifi::RESTAPIHandler::AssignIfPresent(Body, "password", temp_password);
-				if (!validatePassword(client, temp_password)) {
-					return false;
-				}
-				override_password = temp_password;
+
+			try {
+				override_ssid = ssidObj->getValue<std::string>("name");
+				override_password = ssidObj->getValue<std::string>("password");
+			} catch (...) {
+				client->BadRequest(RESTAPI::Errors::MissingOrInvalidParameters);
+				return false;
+			}
+
+			Poco::trimInPlace(override_ssid);
+			Poco::trimInPlace(override_password);
+			if (override_ssid.empty() || override_password.empty()) {
+				client->BadRequest(RESTAPI::Errors::MissingOrInvalidParameters);
+				return false;
+			}
+
+			if (!validateSsid(client, override_ssid) || !validatePassword(client, override_password)) {
+				return false;
 			}
 			if (Config) {
 				Poco::Logger::get("Configure").information(
@@ -481,18 +489,13 @@ namespace OpenWifi::SDK::GW {
 								client->InternalError(RESTAPI::Errors::InternalError);
 								return false;
 							}
-							if (!override_ssid.empty()) {
-								ssid->set("name", override_ssid);
-							Poco::Logger::get("Configure").information(
-								fmt::format("Applied SSID override for device {}.", SerialNumber));
-							}
-							if (!override_password.empty()) {
-								encrypt->set("key", override_password);
-								Poco::Logger::get("Configure").information(fmt::format(
-									"Applied password override for device {}.", SerialNumber));
-							}
+							ssid->set("name", override_ssid);
+							Poco::Logger::get("Configure").information(fmt::format("Applied New SSID \"{}\" for device {}.", override_ssid, SerialNumber));
+							encrypt->set("key", override_password);
+							Poco::Logger::get("Configure").information(fmt::format("Applied New Password \"{}\" for device {}.", override_password, SerialNumber));
 						}
 					}
+					Poco::Logger::get("Configure").information(fmt::format("SSID/Password overrides applied to device {}.", SerialNumber));
 					if (!iface_ssids) {
 						Poco::Logger::get("Configure").error(fmt::format("No SSID configuration found for device {}.", SerialNumber));
 						client->InternalError(RESTAPI::Errors::InternalError);
@@ -507,24 +510,296 @@ namespace OpenWifi::SDK::GW {
 			return true;
 		}
 
-		bool SetConfig(RESTAPIHandler *client, const std::string &SerialNumber, const Poco::JSON::Object::Ptr &Body) {
+		/*
+			GetBlockedClientsFromConfigRaw():
+			1. Read Config["config-raw"] (if missing/empty, return an empty list).
+			2. Walk firewall rule blocks (started by ["add","firewall","rule"]).
+			3. Detect our block-clients rule by name "Block_Clients".
+			4. Collect all src_mac entries from that rule into blockedMacs (normalized).
+		*/
+		static void GetBlockedClientsFromConfigRaw(const Poco::JSON::Object::Ptr &Config, std::list<std::string> &blockedMacs) {
+			Poco::Logger::get("SDK_gw").information("Getting blocked clients macAddresses from config-raw.");
+			blockedMacs.clear();
+
+			auto configRaw = Config->getArray("config-raw");
+			if (!configRaw || configRaw->size() == 0)
+			return;
+
+			bool inFirewallRule = false;
+			bool isBlockRule = false;
+
+			for (std::size_t i = 0; i < configRaw->size(); ++i) {
+				try {
+					auto cmd = configRaw->getArray(i);
+					if (!cmd || cmd->size() != 3)
+						continue;
+
+					auto op = cmd->getElement<std::string>(0);
+					auto key = cmd->getElement<std::string>(1);
+					auto val = cmd->getElement<std::string>(2);
+
+					if (op == "add" && key == "firewall" && val == "rule") {
+						inFirewallRule = true;
+						isBlockRule = false;
+						continue;
+					}
+
+					if (!inFirewallRule)
+						continue;
+
+					if (op == "set" && key == "firewall.@rule[-1].name") {
+						isBlockRule = (val == "Block_Clients");
+						continue;
+					}
+
+					if (isBlockRule && op == "add_list" && key == "firewall.@rule[-1].src_mac") {
+						std::string mac = val;
+						if (Utils::NormalizeMac(mac)) {
+							blockedMacs.push_back(mac);
+							Poco::Logger::get("SDK_gw").information(fmt::format("Blocked client MAC found: {}", Utils::SerialToMAC(mac)));
+						}
+					}
+				} catch (...) {
+					continue;
+				}
+			}
+		}
+
+		/*
+			makeRawCommand():
+			1. Build a single config-raw command array with 3 elements: [op, path, value].
+			2. Return it so callers can append it into a config-raw list.
+		*/
+		static Poco::JSON::Array::Ptr makeRawCommand(const std::string &op, const std::string &path, const std::string &value) {
+			auto cmd = Poco::makeShared<Poco::JSON::Array>();
+			cmd->add(op);
+			cmd->add(path);
+			cmd->add(value);
+			return cmd;
+		}
+
+		/*
+			buildBlockRuleConfigRaw():
+			1. Build a config-raw array containing a single firewall rule named "Block_Clients".
+			2. Add one src_mac entry per blocked MAC (from blockedMacsNorm).
+			3. Return the constructed config-raw array so it can be saved into Config["config-raw"].
+		*/
+		static Poco::JSON::Array::Ptr buildBlockRuleConfigRaw(const std::list<std::string> &blockedMacsNorm) {
+			auto raw = Poco::makeShared<Poco::JSON::Array>();
+
+			raw->add(makeRawCommand("add", "firewall", "rule"));
+			raw->add(makeRawCommand("set", "firewall.@rule[-1].name", "Block_Clients"));
+			raw->add(makeRawCommand("set", "firewall.@rule[-1].src", "down1v0"));
+			raw->add(makeRawCommand("set", "firewall.@rule[-1].dest", "up0v0"));
+
+			for (const auto &macNorm : blockedMacsNorm) {
+				raw->add(makeRawCommand("add_list", "firewall.@rule[-1].src_mac", Utils::SerialToMAC(macNorm)));
+			}
+
+			raw->add(makeRawCommand("set", "firewall.@rule[-1].family", "any"));
+			raw->add(makeRawCommand("set", "firewall.@rule[-1].proto", "all"));
+			raw->add(makeRawCommand("set", "firewall.@rule[-1].target", "REJECT"));
+			raw->add(makeRawCommand("set", "firewall.@rule[-1].enabled", "1"));
+
+			return raw;
+		}
+
+		/*
+			BlockClient():
+			1. Read and validate the request "client" array (each item needs "mac" + "access").
+			2. Normalize MAC addresses and validate access is either "allow" or "deny".
+			3. Parse current blocked client MACs from fetched config "config-raw" (Block_Clients rule).
+			4. Apply allow/deny updates to the blocked list.
+			5. Persist the updated blocked list back into Config["config-raw"] (or remove it if empty).
+		*/
+		static bool BlockClient(RESTAPIHandler *client, Poco::JSON::Object::Ptr &Config, const Poco::JSON::Object::Ptr &Body) {
+
+			// 1) Fetch client list
+			auto clientList = Body->getArray("client");
+			if (!clientList || clientList->size() == 0) {
+				client->BadRequest(RESTAPI::Errors::MissingOrInvalidParameters);
+				return false;
+			}
+
+			// 2) Validate request entries
+			for (std::size_t i = 0; i < clientList->size(); ++i) {
+				auto entry = clientList->getObject(i);
+				if (!entry || !entry->has("mac") || !entry->has("access")) {
+					client->BadRequest(RESTAPI::Errors::MissingOrInvalidParameters);
+					return false;
+				}
+
+				std::string mac;
+				std::string access;
+				try {
+					mac = entry->getValue<std::string>("mac");
+					access = entry->getValue<std::string>("access");
+				} catch (...) {
+					client->BadRequest(RESTAPI::Errors::MissingOrInvalidParameters);
+					return false;
+				}
+
+				Poco::trimInPlace(access);
+				Poco::toLowerInPlace(access);
+
+				if (!Utils::NormalizeMac(mac)) {
+					client->BadRequest(RESTAPI::Errors::MissingOrInvalidParameters);
+					return false;
+				}
+
+				if (access != "allow" && access != "deny") {
+					client->BadRequest(RESTAPI::Errors::MissingOrInvalidParameters);
+					return false;
+				}
+			}
+
+			// 3) Read current blocked MACs from fetched config
+			std::list<std::string> blockedMacs;
+			GetBlockedClientsFromConfigRaw(Config, blockedMacs);
+
+			// 4) Apply allow/deny updates
+			for (std::size_t i = 0; i < clientList->size(); ++i) {
+				auto requestedClient = clientList->getObject(i);
+
+				std::string requestedMac = requestedClient->getValue<std::string>("mac");
+				std::string requestedAccess = requestedClient->getValue<std::string>("access");
+
+				Poco::trimInPlace(requestedAccess);
+				Poco::toLowerInPlace(requestedAccess);
+
+				if (!Utils::NormalizeMac(requestedMac)) {
+					client->BadRequest(RESTAPI::Errors::MissingOrInvalidParameters);
+					return false;
+				}
+
+				bool alreadyBlocked = false;
+				for (const auto &blockedMac : blockedMacs) {
+					if (blockedMac == requestedMac) {
+						alreadyBlocked = true;
+						break;
+					}
+				}
+
+				if (requestedAccess == "deny") {
+					Poco::Logger::get("SDK_gw").information(fmt::format("Blocking client MAC: {}", requestedMac));
+					if (!alreadyBlocked) {
+						blockedMacs.push_back(requestedMac); // block it
+					}
+					// else: already blocked -> do nothing
+				} else { // access = allow
+					Poco::Logger::get("SDK_gw").information(fmt::format("Allowing client MAC: {}", requestedMac));
+					if (alreadyBlocked) {
+						blockedMacs.remove(requestedMac); // unblock it
+					}
+					// else: already allowed -> do nothing
+				}
+			}
+
+			// 5) Save updated blocked list back into config-raw
+			if (blockedMacs.empty()) {
+				Poco::Logger::get("SDK_gw").information("No blocked clients, removing config-raw.");
+				if (Config->has("config-raw"))
+					Config->remove("config-raw");
+			} else {
+				Poco::Logger::get("SDK_gw").information("Updating config-raw with blocked clients.");
+				Config->set("config-raw", buildBlockRuleConfigRaw(blockedMacs));
+			}
+
+			return true;
+		}
+
+		/*
+			SetConfig():
+			1. Validate subscriber has at least one device and identify gateway serialNumber.
+			2. Fetch the gateway's current configuration from the controller.
+			3. Apply requested SSID updates (if "ssid" is present in the request body).
+			4. Apply requested client block/unblock updates (if "client" is present in the request body).
+			5. Send the updated config to the gateway device.
+			6. If mesh devices exist and SSID changes were requested, build mesh config and push it to each mesh device.
+		*/
+		bool SetConfig(RESTAPIHandler *client, const Poco::JSON::Object::Ptr &Body, const Poco::SharedPtr<SubObjects::SubscriberInfo> &SubInfo) {
+
+			if (!Body) {
+				client->BadRequest(RESTAPI::Errors::MissingOrInvalidParameters);
+				return false;
+			}
+
+			if (SubInfo->accessPoints.list.empty()) {
+				client->BadRequest(RESTAPI::Errors::SubNoDeviceActivated);
+				return false;
+			}
+
+			const auto &GatewaySerial = SubInfo->accessPoints.list.front().serialNumber;
+			if (GatewaySerial.empty()) {
+				client->BadRequest(RESTAPI::Errors::MissingSerialNumber);
+				return false;
+			}
+
+			// 1) Fetch gateway config
 			Poco::JSON::Object::Ptr DeviceObj;
-			auto returnStatus = GetConfig(client, SerialNumber, DeviceObj);
-			if (returnStatus != Poco::Net::HTTPServerResponse::HTTP_OK) {
-				ForwardJsonResponse(client, returnStatus, DeviceObj);
+			auto getStatus = GetConfig(client, GatewaySerial, DeviceObj);
+			if (getStatus != Poco::Net::HTTPServerResponse::HTTP_OK) {
+				client->ForwardErrorResponse(client, getStatus, DeviceObj);
 				return false;
 			}
-			Poco::Logger::get("Configure").information( fmt::format("SetConfig: Fetched device config for serial {}.",SerialNumber));
+
+			if (!DeviceObj || !DeviceObj->has("configuration")) {
+				client->BadRequest(RESTAPI::Errors::MissingOrInvalidParameters);
+				return false;
+			}
+
 			auto Config = DeviceObj->getObject("configuration");
-			if (!SetInterfacesSsids(client, Config, SerialNumber, Body)) {
-				Poco::Logger::get("Configure").error("SetConfig: Failed to apply overrides");
+			if (!Config) {
+				client->InternalError(RESTAPI::Errors::InternalError);
 				return false;
 			}
-			Poco::JSON::Object::Ptr Response;
-			auto configureStatus = Configure(client, SerialNumber, Config, Response); // Send new config to device
-			if (configureStatus != Poco::Net::HTTPResponse::HTTP_OK) {
-				ForwardJsonResponse(client, configureStatus, Response);
+
+			// 2) Apply SSID updates (only if requested)
+			if (Body->has("ssid")) {
+				if (!SetInterfacesSsids(client, Config, GatewaySerial, Body))
 				return false;
+			}
+
+			// 3) Apply client block/unblock (only if requested)
+			if (Body->has("client")) {
+				if (!BlockClient(client, Config, Body)) {
+					return false;
+				}
+			}
+
+			// 4) Send config to gateway
+			Poco::JSON::Object::Ptr gatewayResponse;
+			if (!Configure(client, GatewaySerial, Config, gatewayResponse)) {
+				client->ForwardErrorResponse(client, Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR, gatewayResponse);
+				return false;
+			}
+
+			// 5) If only gateway, done
+			if (SubInfo->accessPoints.list.size() <= 1)
+				return true;
+
+			// Mesh devices should be configured only when SSID changes are requested.
+			if (!Body->has("ssid"))
+				return true;
+
+			Poco::Logger::get("SDK_gw").information("Preparing new configuration for mesh devices.");
+			// 6) Build mesh config: force ipv4 dynamic + remove firewall config-raw commands.
+			auto meshConfig = SDK::Prov::Subscriber::BuildMeshConfig(DeviceObj);
+			if (!meshConfig) {
+				client->InternalError(RESTAPI::Errors::InternalError);
+				return false;
+			}
+
+			Poco::Logger::get("SDK_gw").information("Sending new configuration to mesh devices.");
+			// 7) Send config to mesh devices
+			for (size_t i = 1; i < SubInfo->accessPoints.list.size(); ++i) {
+				const auto &meshSerial = SubInfo->accessPoints.list[i].serialNumber;
+
+				Poco::JSON::Object::Ptr meshResponse;
+				if (!Configure(client, meshSerial, meshConfig, meshResponse)) {
+					client->ForwardErrorResponse(client, Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR, meshResponse);
+					return false;
+				}
 			}
 			return true;
 		}

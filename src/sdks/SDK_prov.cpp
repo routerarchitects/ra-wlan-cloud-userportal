@@ -164,7 +164,8 @@ namespace OpenWifi::SDK::Prov {
 			BuildMeshConfig():
 			1. Take the fetched gateway configuration and parse it into JSON.
 			2. For each interface(WAN/LAN), clone it and set ipv4.addressing to dynamic on the LAN.
-			3. Convert that JSON back into a Poco object so callers can use the new config as needed.
+			3. If a Block_Clients firewall rule exists, remove config-raw so firewall rules are not sent to mesh devices.
+			4. Convert that JSON back into a Poco object so callers can use the new config as needed.
 		*/
 		Poco::JSON::Object::Ptr BuildMeshConfig(const Poco::JSON::Object::Ptr &configuration) {
 			auto gatewayConfig = configuration->getObject("configuration");
@@ -180,6 +181,22 @@ namespace OpenWifi::SDK::Prov {
 				}
 				if (!meshInterfaces.empty()) {
 					cfg["interfaces"] = meshInterfaces;
+				}
+			}
+
+			// If config-raw contains our block-clients rule, don't send config-raw to mesh devices.
+			if (cfg.contains("config-raw")) {
+				for (const auto &cmd : cfg["config-raw"]) {
+					if (!cmd.is_array() || cmd.size() < 3)
+						continue;
+					if (cmd[0] != "set" || cmd[1] != "firewall.@rule[-1].name" || !cmd[2].is_string())
+						continue;
+					const auto ruleName = cmd[2].get<std::string>();
+					if (ruleName == "Block_Clients") {
+						Poco::Logger::get("SDK_gw").information("Removing firewall Block_Clients config-raw for mesh device.");
+						cfg.erase("config-raw");
+						break;
+					}
 				}
 			}
 			Poco::JSON::Parser parser;
