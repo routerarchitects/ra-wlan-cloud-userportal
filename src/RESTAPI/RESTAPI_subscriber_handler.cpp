@@ -45,21 +45,6 @@ namespace OpenWifi {
 		return false;
 	}
 
-	static void SetErrorResponse(RESTAPIHandler *client, Poco::Net::HTTPResponse::HTTPStatus callStatus,
-								const Poco::JSON::Object::Ptr &callResponse) {
-		auto Forward = callResponse ? callResponse : Poco::makeShared<Poco::JSON::Object>();
-		if (client && client->Request && Forward->has("ErrorDetails")) {
-			Forward->set("ErrorDetails", client->Request->getMethod());
-		}
-		client->Response->setStatus(callStatus);
-		std::stringstream ss;
-		Poco::JSON::Stringifier::condense(Forward, ss);
-		client->Response->setContentType("application/json");
-		client->Response->setContentLength(ss.str().size());
-		auto &os = client->Response->send();
-		os << ss.str();
-	}
-
 	bool RESTAPI_subscriber_handler::LoadProvisioningDevices(ProvObjects::SubscriberDeviceList &devices) {
 
 		Poco::Net::HTTPServerResponse::HTTPStatus callStatus = Poco::Net::HTTPServerResponse::HTTP_INTERNAL_SERVER_ERROR;
@@ -67,7 +52,7 @@ namespace OpenWifi {
 
 		if (!SDK::Prov::Subscriber::GetDevices(this, UserInfo_.userinfo.id,
 												UserInfo_.userinfo.owner, devices, callStatus, callResponse)) {
-			SetErrorResponse(this, callStatus, callResponse);
+			ForwardErrorResponse(this, callStatus, callResponse);
 			return false;
 		}
 
@@ -145,7 +130,7 @@ namespace OpenWifi {
 		if (!SDK::Prov::Subscriber::ProvisionSubscriber(
 				this, UserInfo_.userinfo.id, true, std::nullopt, std::nullopt, std::nullopt,
 				provisionStatus, provisionResponse)) {
-			SetErrorResponse(this, provisionStatus, provisionResponse);
+			ForwardErrorResponse(this, provisionStatus, provisionResponse);
 			return false;
 		}
 		return true;
@@ -156,7 +141,7 @@ namespace OpenWifi {
 			Poco::Net::HTTPServerResponse::HTTP_INTERNAL_SERVER_ERROR;
 		if (!SDK::Prov::Subscriber::DeleteProvisionSubscriber(
 				this, UserInfo_.userinfo.id, provisionStatus)) {
-			SetErrorResponse(this, provisionStatus, Poco::makeShared<Poco::JSON::Object>());
+			ForwardErrorResponse(this, provisionStatus, Poco::makeShared<Poco::JSON::Object>());
 			return false;
 		}
 		return true;
