@@ -18,5 +18,6 @@ namespace OpenWifi {
 	static const std::string uSERVICE_INSTALLER{"owinst"};
 	static const std::string uSERVICE_ANALYTICS{"owanalytics"};
 	static const std::string uSERVICE_OWRRM{"owrrm"};
+	static const std::string uSERVICE_NETWORK_TOPOLOGY{"nwtopology"};
 
 } // namespace OpenWifi

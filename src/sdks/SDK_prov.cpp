@@ -159,6 +159,25 @@ namespace OpenWifi::SDK::Prov {
 		}
 	} // namespace Configuration
 
+	namespace Venue {
+		bool Get(RESTAPIHandler *client, const std::string &VenueUUID, ProvObjects::Venue &Venue,
+				 Poco::Net::HTTPServerResponse::HTTPStatus &CallStatus,
+				 Poco::JSON::Object::Ptr &CallResponse) {
+			const std::string EndPoint = "/api/v1/venue/" + VenueUUID;
+			auto API = OpenAPIRequestGet(uSERVICE_PROVISIONING, EndPoint, {}, 60000);
+			CallStatus = API.Do(CallResponse,
+								client == nullptr ? "" : client->UserInfo_.webtoken.access_token_);
+			if (CallStatus == Poco::Net::HTTPServerResponse::HTTP_OK) {
+				try {
+					return Venue.from_json(CallResponse);
+				} catch (...) {
+					return false;
+				}
+			}
+			return false;
+		}
+	} // namespace Venue
+
 	namespace Subscriber {
 		/*
 			BuildMeshConfig():
