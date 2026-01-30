@@ -11,42 +11,51 @@
 #include "framework/MicroServiceNames.h"
 #include "framework/OpenAPIRequests.h"
 #include "framework/ow_constants.h"
-#include "sdks/SDK_prov.h"
 #include "sdks/SDK_nw_topology.h"
+#include "sdks/SDK_prov.h"
 
 namespace OpenWifi {
 
 	void RESTAPI_topology_handler::DoGet() {
 		if (UserInfo_.userinfo.id.empty()) {
-            Logger().warning("Received topology request without subscriber id.");
+			Logger().debug("[GET-TOPOLOGY] Received topology request without subscriber id.");
 			return NotFound();
 		}
 
 		SubObjects::SubscriberInfo subscriberInfo;
 		if (!StorageService()->SubInfoDB().GetRecord("id", UserInfo_.userinfo.id, subscriberInfo)) {
-            Logger().warning(fmt::format("Subscriber {} not found for topology request.", UserInfo_.userinfo.id));
+			Logger().debug(
+				fmt::format("[GET-TOPOLOGY] Subscriber {} not found for topology request.",
+							UserInfo_.userinfo.id));
 			return NotFound();
 		}
 
 		if (subscriberInfo.accessPoints.list.empty()) {
-            Logger().warning(fmt::format("Subscriber {} has no access points for topology request.", UserInfo_.userinfo.id));
+			Logger().debug(fmt::format(
+				"[GET-TOPOLOGY] Subscriber {} has no access points for topology request.",
+				UserInfo_.userinfo.id));
 			return BadRequest(RESTAPI::Errors::SubNoDeviceActivated);
 		}
 
+		// Use the first access point for topology request
 		const auto &device = subscriberInfo.accessPoints.list.front();
 		if (device.macAddress.empty()) {
-            Logger().warning(fmt::format("Subscriber {} access point has no MAC address for topology request.", UserInfo_.userinfo.id));
-			return BadRequest(RESTAPI::Errors::MissingSerialNumber);
+			Logger().debug(fmt::format("[GET-TOPOLOGY] Subscriber {} access point has no MAC "
+									   "address for topology request.",
+									   UserInfo_.userinfo.id));
+			return BadRequest(RESTAPI::Errors::MissingSerialNumber); // Serial/MAC are same
 		}
 
 		ProvObjects::InventoryTag inventory;
 		if (!SDK::Prov::Device::Get(nullptr, device.macAddress, inventory)) {
-			Logger().error(fmt::format("Inventory record missing for device: {}.", device.macAddress));
+			Logger().debug(fmt::format("[GET-TOPOLOGY] Inventory record missing for device: {}.",
+									   device.macAddress));
 			return BadRequest(RESTAPI::Errors::SubNoDeviceActivated);
 		}
 
 		if (inventory.venue.empty()) {
-			Logger().warning(fmt::format("Inventory has no venue for device: {}.", device.macAddress));
+			Logger().debug(fmt::format("[GET-TOPOLOGY] Inventory has no venue for device: {}.",
+									   device.macAddress));
 			return BadRequest(RESTAPI::Errors::VenueMustExist);
 		}
 
@@ -56,34 +65,38 @@ namespace OpenWifi {
 		ProvObjects::Venue venue;
 		if (!SDK::Prov::Venue::Get(nullptr, inventory.venue, venue, callStatus, callResponse)) {
 			if (callStatus != Poco::Net::HTTPServerResponse::HTTP_OK) {
-				Logger().error(fmt::format("Failed to fetch venue {} (status {}).", inventory.venue,
-										   static_cast<uint32_t>(callStatus)));
+				Logger().error(fmt::format("[GET-TOPOLOGY] Failed to fetch venue {} (status {}).",
+										   inventory.venue, static_cast<uint32_t>(callStatus)));
 				return ForwardErrorResponse(this, callStatus, callResponse);
 			}
-			Logger().error(fmt::format("Failed to parse venue {} response.", inventory.venue));
+			Logger().debug(
+				fmt::format("[GET-TOPOLOGY] Failed to parse venue {} response.", inventory.venue));
 			return InternalError(RESTAPI::Errors::InternalError);
 		}
 
 		if (venue.boards.empty()) {
-			Logger().warning(fmt::format("No boards found for venue {}.", inventory.venue));
+			Logger().debug(
+				fmt::format("[GET-TOPOLOGY] No boards found for venue {}.", inventory.venue));
 			return BadRequest(RESTAPI::Errors::RecordNotFound);
 		}
 
+		// Use the first board for topology request
 		const auto &boardId = venue.boards.front();
 		Poco::Net::HTTPServerResponse::HTTPStatus topoStatus =
 			Poco::Net::HTTPServerResponse::HTTP_INTERNAL_SERVER_ERROR;
 		auto topoResponse = Poco::makeShared<Poco::JSON::Object>();
 		if (!SDK::Topology::Get(nullptr, boardId, topoStatus, topoResponse)) {
 			if (topoStatus != Poco::Net::HTTPServerResponse::HTTP_OK) {
-				Logger().error(fmt::format("Failed to fetch topology for board {} (status {}).",
-										   boardId, static_cast<uint32_t>(topoStatus)));
+				Logger().debug(
+					fmt::format("[GET-TOPOLOGY] Failed to fetch topology for board {} (status {}).",
+								boardId, static_cast<uint32_t>(topoStatus)));
 				return ForwardErrorResponse(this, topoStatus, topoResponse);
 			}
-			Logger().error(fmt::format("Failed to parse topology response for board {}.", boardId));
+			Logger().debug(fmt::format(
+				"[GET-TOPOLOGY] Failed to parse topology response for board {}.", boardId));
 			return InternalError(RESTAPI::Errors::InternalError);
 		}
 
 		return ReturnObject(*topoResponse);
 	}
-
 } // namespace OpenWifi

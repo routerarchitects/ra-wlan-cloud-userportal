@@ -402,6 +402,7 @@ namespace OpenWifi {
 			client->Response->setContentLength(ss.str().size());
 			auto &os = client->Response->send();
 			os << ss.str();
+			os.flush();
 		}
 
 		inline void UnAuthorized(const OpenWifi::RESTAPI::Errors::msg &E) {
