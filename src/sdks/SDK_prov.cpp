@@ -37,6 +37,29 @@ namespace OpenWifi::SDK::Prov {
 			}
 			return false;
 		}
+
+		bool UpdateVenue(RESTAPIHandler *client, const std::string &Mac, const std::string &venueId,
+						 ProvObjects::InventoryTag &Device) {
+			std::string EndPoint = "/api/v1/inventory/" + Mac;
+
+			Poco::JSON::Object body;
+			body.set("venue", venueId);
+			body.set("devClass", "subscriber");
+
+			auto CallResponse = Poco::makeShared<Poco::JSON::Object>();
+
+			auto API = OpenAPIRequestPut(uSERVICE_PROVISIONING, EndPoint, {}, body, 10000);
+			auto ResponseStatus = API.Do(
+				CallResponse, client == nullptr ? "" : client->UserInfo_.webtoken.access_token_);
+			if (ResponseStatus == Poco::Net::HTTPServerResponse::HTTP_OK) {
+				try {
+					return Device.from_json(CallResponse);
+				} catch (...) {
+					return false;
+				}
+			}
+			return false;
+		}
 		/*
 		   DeleteInventoryDevice:
 		   1. Send a delete request to Provisioning to remove this device from the Inventory list (by serial number).
@@ -378,22 +401,22 @@ namespace OpenWifi::SDK::Prov {
 			return ResponseStatus == Poco::Net::HTTPResponse::HTTP_OK;
 		}
 
-		bool DeleteProvisionSubscriber(RESTAPIHandler *client, const std::string &subscriberId,
-									   Poco::Net::HTTPServerResponse::HTTPStatus &callStatus) {
-			const std::string endpoint = "/api/v1/subscriber/provision/" + subscriberId;
-			auto api = OpenAPIRequestDelete(uSERVICE_PROVISIONING, endpoint, {}, 60000);
-			callStatus = api.Do(client == nullptr ? "" : client->UserInfo_.webtoken.access_token_);
-			return callStatus >= Poco::Net::HTTPResponse::HTTP_OK &&
-				   callStatus <= Poco::Net::HTTPResponse::HTTP_NO_CONTENT;
-		}
+			bool DeleteSubscriberVenue(RESTAPIHandler *client, const std::string &subscriberId,
+										   Poco::Net::HTTPServerResponse::HTTPStatus &callStatus) {
+				const std::string endpoint = "/api/v1/subscriberVenue/" + subscriberId;
+				auto api = OpenAPIRequestDelete(uSERVICE_PROVISIONING, endpoint, {}, 60000);
+				callStatus = api.Do(client == nullptr ? "" : client->UserInfo_.webtoken.access_token_);
+				return callStatus >= Poco::Net::HTTPResponse::HTTP_OK &&
+					   callStatus <= Poco::Net::HTTPResponse::HTTP_NO_CONTENT;
+			}
 
-		bool ProvisionSubscriber(RESTAPIHandler *client, const std::string &subscriberId,
-								 bool enableMonitoring, const std::optional<uint64_t> &retention,
-								 const std::optional<uint64_t> &interval,
-								 const std::optional<bool> &monitorSubVenues,
-								 Poco::Net::HTTPServerResponse::HTTPStatus &callStatus,
-								 Poco::JSON::Object::Ptr &callResponse) {
-			const std::string endpoint = "/api/v1/subscriber/provision";
+			bool CreateSubscriberVenue(RESTAPIHandler *client, const std::string &subscriberId,
+									 bool enableMonitoring, const std::optional<uint64_t> &retention,
+									 const std::optional<uint64_t> &interval,
+									 const std::optional<bool> &monitorSubVenues,
+									 Poco::Net::HTTPServerResponse::HTTPStatus &callStatus,
+									 Poco::JSON::Object::Ptr &callResponse) {
+				const std::string endpoint = "/api/v1/subscriberVenue";
 			Poco::JSON::Object body;
 			Poco::JSON::Object monitoring;
 			body.set("subscriberId", subscriberId);

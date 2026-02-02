@@ -21,8 +21,8 @@ namespace OpenWifi::SDK::Prov {
 		// Get a single inventory tag for the given MAC/serial.
 		bool Get(RESTAPIHandler *client, const std::string &Mac,
 				 ProvObjects::InventoryTag &Device);
-		bool SetConfiguration(RESTAPIHandler *client, const std::string &Mac,
-							  const std::string &ConfigUUID);
+		bool UpdateVenue(RESTAPIHandler *client, const std::string &Mac, const std::string &venueId,
+						 ProvObjects::InventoryTag &Device);
 		bool DeleteInventoryDevice(RESTAPIHandler *client, const std::string &SerialNumber);
 	} // namespace Device
 
@@ -59,9 +59,9 @@ namespace OpenWifi::SDK::Prov {
 		bool GetDevice(RESTAPIHandler *client, const std::string &SerialNumber,
 					   ProvObjects::SubscriberDevice &D);
 		bool DeleteProvSubscriberDevice(RESTAPIHandler *client, const std::string &SerialNumber);
-		bool DeleteProvisionSubscriber(RESTAPIHandler *client, const std::string &subscriberId,
+		bool DeleteSubscriberVenue(RESTAPIHandler *client, const std::string &subscriberId,
 									   Poco::Net::HTTPServerResponse::HTTPStatus &callStatus);
-		bool ProvisionSubscriber(RESTAPIHandler *client, const std::string &subscriberId,
+		bool CreateSubscriberVenue(RESTAPIHandler *client, const std::string &subscriberId,
 								 bool enableMonitoring, const std::optional<uint64_t> &retention,
 								 const std::optional<uint64_t> &interval,
 								 const std::optional<bool> &monitorSubVenues,
