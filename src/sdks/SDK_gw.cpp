@@ -511,14 +511,14 @@ namespace OpenWifi::SDK::GW {
 		}
 
 		/*
-			GetBlockedClientsFromConfigRaw():
+			GetBlockedClients():
 			1. Read Config["config-raw"] (if missing/empty, return an empty list).
 			2. Walk firewall rule blocks (started by ["add","firewall","rule"]).
 			3. Detect our block-clients rule by name "Block_Clients".
 			4. Collect all src_mac entries from that rule into blockedMacs (normalized).
 		*/
-		static void GetBlockedClientsFromConfigRaw(const Poco::JSON::Object::Ptr &Config, std::list<std::string> &blockedMacs) {
-			Poco::Logger::get("SDK_gw").information("Getting blocked clients macAddresses from config-raw.");
+		static void GetBlockedClients(const Poco::JSON::Object::Ptr &Config, std::list<std::string> &blockedMacs) {
+			Poco::Logger::get("SDK_gw").debug("Reading blocked client MACs from config-raw.");
 			blockedMacs.clear();
 
 			auto configRaw = Config->getArray("config-raw");
@@ -556,7 +556,7 @@ namespace OpenWifi::SDK::GW {
 						std::string mac = val;
 						if (Utils::NormalizeMac(mac)) {
 							blockedMacs.push_back(mac);
-							Poco::Logger::get("SDK_gw").information(fmt::format("Blocked client MAC found: {}", Utils::SerialToMAC(mac)));
+							Poco::Logger::get("SDK_gw").debug(fmt::format("Blocked client MAC found: {}", Utils::SerialToMAC(mac)));
 						}
 					}
 				} catch (...) {
@@ -655,7 +655,7 @@ namespace OpenWifi::SDK::GW {
 
 			// 3) Read current blocked MACs from fetched config
 			std::list<std::string> blockedMacs;
-			GetBlockedClientsFromConfigRaw(Config, blockedMacs);
+			GetBlockedClients(Config, blockedMacs);
 
 			// 4) Apply allow/deny updates
 			for (std::size_t i = 0; i < clientList->size(); ++i) {
@@ -681,17 +681,19 @@ namespace OpenWifi::SDK::GW {
 				}
 
 				if (requestedAccess == "deny") {
-					Poco::Logger::get("SDK_gw").information(fmt::format("Blocking client MAC: {}", requestedMac));
-					if (!alreadyBlocked) {
-						blockedMacs.push_back(requestedMac); // block it
-					}
-					// else: already blocked -> do nothing
-				} else { // access = allow
-					Poco::Logger::get("SDK_gw").information(fmt::format("Allowing client MAC: {}", requestedMac));
 					if (alreadyBlocked) {
-						blockedMacs.remove(requestedMac); // unblock it
+						client->BadRequest(RESTAPI::Errors::ClientAlreadyBlocked);
+						return false;
 					}
-					// else: already allowed -> do nothing
+					Poco::Logger::get("SDK_gw").information(fmt::format("Blocking client MAC: {}", requestedMac));
+					blockedMacs.push_back(requestedMac); // block it
+				} else { // access = allow
+					if (!alreadyBlocked) {
+						client->BadRequest(RESTAPI::Errors::ClientAlreadyUnblocked);
+						return false;
+					}
+					Poco::Logger::get("SDK_gw").information(fmt::format("Allowing client MAC: {}", requestedMac));
+					blockedMacs.remove(requestedMac); // unblock it
 				}
 			}
 
