@@ -682,6 +682,7 @@ namespace OpenWifi::SDK::GW {
 
 				if (requestedAccess == "deny") {
 					if (alreadyBlocked) {
+						Poco::Logger::get("SDK_gw").error(fmt::format("Client MAC {} is already blocked.", requestedMac));
 						client->BadRequest(RESTAPI::Errors::ClientAlreadyBlocked);
 						return false;
 					}
@@ -689,6 +690,7 @@ namespace OpenWifi::SDK::GW {
 					blockedMacs.push_back(requestedMac); // block it
 				} else { // access = allow
 					if (!alreadyBlocked) {
+						Poco::Logger::get("SDK_gw").error(fmt::format("Client MAC {} is not blocked.", requestedMac));
 						client->BadRequest(RESTAPI::Errors::ClientAlreadyUnblocked);
 						return false;
 					}

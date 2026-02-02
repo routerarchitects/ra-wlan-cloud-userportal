@@ -30,7 +30,6 @@ namespace OpenWifi::SDK::GW {
 		Poco::Net::HTTPResponse::HTTPStatus GetConfig(RESTAPIHandler *client, const std::string &Mac,
 					Poco::JSON::Object::Ptr &Response);
 		bool ValidateConfig(const Poco::JSON::Object::Ptr &deviceConfig, const std::string &serialNumber, Poco::Logger &logger);
-
 		bool SetConfig(RESTAPIHandler *client, const Poco::JSON::Object::Ptr &Body, const Poco::SharedPtr<SubObjects::SubscriberInfo> &SubInfo);
 		bool SetVenue(RESTAPIHandler *client, const std::string &SerialNumber,
 					  const std::string &uuid);
