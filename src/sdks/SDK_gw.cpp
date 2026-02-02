@@ -490,9 +490,9 @@ namespace OpenWifi::SDK::GW {
 								return false;
 							}
 							ssid->set("name", override_ssid);
-							Poco::Logger::get("Configure").information(fmt::format("Applied New SSID \"{}\" for device {}.", override_ssid, SerialNumber));
+							Poco::Logger::get("Configure").information(fmt::format("Applied New SSID: [{}] on device {}.", override_ssid, SerialNumber));
 							encrypt->set("key", override_password);
-							Poco::Logger::get("Configure").information(fmt::format("Applied New Password \"{}\" for device {}.", override_password, SerialNumber));
+							Poco::Logger::get("Configure").information(fmt::format("Applied New Password for SSID: [{}] on device {}.", override_ssid, SerialNumber));
 						}
 					}
 					Poco::Logger::get("Configure").information(fmt::format("SSID/Password overrides applied to device {}.", SerialNumber));

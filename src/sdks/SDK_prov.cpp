@@ -193,7 +193,7 @@ namespace OpenWifi::SDK::Prov {
 						continue;
 					const auto ruleName = cmd[2].get<std::string>();
 					if (ruleName == "Block_Clients") {
-						Poco::Logger::get("SDK_gw").information("Removing firewall Block_Clients config-raw for mesh device.");
+						Poco::Logger::get("SDK_gw").information("Removing firewall-rule [Block_Clients] from config-raw for mesh device.");
 						cfg.erase("config-raw");
 						break;
 					}
