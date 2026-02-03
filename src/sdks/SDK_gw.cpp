@@ -566,11 +566,11 @@ namespace OpenWifi::SDK::GW {
 		}
 
 		/*
-			makeRawCommand():
+			MakeConfigRawCmd():
 			1. Build a single config-raw command array with 3 elements: [op, path, value].
 			2. Return it so callers can append it into a config-raw list.
 		*/
-		static Poco::JSON::Array::Ptr makeRawCommand(const std::string &op, const std::string &path, const std::string &value) {
+		static Poco::JSON::Array::Ptr MakeConfigRawCmd(const std::string &op, const std::string &path, const std::string &value) {
 			auto cmd = Poco::makeShared<Poco::JSON::Array>();
 			cmd->add(op);
 			cmd->add(path);
@@ -579,27 +579,27 @@ namespace OpenWifi::SDK::GW {
 		}
 
 		/*
-			buildBlockRuleConfigRaw():
+			MakeBlockRuleRaw():
 			1. Build a config-raw array containing a single firewall rule named "Block_Clients".
 			2. Add one src_mac entry per blocked MAC (from blockedMacsNorm).
 			3. Return the constructed config-raw array so it can be saved into Config["config-raw"].
 		*/
-		static Poco::JSON::Array::Ptr buildBlockRuleConfigRaw(const std::list<std::string> &blockedMacsNorm) {
+		static Poco::JSON::Array::Ptr MakeBlockRuleRaw(const std::list<std::string> &blockedMacsNorm) {
 			auto raw = Poco::makeShared<Poco::JSON::Array>();
 
-			raw->add(makeRawCommand("add", "firewall", "rule"));
-			raw->add(makeRawCommand("set", "firewall.@rule[-1].name", "Block_Clients"));
-			raw->add(makeRawCommand("set", "firewall.@rule[-1].src", "down1v0"));
-			raw->add(makeRawCommand("set", "firewall.@rule[-1].dest", "up0v0"));
+			raw->add(MakeConfigRawCmd("add", "firewall", "rule"));
+			raw->add(MakeConfigRawCmd("set", "firewall.@rule[-1].name", "Block_Clients"));
+			raw->add(MakeConfigRawCmd("set", "firewall.@rule[-1].src", "down1v0"));
+			raw->add(MakeConfigRawCmd("set", "firewall.@rule[-1].dest", "up0v0"));
 
 			for (const auto &macNorm : blockedMacsNorm) {
-				raw->add(makeRawCommand("add_list", "firewall.@rule[-1].src_mac", Utils::SerialToMAC(macNorm)));
+				raw->add(MakeConfigRawCmd("add_list", "firewall.@rule[-1].src_mac", Utils::SerialToMAC(macNorm)));
 			}
 
-			raw->add(makeRawCommand("set", "firewall.@rule[-1].family", "any"));
-			raw->add(makeRawCommand("set", "firewall.@rule[-1].proto", "all"));
-			raw->add(makeRawCommand("set", "firewall.@rule[-1].target", "REJECT"));
-			raw->add(makeRawCommand("set", "firewall.@rule[-1].enabled", "1"));
+			raw->add(MakeConfigRawCmd("set", "firewall.@rule[-1].family", "any"));
+			raw->add(MakeConfigRawCmd("set", "firewall.@rule[-1].proto", "all"));
+			raw->add(MakeConfigRawCmd("set", "firewall.@rule[-1].target", "REJECT"));
+			raw->add(MakeConfigRawCmd("set", "firewall.@rule[-1].enabled", "1"));
 
 			return raw;
 		}
@@ -706,7 +706,7 @@ namespace OpenWifi::SDK::GW {
 					Config->remove("config-raw");
 			} else {
 				Poco::Logger::get("SDK_gw").information("Updating config-raw with blocked clients.");
-				Config->set("config-raw", buildBlockRuleConfigRaw(blockedMacs));
+				Config->set("config-raw", MakeBlockRuleRaw(blockedMacs));
 			}
 
 			return true;
