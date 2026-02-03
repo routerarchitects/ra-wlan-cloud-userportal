@@ -248,8 +248,9 @@ namespace OpenWifi::SDK::GW {
 		/*
 			ValidateConfig:
 			1. Take the full device config, ensure the "configuration" field exists.
-			2. Check interfaces are present, upstream ports have no SSIDs and ensure downstream interface contains static IpV4 addressing.
-			3. Require at least one SSID with bss-mode == "mesh".
+			2. Check interfaces are present and upstream ports have no SSIDs.
+			3. Downstream interface must have static IPv4 addressing, tunnel-proto == "mesh" and AP/Mesh SSIDs.
+			4. If no downstream interface exist, return error.
 		*/
 		bool ValidateConfig(const Poco::JSON::Object::Ptr &deviceConfig, const std::string &serialNumber, Poco::Logger &logger) {
 			if (!deviceConfig || !deviceConfig->has("configuration")) {
