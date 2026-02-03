@@ -253,13 +253,17 @@ namespace OpenWifi::SDK::GW {
 			4. If no downstream interface exist, return error.
 		*/
 		bool ValidateConfig(const Poco::JSON::Object::Ptr &deviceConfig, const std::string &serialNumber, Poco::Logger &logger) {
-			if (!deviceConfig || !deviceConfig->has("configuration")) {
+			if (!deviceConfig || !deviceConfig->has("configuration") || !deviceConfig->isObject("configuration")) {
 				logger.error(fmt::format("Invalid configuration for device {}: missing configuration block.", serialNumber));
 				return false;
 			}
 			auto configuration = deviceConfig->getObject("configuration");
 			if (!configuration) {
 				logger.error(fmt::format("Invalid configuration for device {}: Empty configuration.", serialNumber));
+				return false;
+			}
+			if (!configuration->has("interfaces") || !configuration->isArray("interfaces")) {
+				logger.error(fmt::format("Invalid configuration for device {}: missing/invalid interfaces.", serialNumber));
 				return false;
 			}
 			auto interfaces = configuration->getArray("interfaces");
@@ -272,8 +276,15 @@ namespace OpenWifi::SDK::GW {
 			bool downstreamFound = false;
 			for (std::size_t i = 0; i < interfaces->size(); ++i) {
 				auto iface = interfaces->getObject(i);
-				auto ssids = iface->getArray("ssids");
+				if (!iface || !iface->has("role") || !iface->get("role").isString()) {
+					logger.error(fmt::format("Invalid configuration for device {}: interface is not an object or missing/invalid role.", serialNumber));
+					return false;
+				}
 				std::string role = iface->getValue<std::string>("role");
+				Poco::JSON::Array::Ptr ssids;
+				if (iface->has("ssids") && iface->isArray("ssids")) {
+					ssids = iface->getArray("ssids");
+				}
 				if (role == "upstream") {
 					if (ssids && !ssids->empty()) {
 						logger.error(fmt::format("Invalid configuration for device {}: upstream interface contains SSIDs.",serialNumber));
@@ -281,26 +292,38 @@ namespace OpenWifi::SDK::GW {
 					}
 				} else if (role == "downstream") {
 					downstreamFound = true;
+					if (!iface->has("ipv4") || !iface->isObject("ipv4")) {
+						logger.error(fmt::format("Invalid configuration for device {}: downstream interface missing or invalid IPv4 value.", serialNumber));
+						return false;
+					}
 					auto ipv4 = iface->getObject("ipv4");
-					if (!ipv4 || ipv4->getValue<std::string>("addressing") != "static") {
+					if (!ipv4->has("addressing") || !ipv4->get("addressing").isString() || ipv4->getValue<std::string>("addressing") != "static") {
 						logger.error(fmt::format("Invalid configuration for device {}: downstream interface should have static IPv4 addressing.", serialNumber));
 						return false;
 					}
+					if (!iface->has("tunnel") || !iface->isObject("tunnel")) {
+						logger.error(fmt::format("Invalid configuration for device {}: downstream interface missing or invalid tunnel object.", serialNumber));
+						return false;
+					}
 					auto tunnel = iface->getObject("tunnel");
-					if (!tunnel || tunnel->getValue<std::string>("proto") != "mesh") {
+					if (!tunnel->has("proto") || !tunnel->get("proto").isString() || tunnel->getValue<std::string>("proto") != "mesh") {
 						logger.error(fmt::format("Invalid configuration for device {}: downstream interface must have tunnel-proto='mesh'.", serialNumber));
 						return false;
 					}
 					if (!ssids || ssids->empty()) {
-						logger.error(fmt::format("Invalid configuration for device {}: downstream interface missing SSIDs.", serialNumber));
+						logger.error(fmt::format("Invalid configuration for device {}: downstream interface missing or invalid SSIDs.", serialNumber));
 						return false;
 					}
 					for (std::size_t j = 0; j < ssids->size(); ++j) {
 						auto ssid = ssids->getObject(j);
-						if (ssid && ssid->getValue<std::string>("bss-mode") == "ap")
-						apSsidFound = true;
-						if (ssid && ssid->getValue<std::string>("bss-mode") == "mesh")
-						meshSsidFound = true;
+						if (ssid && ssid->has("bss-mode") && ssid->get("bss-mode").isString()) {
+							std::string mode = ssid->getValue<std::string>("bss-mode");
+							if (mode == "ap") {
+								apSsidFound = true;
+							} else if (mode == "mesh") {
+								meshSsidFound = true;
+							}
+						}
 					}
 				} else {
 					logger.error(fmt::format("Invalid configuration for device {}: invalid interface role (expected 'upstream' or 'downstream').", serialNumber));
