@@ -10,9 +10,11 @@
 #include "ConfigMaker.h"
 #include "RESTObjects/RESTAPI_SubObjects.h"
 #include "StorageService.h"
+#include "SubscriberCache.h"
 #include "framework/utils.h"
 #include "sdks/SDK_gw.h"
 #include "sdks/SDK_prov.h"
+
 
 namespace OpenWifi {
 
@@ -215,6 +217,8 @@ namespace OpenWifi {
 			InternalError(RESTAPI::Errors::RecordNotUpdated);
 			return false;
 		}
+
+		SubscriberCache()->UpdateSubInfo(ctx.SubscriberInfo.id, ctx.SubscriberInfo);
 		if (ctx.SubscriberInfo.accessPoints.list.front().macAddress == ctx.Mac) {
 			Logger().debug(fmt::format("Linking gateway device: [{}] to subscriber: [{}] in signup table.", ctx.Mac, UserInfo_.userinfo.id));
 			if (!SDK::Prov::Signup::UpdateSignupDevice(nullptr, UserInfo_.userinfo.id, ctx.Mac)) {
@@ -438,6 +442,7 @@ namespace OpenWifi {
 			}
 			StorageService()->SubInfoDB().UpdateRecord("id", ctx.SubscriberInfo.id,
 													   ctx.SubscriberInfo);
+			SubscriberCache()->UpdateSubInfo(ctx.SubscriberInfo.id, ctx.SubscriberInfo);
 			return OK();
 		}
 	} // namespace OpenWifi
