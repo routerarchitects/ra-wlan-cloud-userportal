@@ -271,8 +271,6 @@ namespace OpenWifi::SDK::GW {
 				logger.error(fmt::format("Invalid configuration for device {}: missing interfaces.", serialNumber));
 				return false;
 			}
-			bool meshSsidFound = false;
-			bool apSsidFound = false;
 			bool downstreamFound = false;
 			for (std::size_t i = 0; i < interfaces->size(); ++i) {
 				auto iface = interfaces->getObject(i);
@@ -291,6 +289,8 @@ namespace OpenWifi::SDK::GW {
 						return false;
 					}
 				} else if (role == "downstream") {
+					bool meshSsidFound = false;
+					bool apSsidFound = false;
 					downstreamFound = true;
 					if (!iface->has("ipv4") || !iface->isObject("ipv4")) {
 						logger.error(fmt::format("Invalid configuration for device {}: downstream interface missing or invalid IPv4 value.", serialNumber));
@@ -316,14 +316,28 @@ namespace OpenWifi::SDK::GW {
 					}
 					for (std::size_t j = 0; j < ssids->size(); ++j) {
 						auto ssid = ssids->getObject(j);
-						if (ssid && ssid->has("bss-mode") && ssid->get("bss-mode").isString()) {
-							std::string mode = ssid->getValue<std::string>("bss-mode");
-							if (mode == "ap") {
-								apSsidFound = true;
-							} else if (mode == "mesh") {
-								meshSsidFound = true;
-							}
+						if (!ssid) {
+							logger.error(fmt::format("Invalid configuration for device {}: downstream interface contains a non-object SSID entry.", serialNumber));
+							return false;
 						}
+						if (!ssid->has("bss-mode") || !ssid->get("bss-mode").isString()) {
+							logger.error(fmt::format("Invalid configuration for device {}: SSID entry missing or invalid 'bss-mode'.", serialNumber));
+							return false;
+						}
+						std::string mode = ssid->getValue<std::string>("bss-mode");
+						if (mode == "ap") {
+							apSsidFound = true;
+						} else if (mode == "mesh") {
+							meshSsidFound = true;
+						}
+					}
+					if (!apSsidFound) {
+						logger.error(fmt::format("Invalid configuration for device {}: missing ap-SSID on downstream interface.", serialNumber));
+						return false;
+					}
+					if (!meshSsidFound) {
+						logger.error(fmt::format("Invalid configuration for device {}: missing mesh-SSID on downstream interface.", serialNumber));
+						return false;
 					}
 				} else {
 					logger.error(fmt::format("Invalid configuration for device {}: invalid interface role (expected 'upstream' or 'downstream').", serialNumber));
@@ -332,14 +346,6 @@ namespace OpenWifi::SDK::GW {
 			}
 			if (!downstreamFound) {
 				logger.error(fmt::format("Invalid configuration for device {}: missing downstream interface.", serialNumber));
-				return false;
-			}
-			if (!apSsidFound) {
-				logger.error(fmt::format("Invalid configuration for device {}: missing ap-SSID on downstream interface.", serialNumber));
-				return false;
-			}
-			if (!meshSsidFound) {
-				logger.error(fmt::format("Invalid configuration for device {}: missing mesh-SSID on downstream interface.", serialNumber));
 				return false;
 			}
 			return true;
