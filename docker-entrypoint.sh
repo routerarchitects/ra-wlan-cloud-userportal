@@ -40,6 +40,7 @@ if [[ "$TEMPLATE_CONFIG" = 'true' ]]; then
   STORAGE_TYPE_MYSQL_PASSWORD=${STORAGE_TYPE_MYSQL_PASSWORD:-"owsub"} \
   STORAGE_TYPE_MYSQL_DATABASE=${STORAGE_TYPE_MYSQL_DATABASE:-"owsub"} \
   STORAGE_TYPE_MYSQL_PORT=${STORAGE_TYPE_MYSQL_PORT:-"3306"} \
+  LOGGING_LEVEL=${LOGGING_LEVEL:-"debug"} \
   envsubst < /owsub.properties.tmpl > $OWSUB_CONFIG/owsub.properties
 fi
 
