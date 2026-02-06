@@ -41,9 +41,10 @@ namespace OpenWifi {
 		bool Add_Device_Gateway(AddDeviceContext &ctx);
 		bool Add_Device_Mesh(AddDeviceContext &ctx);
 		bool Add_Device_Update_Database(AddDeviceContext &ctx);
-		bool Add_Device_to_Venue(AddDeviceContext &ctx, bool gateway = false);
+		bool Add_Device_to_Venue(AddDeviceContext &ctx, bool IsGateway = false);
 
 		bool Delete_Device_Validate_Subscriber(DeleteDeviceContext &ctx);
 		bool Delete_Device_Update_Database(DeleteDeviceContext &ctx);
+		bool Delete_Device_from_Venue(DeleteDeviceContext &ctx);
 	};
 } // namespace OpenWifi

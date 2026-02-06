@@ -403,8 +403,9 @@ namespace OpenWifi::SDK::Prov {
 
 			bool DeleteSubscriberVenue(RESTAPIHandler *client, const std::string &subscriberId,
 										   Poco::Net::HTTPServerResponse::HTTPStatus &callStatus) {
-				const std::string endpoint = "/api/v1/subscriberVenue/" + subscriberId;
-				auto api = OpenAPIRequestDelete(uSERVICE_PROVISIONING, endpoint, {}, 60000);
+				const std::string endpoint = "/api/v1/subscriberVenue";
+				Types::StringPairVec queryParams{{"subscriberId", subscriberId}};
+				auto api = OpenAPIRequestDelete(uSERVICE_PROVISIONING, endpoint, queryParams, 60000);
 				callStatus = api.Do(client == nullptr ? "" : client->UserInfo_.webtoken.access_token_);
 				return callStatus >= Poco::Net::HTTPResponse::HTTP_OK &&
 					   callStatus <= Poco::Net::HTTPResponse::HTTP_NO_CONTENT;
@@ -452,11 +453,14 @@ namespace OpenWifi::SDK::Prov {
 
 	namespace Signup {
 
-		bool GetSignupDevice(RESTAPIHandler *client, const std::string &macAddress) {
+		bool GetSignupDevice(RESTAPIHandler *client, const std::string &macAddress,
+							 Poco::JSON::Object::Ptr &response) {
 			std::string endpoint = "/api/v1/signup";
 			auto API = OpenAPIRequestGet(uSERVICE_PROVISIONING, endpoint, {{"macAddress", macAddress}}, 10000);
-			auto Response = Poco::makeShared<Poco::JSON::Object>();
-			const auto status = API.Do(Response, client ? client->UserInfo_.webtoken.access_token_ : "");
+			if (!response) {
+				response = Poco::makeShared<Poco::JSON::Object>();
+			}
+			const auto status = API.Do(response, client ? client->UserInfo_.webtoken.access_token_ : "");
 
 			if (status != Poco::Net::HTTPResponse::HTTP_OK) {
 				return false;

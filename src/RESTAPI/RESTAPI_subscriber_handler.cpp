@@ -52,7 +52,7 @@ namespace OpenWifi {
 
 		if (!SDK::Prov::Subscriber::GetDevices(nullptr, UserInfo_.userinfo.id,
 												UserInfo_.userinfo.owner, devices, callStatus, callResponse)) {
-			ForwardErrorResponse(nullptr, callStatus, callResponse);
+			ForwardErrorResponse(this, callStatus, callResponse);
 			return false;
 		}
 
@@ -130,7 +130,7 @@ namespace OpenWifi {
 		if (!SDK::Prov::Subscriber::CreateSubscriberVenue(
 				nullptr, UserInfo_.userinfo.id, true, std::nullopt, std::nullopt, std::nullopt,
 				venueStatus, venueResponse)) {
-			ForwardErrorResponse(nullptr, venueStatus, venueResponse);
+			ForwardErrorResponse(this, venueStatus, venueResponse);
 			return false;
 		}
 		return true;
@@ -141,7 +141,7 @@ namespace OpenWifi {
 			Poco::Net::HTTPServerResponse::HTTP_INTERNAL_SERVER_ERROR;
 		if (!SDK::Prov::Subscriber::DeleteSubscriberVenue(
 				nullptr, UserInfo_.userinfo.id, venueStatus)) {
-			ForwardErrorResponse(nullptr, venueStatus, Poco::makeShared<Poco::JSON::Object>());
+			ForwardErrorResponse(this, venueStatus, Poco::makeShared<Poco::JSON::Object>());
 			return false;
 		}
 		return true;
@@ -160,7 +160,6 @@ namespace OpenWifi {
 			ProvObjects::SubscriberDevice SubDevice{};
 		} ctx;
 
-		if (!ValidateUserInfo()) return;
 		Logger().debug(fmt::format("{}: Get Subscriber", UserInfo_.userinfo.email));
 
 		if (LoadSubscriberInfo(ctx.SubscriberInfo)) return;

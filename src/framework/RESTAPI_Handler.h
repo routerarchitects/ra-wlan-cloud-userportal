@@ -395,12 +395,13 @@ namespace OpenWifi {
 											Poco::Net::HTTPResponse::HTTPStatus callStatus,
 											const Poco::JSON::Object::Ptr &callResponse) {
 			auto Forward = callResponse ? callResponse : Poco::makeShared<Poco::JSON::Object>();
-			client->Response->setStatus(callStatus);
+			auto *target = client ? client : this;
+			target->Response->setStatus(callStatus);
 			std::stringstream ss;
 			Poco::JSON::Stringifier::condense(Forward, ss);
-			client->Response->setContentType("application/json");
-			client->Response->setContentLength(ss.str().size());
-			auto &os = client->Response->send();
+			target->Response->setContentType("application/json");
+			target->Response->setContentLength(ss.str().size());
+			auto &os = target->Response->send();
 			os << ss.str();
 			os.flush();
 		}
