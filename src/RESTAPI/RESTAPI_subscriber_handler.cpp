@@ -82,7 +82,7 @@ namespace OpenWifi {
 		ConfigMaker InitialConfig(Logger(), subInfo.id);
 		const std::string targetMac = subInfo.accessPoints.list[0].macAddress;
 
-		if (!SDK::Prov::Subscriber::GetDevice(nullptr, targetMac, subDevice)) {
+		if (!SDK::Prov::Subscriber::GetSubcriberDevice(nullptr, targetMac, subDevice)) {
 			Logger().error(fmt::format("Could not find provisioning subdevice for {}.", targetMac));
 			InternalError(RESTAPI::Errors::SubNoDeviceActivated);
 			return false;
@@ -98,7 +98,7 @@ namespace OpenWifi {
 
 	bool RESTAPI_subscriber_handler::LinkSubscriberDevice(
 		const SubObjects::SubscriberInfo &subInfo, const ProvObjects::SubscriberDevice &subDevice) {
-		if (!SDK::Prov::Subscriber::SetDevice(nullptr, subDevice)) {
+		if (!SDK::Prov::Subscriber::UpdateSubscriberDevice(nullptr, subDevice)) {
 			Logger().error(
 				fmt::format("Failed to persist provisioning config for {}.", subDevice.serialNumber));
 			InternalError(RESTAPI::Errors::ConfigBlockInvalid);

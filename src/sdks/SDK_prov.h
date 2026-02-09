@@ -21,7 +21,7 @@ namespace OpenWifi::SDK::Prov {
 		// Get a single inventory tag for the given MAC/serial.
 		bool Get(RESTAPIHandler *client, const std::string &Mac,
 				 ProvObjects::InventoryTag &Device);
-		bool UpdateVenue(RESTAPIHandler *client, const std::string &Mac, const std::string &venueId,
+		bool UpdateInventoryVenue(RESTAPIHandler *client, const std::string &Mac, const std::string &venueId,
 						 ProvObjects::InventoryTag &Device);
 		bool DeleteInventoryDevice(RESTAPIHandler *client, const std::string &SerialNumber);
 	} // namespace Device
@@ -51,14 +51,11 @@ namespace OpenWifi::SDK::Prov {
 						Poco::JSON::Object::Ptr &CallResponse);
 		bool SetSubscriber(RESTAPIHandler *client, const std::string &SubscriberId,
 									 const std::string &SerialNumber, bool removeSubscriber = false);
-		Poco::JSON::Object::Ptr BuildMeshConfig(const Poco::JSON::Object::Ptr &configuration);
-		bool CreateSubDeviceInfo(RESTAPIHandler *client, const ProvObjects::InventoryTag &inventoryTag, const SecurityObjects::UserInfo &userInfo,
-					   ProvObjects::SubscriberDevice &device);
-		bool CreateDevice(RESTAPIHandler *client, ProvObjects::SubscriberDevice &device);
-		bool SetDevice(RESTAPIHandler *client, const ProvObjects::SubscriberDevice &D);
-		bool GetDevice(RESTAPIHandler *client, const std::string &SerialNumber,
+		bool CreateSubsciberDevice(RESTAPIHandler *client, ProvObjects::SubscriberDevice &device);
+		bool UpdateSubscriberDevice(RESTAPIHandler *client, const ProvObjects::SubscriberDevice &D);
+		bool GetSubcriberDevice(RESTAPIHandler *client, const std::string &SerialNumber,
 					   ProvObjects::SubscriberDevice &D);
-		bool DeleteProvSubscriberDevice(RESTAPIHandler *client, const std::string &SerialNumber);
+		bool DeleteSubscriberDevice(RESTAPIHandler *client, const std::string &SerialNumber);
 		bool DeleteSubscriberVenue(RESTAPIHandler *client, const std::string &subscriberId,
 									   Poco::Net::HTTPServerResponse::HTTPStatus &callStatus);
 		bool CreateSubscriberVenue(RESTAPIHandler *client, const std::string &subscriberId,

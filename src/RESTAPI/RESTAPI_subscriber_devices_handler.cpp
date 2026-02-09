@@ -23,6 +23,11 @@ namespace OpenWifi {
 		SubObjects::SubscriberInfo SubscriberInfo{};
 		ProvObjects::SubscriberDevice SubDevice{};
 	};
+	struct DeleteDeviceContext {
+		std::string Mac;
+		ProvObjects::InventoryTag InventoryTag{};
+		SubObjects::SubscriberInfo SubscriberInfo{};
+	};
 
 	bool RESTAPI_subscriber_devices_handler::Validate_Inputs(std::string &mac) {
 		if (UserInfo_.userinfo.id.empty()) {
@@ -45,6 +50,16 @@ namespace OpenWifi {
 			Logger().error(fmt::format("Failed to fetch subscriber information for id: {}.",
 									   UserInfo_.userinfo.id));
 			NotFound();
+			return false;
+		}
+		return true;
+	}
+
+	bool RESTAPI_subscriber_devices_handler::Load_Inventory_Info(
+		const std::string &mac, ProvObjects::InventoryTag &inventoryTag) {
+		if (!SDK::Prov::Device::Get(this, mac, inventoryTag)) {
+			Logger().error(fmt::format("Inventory table has no record for MAC: {}.", mac));
+			BadRequest(RESTAPI::Errors::SubNoDeviceActivated);
 			return false;
 		}
 		return true;
@@ -80,9 +95,6 @@ namespace OpenWifi {
 				return false;
 			}
 		}
-		Logger().warning(fmt::format("Device: [{}] is already linked to subscriber: [{}] in "
-									 "signup but not found in subscriber Database.",
-									 ctx.Mac, UserInfo_.userinfo.id));
 
 		return true;
 	}
@@ -99,41 +111,37 @@ namespace OpenWifi {
 		Logger().information(fmt::format("Adding a Gateway Device: {} for subscriber: {}.", ctx.Mac,
 										 UserInfo_.userinfo.id));
 
-		ProvObjects::SubscriberDevice dev;
-		if (!SDK::Prov::Device::Get(this, ctx.Mac, ctx.InventoryTag)) {
-			Logger().error(fmt::format("Inventory table has no record for MAC: {}.", ctx.Mac));
-			BadRequest(RESTAPI::Errors::SubNoDeviceActivated);
-			return false;
-		}
+		ConfigMaker configMaker(Logger(), ctx.SubscriberInfo.id);
 
-		if (!SDK::Prov::Subscriber::CreateSubDeviceInfo(this, ctx.InventoryTag, UserInfo_.userinfo,
-														dev)) {
-			Logger().error(fmt::format(
-				"Failed to create subdevice record for device: {} in owprov.", ctx.Mac));
-			InternalError(RESTAPI::Errors::RecordNotCreated);
-			return false;
+		if (!SDK::Prov::Subscriber::GetSubcriberDevice(nullptr, ctx.Mac, ctx.SubDevice)) {
+			if (!configMaker.CreateSubDeviceInfo(ctx.InventoryTag, UserInfo_.userinfo,
+												 ctx.SubDevice)) {
+				Logger().error(fmt::format(
+					"Failed to build subdevice record for device: {} in owprov.", ctx.Mac));
+				InternalError(RESTAPI::Errors::RecordNotCreated);
+				return false;
+			}
+			if (!SDK::Prov::Subscriber::CreateSubsciberDevice(this, ctx.SubDevice)) {
+				Logger().error(fmt::format(
+					"Failed to create subdevice record for device: {} in owprov.", ctx.Mac));
+				InternalError(RESTAPI::Errors::RecordNotCreated);
+				return false;
+			}
 		}
 
 		ProvObjects::SubscriberDeviceList devices;
-		devices.subscriberDevices.push_back(dev);
+		devices.subscriberDevices.push_back(ctx.SubDevice);
 
 		StorageService()->SubInfoDB().BuildDefaultSubscriberInfo(UserInfo_, ctx.SubscriberInfo,
 																 devices);
 
-		ConfigMaker InitialConfig(Logger(), ctx.SubscriberInfo.id);
-		if (!SDK::Prov::Subscriber::GetDevice(
-				nullptr, ctx.SubscriberInfo.accessPoints.list[0].macAddress, ctx.SubDevice)) {
-			Logger().error(fmt::format("Could not find provisioning subdevice for: {}.", ctx.Mac));
-			InternalError(RESTAPI::Errors::ApplyConfigFailed);
-			return false;
-		}
-		if (!InitialConfig.PrepareDefaultConfig(ctx.SubscriberInfo.accessPoints.list[0],
-												ctx.SubDevice)) {
+		if (!configMaker.PrepareDefaultConfig(ctx.SubscriberInfo.accessPoints.list[0],
+											  ctx.SubDevice)) {
 			Logger().error(fmt::format("Failed to create default config for device: {}.", ctx.Mac));
 			InternalError(RESTAPI::Errors::ApplyConfigFailed);
 			return false;
 		}
-		if (!SDK::Prov::Subscriber::SetDevice(nullptr, ctx.SubDevice)) {
+		if (!SDK::Prov::Subscriber::UpdateSubscriberDevice(nullptr, ctx.SubDevice)) {
 			Logger().error(fmt::format("Failed to persist provisioning config for: {}.",
 									   ctx.SubDevice.serialNumber));
 			InternalError(RESTAPI::Errors::ApplyConfigFailed);
@@ -176,7 +184,8 @@ namespace OpenWifi {
 			return false;
 		}
 
-		if (!SDK::GW::Device::ValidateConfig(config, gatewayMac, Logger())) {
+		ConfigMaker configMaker(Logger(), ctx.SubscriberInfo.id);
+		if (!configMaker.ValidateConfig(config, gatewayMac, Logger())) {
 			Logger().error(fmt::format(
 				"Wrong mesh configuration found on fetched gateway device:{} for mesh device: {}.",
 				gatewayMac, ctx.Mac));
@@ -186,35 +195,37 @@ namespace OpenWifi {
 
 		Logger().information(fmt::format("Fetched gateway configuration for: {}.", gatewayMac));
 
-		if (!SDK::Prov::Device::Get(this, ctx.Mac, ctx.InventoryTag)) {
-			Logger().error(fmt::format("Inventory table has no record for MAC: {}.", ctx.Mac));
-			BadRequest(RESTAPI::Errors::SubNoDeviceActivated);
-			return false;
-		}
-		if (!SDK::Prov::Subscriber::CreateSubDeviceInfo(this, ctx.InventoryTag, UserInfo_.userinfo,
-														ctx.SubDevice)) {
-			Logger().error(fmt::format(
-				"Failed to create subdevice record for device: {} in owprov.", ctx.Mac));
-			InternalError(RESTAPI::Errors::RecordNotCreated);
-			return false;
+		if (!SDK::Prov::Subscriber::GetSubcriberDevice(nullptr, ctx.Mac, ctx.SubDevice)) {
+			if (!configMaker.CreateSubDeviceInfo(ctx.InventoryTag, UserInfo_.userinfo,
+												 ctx.SubDevice)) {
+				Logger().error(fmt::format(
+					"Failed to build subdevice record for device: {} in owprov.", ctx.Mac));
+				InternalError(RESTAPI::Errors::RecordNotCreated);
+				return false;
+			}
+			if (!SDK::Prov::Subscriber::CreateSubsciberDevice(this, ctx.SubDevice)) {
+				Logger().error(fmt::format(
+					"Failed to create subdevice record for device: {} in owprov.", ctx.Mac));
+				InternalError(RESTAPI::Errors::RecordNotCreated);
+				return false;
+			}
 		}
 
-		auto meshConfig = SDK::Prov::Subscriber::BuildMeshConfig(config);
-		if (!meshConfig) {
+		Poco::JSON::Object::Ptr meshConfig;
+		if (!configMaker.BuildMeshConfig(config, meshConfig)) {
 			Logger().error("Failed to convert mesh configuration for provisioning.");
 			InternalError(RESTAPI::Errors::ConfigurationMustExist);
 			return false;
 		}
 
-		ConfigMaker MeshConfig(Logger(), ctx.SubscriberInfo.id);
-		if (!MeshConfig.PrepareProvSubDeviceConfig(meshConfig, ctx.SubDevice.configuration)) {
+		if (!configMaker.PrepareProvSubDeviceConfig(meshConfig, ctx.SubDevice.configuration)) {
 			Logger().error(fmt::format(
 				"Failed to store configuration for device: {} in provisioning.", ctx.Mac));
 			InternalError(RESTAPI::Errors::RecordNotUpdated);
 			return false;
 		}
 
-		if (!SDK::Prov::Subscriber::SetDevice(nullptr, ctx.SubDevice)) {
+		if (!SDK::Prov::Subscriber::UpdateSubscriberDevice(nullptr, ctx.SubDevice)) {
 			Logger().error(fmt::format("Failed to persist provisioning config for: {}.",
 									   ctx.SubDevice.serialNumber));
 			InternalError(RESTAPI::Errors::ApplyConfigFailed);
@@ -280,16 +291,16 @@ namespace OpenWifi {
 
 		Logger().information(
 			fmt::format("Adding mesh device to venue for subscriber: {}.", UserInfo_.userinfo.id));
-		if (!SDK::Prov::Device::Get(nullptr,
-									ctx.SubscriberInfo.accessPoints.list.front().macAddress,
-									ctx.InventoryTag)) {
+		ProvObjects::InventoryTag gwInventoryTag;
+		if (!SDK::Prov::Device::Get(
+				nullptr, ctx.SubscriberInfo.accessPoints.list.front().macAddress, gwInventoryTag)) {
 			Logger().error(fmt::format(
 				"Inventory table has no record for MAC: {}. Unable to add device to venue.",
 				ctx.SubscriberInfo.accessPoints.list.front().macAddress));
 			BadRequest(RESTAPI::Errors::SubNoDeviceActivated);
 			return false;
 		}
-		if (ctx.InventoryTag.venue.empty()) {
+		if (gwInventoryTag.venue.empty()) {
 			Logger().error(fmt::format(
 				"Device: [{}] has no venue assigned in inventory. Cannot add device to venue.",
 				ctx.SubscriberInfo.accessPoints.list.front().macAddress));
@@ -297,11 +308,11 @@ namespace OpenWifi {
 			return false;
 		}
 
-		if (!SDK::Prov::Device::UpdateVenue(nullptr, ctx.Mac, ctx.InventoryTag.venue,
-											ctx.InventoryTag)) {
+		if (!SDK::Prov::Device::UpdateInventoryVenue(nullptr, ctx.Mac, gwInventoryTag.venue,
+													 ctx.InventoryTag)) {
 			Logger().error(fmt::format("Failed to add device: [{}] to venue: [{}] in provisioning.",
 									   ctx.SubscriberInfo.accessPoints.list.front().macAddress,
-									   ctx.InventoryTag.venue));
+									   gwInventoryTag.venue));
 			InternalError(RESTAPI::Errors::RecordNotUpdated);
 			return false;
 		}
@@ -332,6 +343,9 @@ namespace OpenWifi {
 		if (!Load_Subscriber_Info(ctx.SubscriberInfo))
 			return;
 
+		if (!Load_Inventory_Info(ctx.Mac, ctx.InventoryTag))
+			return;
+
 		if (!Add_Device_Validate_Subscriber(ctx))
 			return;
 
@@ -353,12 +367,6 @@ namespace OpenWifi {
 		return OK();
 	}
 
-	struct DeleteDeviceContext {
-		std::string Mac;
-		ProvObjects::InventoryTag InventoryTag{};
-		SubObjects::SubscriberInfo SubscriberInfo{};
-	};
-
 	/*
 		Delete_Device_Validate_Subscriber:
 		- Check inventory: if another subscriber owns it, reject; if this subscriber owns it,
@@ -369,12 +377,6 @@ namespace OpenWifi {
 	*/
 	bool RESTAPI_subscriber_devices_handler::Delete_Device_Validate_Subscriber(
 		DeleteDeviceContext &ctx) {
-
-		if (!SDK::Prov::Device::Get(nullptr, ctx.Mac, ctx.InventoryTag)) {
-			Logger().error(fmt::format("Inventory table has no record for MAC: {}.", ctx.Mac));
-			BadRequest(RESTAPI::Errors::SubNoDeviceActivated);
-			return false;
-		}
 
 		if (!ctx.InventoryTag.subscriber.empty()) {
 			if (ctx.InventoryTag.subscriber != UserInfo_.userinfo.id) {
@@ -395,9 +397,9 @@ namespace OpenWifi {
 				}
 			}
 		}
-		Logger().error(fmt::format("Device: [{}] not found for subscriber: [{}].", ctx.Mac,
+		Logger().warning(fmt::format("Device: [{}] not found for subscriber: [{}].", ctx.Mac,
 								   UserInfo_.userinfo.id));
-		NotFound();
+		OK(); // idempotent response
 		return false;
 	}
 
@@ -421,7 +423,7 @@ namespace OpenWifi {
 			SDK::Prov::Signup::UpdateSignupDevice(nullptr, UserInfo_.userinfo.id, "");
 		}
 		SDK::GW::Device::DeleteOwgwDevice(this, ctx.Mac);
-		SDK::Prov::Subscriber::DeleteProvSubscriberDevice(nullptr, ctx.Mac);
+		SDK::Prov::Subscriber::DeleteSubscriberDevice(nullptr, ctx.Mac);
 		SDK::Prov::Device::DeleteInventoryDevice(nullptr, ctx.Mac);
 		return true;
 	}
@@ -460,6 +462,10 @@ namespace OpenWifi {
 
 		if (!Load_Subscriber_Info(ctx.SubscriberInfo))
 			return;
+
+		if (!Load_Inventory_Info(ctx.Mac, ctx.InventoryTag))
+			return;
+
 		if (!Delete_Device_Validate_Subscriber(ctx))
 			return;
 
@@ -489,4 +495,4 @@ namespace OpenWifi {
 		SubscriberCache()->UpdateSubInfo(ctx.SubscriberInfo.id, ctx.SubscriberInfo);
 		return OK();
 	}
-	} // namespace OpenWifi
+} // namespace OpenWifi

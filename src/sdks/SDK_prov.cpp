@@ -12,7 +12,6 @@
 #include "framework/MicroServiceNames.h"
 #include "framework/OpenAPIRequests.h"
 #include "framework/ow_constants.h"
-#include "nlohmann/json.hpp"
 
 #include <iostream>
 
@@ -38,7 +37,7 @@ namespace OpenWifi::SDK::Prov {
 			return false;
 		}
 
-		bool UpdateVenue(RESTAPIHandler *client, const std::string &Mac, const std::string &venueId,
+		bool UpdateInventoryVenue(RESTAPIHandler *client, const std::string &Mac, const std::string &venueId,
 						 ProvObjects::InventoryTag &Device) {
 			std::string EndPoint = "/api/v1/inventory/" + Mac;
 
@@ -202,50 +201,6 @@ namespace OpenWifi::SDK::Prov {
 	} // namespace Venue
 
 	namespace Subscriber {
-		/*
-			BuildMeshConfig():
-			1. Take the fetched gateway configuration and parse it into JSON.
-			2. For each interface(WAN/LAN), clone it and set ipv4.addressing to dynamic on the LAN.
-			3. If a Block_Clients firewall rule exists, remove config-raw so firewall rules are not sent to mesh devices.
-			4. Convert that JSON back into a Poco object so callers can use the new config as needed.
-		*/
-		Poco::JSON::Object::Ptr BuildMeshConfig(const Poco::JSON::Object::Ptr &configuration) {
-			auto gatewayConfig = configuration->getObject("configuration");
-			std::ostringstream OS;
-			Poco::JSON::Stringifier::stringify(gatewayConfig, OS);
-			auto cfg = nlohmann::json::parse(OS.str());
-			if (cfg.contains("interfaces") && cfg["interfaces"].is_array() && !cfg["interfaces"].empty()) {
-				nlohmann::json meshInterfaces = nlohmann::json::array();
-				for (const auto &iface : cfg["interfaces"]) {
-					auto meshInterface = iface;
-					meshInterface["ipv4"] = {{"addressing", "dynamic"}};
-					meshInterfaces.push_back(meshInterface);
-				}
-				if (!meshInterfaces.empty()) {
-					cfg["interfaces"] = meshInterfaces;
-				}
-			}
-
-			// If config-raw contains our block-clients rule, don't send config-raw to mesh devices.
-			if (cfg.contains("config-raw")) {
-				for (const auto &cmd : cfg["config-raw"]) {
-					if (!cmd.is_array() || cmd.size() < 3)
-						continue;
-					if (cmd[0] != "set" || cmd[1] != "firewall.@rule[-1].name" || !cmd[2].is_string())
-						continue;
-					const auto ruleName = cmd[2].get<std::string>();
-					if (ruleName == "Block_Clients") {
-						Poco::Logger::get("SDK_gw").information("Removing firewall-rule [Block_Clients] from config-raw for mesh device.");
-						cfg.erase("config-raw");
-						break;
-					}
-				}
-			}
-			Poco::JSON::Parser parser;
-			auto parsed = parser.parse(cfg.dump());
-			return parsed.extract<Poco::JSON::Object::Ptr>();
-		}
-
 		bool GetDevices(RESTAPIHandler *client, const std::string &SubscriberId, const std::string &OperatorId,
 						ProvObjects::SubscriberDeviceList &devList,
 						Poco::Net::HTTPServerResponse::HTTPStatus &CallStatus,
@@ -307,38 +262,11 @@ namespace OpenWifi::SDK::Prov {
 		}
 
 		/*
-			CreateSubDeviceInfo:
-			1. Check if a subscriberDevice already exists in subdevice table for the serial and return it if found.
-			2. If missing, build a minimal subscriberDevice from the inventory tag and user info:
-			   - set name to serial, fill serial/deviceType/operator/subscriber/realMac/deviceRules
-			   - populate object info via CreateObjectInfo
-			3. POST it via CreateDevice() (/api/v1/subscriberDevice/0) so the service assigns the UUID and returns the persisted record.
-		*/
-		bool CreateSubDeviceInfo(RESTAPIHandler *client, const ProvObjects::InventoryTag &inventoryTag, const SecurityObjects::UserInfo &userInfo,
-							  ProvObjects::SubscriberDevice &device) {
-			if (GetDevice(client, inventoryTag.serialNumber, device)) {
-				return true;
-			}
-			Poco::Logger::get("SDK_prov").information(fmt::format("Creating subscriberDevice data for {}", inventoryTag.serialNumber));
-
-			device.info.name = inventoryTag.serialNumber;
-			device.serialNumber = inventoryTag.serialNumber;
-			device.deviceType = inventoryTag.deviceType;
-			device.operatorId = userInfo.owner;
-			device.subscriberId = userInfo.id;
-			device.realMacAddress = inventoryTag.serialNumber;
-			device.deviceRules = inventoryTag.deviceRules;
-			ProvObjects::CreateObjectInfo(userInfo, device.info);
-
-			return CreateDevice(client, device);
-		}
-
-		/*
-			CreateDevice:
+			CreateSubsciberDevice:
 			1. POST the subscriberDevice to /api/v1/subscriberDevice/0 (provisioning assigns the UUID).
 			2. On HTTP 200, overwrite the same object with the provisioning response (info.id, defaults).
 		*/
-		bool CreateDevice(RESTAPIHandler *client, ProvObjects::SubscriberDevice &device) {
+		bool CreateSubsciberDevice(RESTAPIHandler *client, ProvObjects::SubscriberDevice &device) {
 			// Use "0" to let provisioning assign the UUID and return the created subdevice.
 			std::string EndPoint = "/api/v1/subscriberDevice/0";
 			Poco::JSON::Object Body;
@@ -352,7 +280,7 @@ namespace OpenWifi::SDK::Prov {
 			return device.from_json(CallResponse);
 		}
 
-		bool SetDevice(RESTAPIHandler *client, const ProvObjects::SubscriberDevice &D) {
+		bool UpdateSubscriberDevice(RESTAPIHandler *client, const ProvObjects::SubscriberDevice &D) {
 			std::string EndPoint = "/api/v1/subscriberDevice/" + D.info.id;
 			Poco::JSON::Object Body;
 			D.to_json(Body);
@@ -366,7 +294,7 @@ namespace OpenWifi::SDK::Prov {
 			return true;
 		}
 
-		bool GetDevice(RESTAPIHandler *client, const std::string &SerialNumber,
+		bool GetSubcriberDevice(RESTAPIHandler *client, const std::string &SerialNumber,
 					   ProvObjects::SubscriberDevice &D) {
 			std::string EndPoint = "/api/v1/subscriberDevice/" + SerialNumber;
 			Poco::JSON::Object Body;
@@ -380,15 +308,15 @@ namespace OpenWifi::SDK::Prov {
 			return D.from_json(CallResponse);
 		}
 		/*
-		   DeleteProvSubscriberDevice:
+		   DeleteSubscriberDevice:
 		   1. Find the device entry in Provisioning-subscriber_device database using the device serial number.
 		   2. If no device exist return error.
 		   3. If it is found, send a delete request to Provisioning to remove that device entry.
 		   4. Return success if Provisioning confirms the delete (HTTP 200 OK).
 		*/
-		bool DeleteProvSubscriberDevice(RESTAPIHandler *client, const std::string &SerialNumber) {
+		bool DeleteSubscriberDevice(RESTAPIHandler *client, const std::string &SerialNumber) {
 			ProvObjects::SubscriberDevice device;
-			if (!GetDevice(client, SerialNumber, device) || device.info.id.empty()) {
+			if (!GetSubcriberDevice(client, SerialNumber, device) || device.info.id.empty()) {
 				Poco::Logger::get("SDK_prov").error(fmt::format("Could not find device [{}]", SerialNumber));
 				return false;
 			}
