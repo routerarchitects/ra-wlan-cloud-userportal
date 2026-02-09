@@ -15,61 +15,157 @@
 #include "framework/ow_constants.h"
 #include "nlohmann/json.hpp"
 #include "sdks/SDK_gw.h"
-#include "sdks/SDK_prov.h"
 
 namespace OpenWifi {
-
-	static std::string ConvertBand(const std::string &B) {
-		if (B == "2G")
-			return "2G";
-		if (B == "6G")
-			return "6G";
-		if (B == "5GU")
-			return "5G-upper";
-		if (B == "5GL")
-			return "5G-lower";
-		return B;
+	bool ConfigMaker::ValidateConfig(const Poco::JSON::Object::Ptr &deviceConfig, const std::string &serialNumber, Poco::Logger &logger) {
+		if (!deviceConfig || !deviceConfig->has("configuration") || !deviceConfig->isObject("configuration")) {
+			logger.error(fmt::format("Invalid configuration for device {}: missing configuration block.", serialNumber));
+			return false;
+		}
+		auto configuration = deviceConfig->getObject("configuration");
+		if (!configuration) {
+			logger.error(fmt::format("Invalid configuration for device {}: Empty configuration.", serialNumber));
+			return false;
+		}
+		if (!configuration->has("interfaces") || !configuration->isArray("interfaces")) {
+			logger.error(fmt::format("Invalid configuration for device {}: missing/invalid interfaces.", serialNumber));
+			return false;
+		}
+		auto interfaces = configuration->getArray("interfaces");
+		if (!interfaces || interfaces->size() == 0) {
+			logger.error(fmt::format("Invalid configuration for device {}: missing interfaces.", serialNumber));
+			return false;
+		}
+		bool downstreamFound = false;
+		for (std::size_t i = 0; i < interfaces->size(); ++i) {
+			auto iface = interfaces->getObject(i);
+			if (!iface || !iface->has("role") || !iface->get("role").isString()) {
+				logger.error(fmt::format("Invalid configuration for device {}: interface is not an object or missing/invalid role.", serialNumber));
+				return false;
+			}
+			std::string role = iface->getValue<std::string>("role");
+			Poco::JSON::Array::Ptr ssids;
+			if (iface->has("ssids") && iface->isArray("ssids")) {
+				ssids = iface->getArray("ssids");
+			}
+			if (role == "upstream") {
+				if (ssids && !ssids->empty()) {
+					logger.error(fmt::format("Invalid configuration for device {}: upstream interface contains SSIDs.",serialNumber));
+					return false;
+				}
+			} else if (role == "downstream") {
+				bool meshSsidFound = false;
+				bool apSsidFound = false;
+				downstreamFound = true;
+				if (!iface->has("ipv4") || !iface->isObject("ipv4")) {
+					logger.error(fmt::format("Invalid configuration for device {}: downstream interface missing or invalid IPv4 value.", serialNumber));
+					return false;
+				}
+				auto ipv4 = iface->getObject("ipv4");
+				if (!ipv4->has("addressing") || !ipv4->get("addressing").isString() || ipv4->getValue<std::string>("addressing") != "static") {
+					logger.error(fmt::format("Invalid configuration for device {}: downstream interface should have static IPv4 addressing.", serialNumber));
+					return false;
+				}
+				if (!iface->has("tunnel") || !iface->isObject("tunnel")) {
+					logger.error(fmt::format("Invalid configuration for device {}: downstream interface missing or invalid tunnel object.", serialNumber));
+					return false;
+				}
+				auto tunnel = iface->getObject("tunnel");
+				if (!tunnel->has("proto") || !tunnel->get("proto").isString() || tunnel->getValue<std::string>("proto") != "mesh") {
+					logger.error(fmt::format("Invalid configuration for device {}: downstream interface must have tunnel-proto='mesh'.", serialNumber));
+					return false;
+				}
+				if (!ssids || ssids->empty()) {
+					logger.error(fmt::format("Invalid configuration for device {}: downstream interface missing or invalid SSIDs.", serialNumber));
+					return false;
+				}
+				for (std::size_t j = 0; j < ssids->size(); ++j) {
+					auto ssid = ssids->getObject(j);
+					if (!ssid) {
+						logger.error(fmt::format("Invalid configuration for device {}: downstream interface contains a non-object SSID entry.", serialNumber));
+						return false;
+					}
+					if (!ssid->has("bss-mode") || !ssid->get("bss-mode").isString()) {
+						logger.error(fmt::format("Invalid configuration for device {}: SSID entry missing or invalid 'bss-mode'.", serialNumber));
+						return false;
+					}
+					std::string mode = ssid->getValue<std::string>("bss-mode");
+					if (mode == "ap") {
+						apSsidFound = true;
+					} else if (mode == "mesh") {
+						meshSsidFound = true;
+					}
+				}
+				if (!apSsidFound) {
+					logger.error(fmt::format("Invalid configuration for device {}: missing ap-SSID on downstream interface.", serialNumber));
+					return false;
+				}
+				if (!meshSsidFound) {
+					logger.error(fmt::format("Invalid configuration for device {}: missing mesh-SSID on downstream interface.", serialNumber));
+					return false;
+				}
+			} else {
+				logger.error(fmt::format("Invalid configuration for device {}: invalid interface role (expected 'upstream' or 'downstream').", serialNumber));
+				return false;
+			}
+		}
+		if (!downstreamFound) {
+			logger.error(fmt::format("Invalid configuration for device {}: missing downstream interface.", serialNumber));
+			return false;
+		}
+		return true;
 	}
 
-	static std::vector<std::string> ConvertBands(const std::vector<std::string> &Bs) {
-		std::vector<std::string> R;
-		for (const auto &i : Bs)
-			R.emplace_back(ConvertBand(i));
-		return R;
+	bool ConfigMaker::BuildMeshConfig(const Poco::JSON::Object::Ptr &InputConfig, Poco::JSON::Object::Ptr &OutputConfig) {
+	if (!InputConfig || !InputConfig->has("configuration") || !InputConfig->isObject("configuration")) {
+		Logger_.error("BuildMeshConfig: missing configuration block.");
+		return false;
 	}
-
-	void CreateDHCPInfo(std::string &Subnet, const std::string &First, const std::string &Last,
-						uint64_t &DHCPFirst, uint64_t &HowMany) {
-		Poco::Net::IPAddress SubnetAddr, FirstAddress, LastAddress;
-		auto Tokens = Poco::StringTokenizer(Subnet, "/");
-		if (!Poco::Net::IPAddress::tryParse(Tokens[0], SubnetAddr) ||
-			!Poco::Net::IPAddress::tryParse(First, FirstAddress) ||
-			!Poco::Net::IPAddress::tryParse(Last, LastAddress)) {
-			Subnet = "192.168.1.1/24";
-			DHCPFirst = 10;
-			HowMany = 100;
-			return;
+	auto gatewayConfig = InputConfig->getObject("configuration");
+	if (!gatewayConfig) {
+		Logger_.error("BuildMeshConfig: empty configuration block.");
+		return false;
+	}
+	try {
+		std::ostringstream OS;
+		Poco::JSON::Stringifier::stringify(gatewayConfig, OS);
+		auto cfg = nlohmann::json::parse(OS.str());
+		if (cfg.contains("interfaces") && cfg["interfaces"].is_array() && !cfg["interfaces"].empty()) {
+			nlohmann::json meshInterfaces = nlohmann::json::array();
+			for (const auto &iface : cfg["interfaces"]) {
+				auto meshInterface = iface;
+				meshInterface["ipv4"] = {{"addressing", "dynamic"}};
+				meshInterfaces.push_back(meshInterface);
+			}
+			if (!meshInterfaces.empty()) {
+				cfg["interfaces"] = meshInterfaces;
+			}
 		}
 
-		if (LastAddress < FirstAddress)
-			std::swap(LastAddress, FirstAddress);
-
-		struct in_addr FA {
-			*static_cast<const in_addr *>(FirstAddress.addr())
-		}, LA{*static_cast<const in_addr *>(LastAddress.addr())};
-
-		HowMany = htonl(LA.s_addr) - htonl(FA.s_addr);
-		auto SubNetBits = std::stoull(Tokens[1], nullptr, 10);
-		uint64_t SubNetBitMask;
-		if (SubNetBits == 8)
-			SubNetBitMask = 0x000000ff;
-		else if (SubNetBits == 16)
-			SubNetBitMask = 0x0000ffff;
-		else
-			SubNetBitMask = 0x000000ff;
-		DHCPFirst = htonl(FA.s_addr) & SubNetBitMask;
+		// If config-raw contains our block-clients rule, don't send config-raw to mesh devices.
+		if (cfg.contains("config-raw")) {
+			for (const auto &cmd : cfg["config-raw"]) {
+				if (!cmd.is_array() || cmd.size() < 3)
+					continue;
+				if (cmd[0] != "set" || cmd[1] != "firewall.@rule[-1].name" || !cmd[2].is_string())
+					continue;
+				const auto ruleName = cmd[2].get<std::string>();
+				if (ruleName == "Block_Clients") {
+					Logger_.information("Removing firewall-rule [Block_Clients] from config-raw for mesh device.");
+					cfg.erase("config-raw");
+					break;
+				}
+			}
+		}
+		Poco::JSON::Parser parser;
+		auto parsed = parser.parse(cfg.dump());
+		OutputConfig = parsed.extract<Poco::JSON::Object::Ptr>();
+		return OutputConfig != nullptr;
+	} catch (...) {
+		Logger_.error("BuildMeshConfig: failed to parse/convert configuration.");
+		return false;
 	}
-
+}
 	/*
 		This function prepares and updates the provisioning configuration for an Access Point (AP)
 		using the configuration fetched from the controller (owgw).
@@ -162,7 +258,7 @@ namespace OpenWifi {
 				Logger_.error(fmt::format("Failed to fetch current configuration for device {}.", ap.serialNumber));
 				return false;
 			}
-			if (!SDK::GW::Device::ValidateConfig(ConfigObj, ap.serialNumber, Logger_)) {
+			if (!ValidateConfig(ConfigObj, ap.serialNumber, Logger_)) {
 				Logger_.error(fmt::format("Invalid configuration for device {}: wrong mesh config.", ap.serialNumber));
 				return false;
 			}
@@ -192,321 +288,17 @@ namespace OpenWifi {
 			}
 		return PrepareProvSubDeviceConfig(NewConfig, subDevice.configuration);
 	}
-	bool ConfigMaker::Prepare() {
 
-		SubObjects::SubscriberInfo SI;
-		if (!StorageService()->SubInfoDB().GetRecord("id", id_, SI)) {
-			bad_ = true;
-			return false;
-		}
-
-		//  We need to create the basic sections
-		auto metrics = R"(
-            {
-              "metrics": {
-                "dhcp-snooping": {
-                  "filters": [
-                    "ack",
-                    "discover",
-                    "offer",
-                    "request",
-                    "solicit",
-                    "reply",
-                    "renew"
-                  ]
-                },
-                "health": {
-                  "interval": 60
-                },
-                "statistics": {
-                  "interval": 60,
-                  "types": [
-                    "ssids",
-                    "lldp",
-                    "clients"
-                  ]
-                },
-                "wifi-frames": {
-                  "filters": [
-                    "probe",
-                    "auth",
-                    "assoc",
-                    "disassoc",
-                    "deauth",
-                    "local-deauth",
-                    "inactive-deauth",
-                    "key-mismatch",
-                    "beacon-report",
-                    "radar-detected"
-                  ]
-                }
-              }
-            }
-         )"_json;
-
-		auto services = R"(
-        {
-            "services": {
-                "lldp": {
-                    "describe": "uCentral",
-                    "location": "universe"
-                },
-                "ssh": {
-                    "authorized-keys": [],
-                    "password-authentication": false,
-                    "port": 22
-                }
-            }
-        } )"_json;
-
-		for (auto &i : SI.accessPoints.list) {
-
-			nlohmann::json Interfaces;
-			nlohmann::json UpstreamInterface;
-			nlohmann::json DownstreamInterface;
-			nlohmann::json radios;
-
-			if (i.macAddress.empty())
-				continue;
-
-			Logger_.information(fmt::format("{}: Generating configuration.", i.macAddress));
-
-			UpstreamInterface["name"] = "WAN";
-			UpstreamInterface["role"] = "upstream";
-			UpstreamInterface["services"].push_back("lldp");
-
-			std::vector<std::string> AllBands;
-			for (const auto &rr : i.radios)
-				AllBands.emplace_back(ConvertBand(rr.band));
-
-			nlohmann::json UpstreamPort, DownstreamPort;
-			if (i.internetConnection.type == "manual") {
-				UpstreamInterface["addressing"] = "static";
-				UpstreamInterface["subnet"] = i.internetConnection.subnetMask;
-				UpstreamInterface["gateway"] = i.internetConnection.defaultGateway;
-				UpstreamInterface["send-hostname"] = i.internetConnection.sendHostname;
-				UpstreamInterface["use-dns"].push_back(i.internetConnection.primaryDns);
-				if (!i.internetConnection.secondaryDns.empty())
-					UpstreamInterface["use-dns"].push_back(i.internetConnection.secondaryDns);
-			} else if (i.internetConnection.type == "pppoe") {
-				nlohmann::json Port;
-				Port["select-ports"].push_back("WAN*");
-				UpstreamInterface["ethernet"].push_back(Port);
-				UpstreamInterface["broad-band"]["protocol"] = "pppoe";
-				UpstreamInterface["broad-band"]["user-name"] = i.internetConnection.username;
-				UpstreamInterface["broad-band"]["password"] = i.internetConnection.password;
-				UpstreamInterface["ipv4"]["addressing"] = "dynamic";
-				if (i.internetConnection.ipV6Support)
-					UpstreamInterface["ipv6"]["addressing"] = "dynamic";
-			} else if (i.internetConnection.type == "automatic") {
-				nlohmann::json Port;
-				Port["select-ports"].push_back("WAN*");
-				if (i.deviceMode.type == "bridge")
-					Port["select-ports"].push_back("LAN*");
-				UpstreamInterface["ethernet"].push_back(Port);
-				UpstreamInterface["ipv4"]["addressing"] = "dynamic";
-				if (i.internetConnection.ipV6Support)
-					UpstreamInterface["ipv6"]["addressing"] = "dynamic";
-			}
-
-			if (i.deviceMode.type == "bridge") {
-				UpstreamPort["select-ports"].push_back("LAN*");
-				UpstreamPort["select-ports"].push_back("WAN*");
-			} else if (i.deviceMode.type == "manual") {
-				UpstreamPort.push_back("WAN*");
-				DownstreamPort.push_back("LAN*");
-				DownstreamInterface["name"] = "LAN";
-				DownstreamInterface["role"] = "downstream";
-				DownstreamInterface["services"].push_back("lldp");
-				DownstreamInterface["services"].push_back("ssh");
-				DownstreamInterface["ipv4"]["addressing"] = "static";
-				uint64_t HowMany = 0;
-				uint64_t FirstIPInRange;
-				CreateDHCPInfo(i.deviceMode.subnet, i.deviceMode.startIP, i.deviceMode.endIP,
-							   FirstIPInRange, HowMany);
-				DownstreamInterface["ipv4"]["subnet"] = i.deviceMode.subnet;
-				DownstreamInterface["ipv4"]["dhcp"]["lease-first"] = FirstIPInRange;
-				DownstreamInterface["ipv4"]["dhcp"]["lease-count"] = HowMany;
-				DownstreamInterface["ipv4"]["dhcp"]["lease-time"] =
-					i.deviceMode.leaseTime.empty() ? "24h" : i.deviceMode.leaseTime;
-			} else if (i.deviceMode.type == "nat") {
-				UpstreamPort["select-ports"].push_back("WAN*");
-				DownstreamPort["select-ports"].push_back("LAN*");
-				DownstreamInterface["name"] = "LAN";
-				DownstreamInterface["role"] = "downstream";
-				DownstreamInterface["services"].push_back("lldp");
-				DownstreamInterface["services"].push_back("ssh");
-				DownstreamInterface["ipv4"]["addressing"] = "static";
-				uint64_t HowMany = 0;
-				uint64_t FirstIPInRange;
-				CreateDHCPInfo(i.deviceMode.subnet, i.deviceMode.startIP, i.deviceMode.endIP,
-							   FirstIPInRange, HowMany);
-				DownstreamInterface["ipv4"]["subnet"] = i.deviceMode.subnet;
-				DownstreamInterface["ipv4"]["dhcp"]["lease-first"] = FirstIPInRange;
-				DownstreamInterface["ipv4"]["dhcp"]["lease-count"] = HowMany;
-				DownstreamInterface["ipv4"]["dhcp"]["lease-time"] =
-					i.deviceMode.leaseTime.empty() ? "24h" : i.deviceMode.leaseTime;
-			}
-			bool hasGuest = false;
-			nlohmann::json main_ssids, guest_ssids;
-			for (const auto &j : i.wifiNetworks.wifiNetworks) {
-				nlohmann::json ssid;
-				ssid["name"] = j.name;
-				if (j.bands[0] == "all") {
-					ssid["wifi-bands"] = AllBands;
-				} else {
-					ssid["wifi-bands"] = ConvertBands(j.bands);
-				}
-				ssid["bss-mode"] = "ap";
-				if (j.encryption == "wpa1-personal") {
-					ssid["encryption"]["proto"] = "psk";
-					ssid["encryption"]["ieee80211w"] = "disabled";
-				} else if (j.encryption == "wpa2-personal") {
-					ssid["encryption"]["proto"] = "psk2";
-					ssid["encryption"]["ieee80211w"] = "disabled";
-				} else if (j.encryption == "wpa3-personal") {
-					ssid["encryption"]["proto"] = "sae";
-					ssid["encryption"]["ieee80211w"] = "required";
-				} else if (j.encryption == "wpa1/2-personal") {
-					ssid["encryption"]["proto"] = "psk-mixed";
-					ssid["encryption"]["ieee80211w"] = "disabled";
-				} else if (j.encryption == "wpa2/3-personal") {
-					ssid["encryption"]["proto"] = "sae-mixed";
-					ssid["encryption"]["ieee80211w"] = "disabled";
-				}
-				ssid["encryption"]["key"] = j.password;
-				if (j.type == "main") {
-					main_ssids.push_back(ssid);
-				} else {
-					hasGuest = true;
-					ssid["isolate-clients"] = true;
-					guest_ssids.push_back(ssid);
-				}
-			}
-
-			if (i.deviceMode.type == "bridge")
-				UpstreamInterface["ssids"] = main_ssids;
-			else
-				DownstreamInterface["ssids"] = main_ssids;
-
-			nlohmann::json UpStreamEthernet, DownStreamEthernet;
-			if (!UpstreamPort.empty()) {
-				UpStreamEthernet.push_back(UpstreamPort);
-			}
-			if (!DownstreamPort.empty()) {
-				DownStreamEthernet.push_back(DownstreamPort);
-			}
-
-			if (i.deviceMode.type == "bridge") {
-				UpstreamInterface["ethernet"] = UpStreamEthernet;
-				Interfaces.push_back(UpstreamInterface);
-			} else {
-				UpstreamInterface["ethernet"] = UpStreamEthernet;
-				DownstreamInterface["ethernet"] = DownStreamEthernet;
-				Interfaces.push_back(UpstreamInterface);
-				Interfaces.push_back(DownstreamInterface);
-			}
-
-			if (hasGuest) {
-				nlohmann::json GuestInterface;
-				GuestInterface["name"] = "Guest";
-				GuestInterface["role"] = "downstream";
-				GuestInterface["isolate-hosts"] = true;
-				GuestInterface["ipv4"]["addressing"] = "static";
-				GuestInterface["ipv4"]["subnet"] = "192.168.10.1/24";
-				GuestInterface["ipv4"]["dhcp"]["lease-first"] = (uint64_t)10;
-				GuestInterface["ipv4"]["dhcp"]["lease-count"] = (uint64_t)100;
-				GuestInterface["ipv4"]["dhcp"]["lease-time"] = "6h";
-				GuestInterface["ssids"] = guest_ssids;
-				Interfaces.push_back(GuestInterface);
-			}
-
-			for (const auto &k : i.radios) {
-				nlohmann::json radio;
-
-				radio["band"] = ConvertBand(k.band);
-				radio["bandwidth"] = k.bandwidth;
-
-				if (k.channel == 0)
-					radio["channel"] = "auto";
-				else
-					radio["channel"] = k.channel;
-				if (k.country.size() == 2)
-					radio["country"] = k.country;
-
-				radio["channel-mode"] = k.channelMode;
-				radio["channel-width"] = k.channelWidth;
-				if (!k.requireMode.empty())
-					radio["require-mode"] = k.requireMode;
-				if (k.txpower > 0)
-					radio["tx-power"] = k.txpower;
-				if (k.allowDFS)
-					radio["allow-dfs"] = true;
-				if (!k.mimo.empty())
-					radio["mimo"] = k.mimo;
-				radio["legacy-rates"] = k.legacyRates;
-				radio["beacon-interval"] = k.beaconInterval;
-				radio["dtim-period"] = k.dtimPeriod;
-				radio["maximum-clients"] = k.maximumClients;
-				radio["rates"]["beacon"] = k.rates.beacon;
-				radio["rates"]["multicast"] = k.rates.multicast;
-				radio["he-settings"]["multiple-bssid"] = k.he.multipleBSSID;
-				radio["he-settings"]["ema"] = k.he.ema;
-				radio["he-settings"]["bss-color"] = k.he.bssColor;
-				radios.push_back(radio);
-			}
-
-			ProvObjects::DeviceConfigurationElement Metrics{.name = "metrics",
-															.description = "default metrics",
-															.weight = 0,
-															.configuration = to_string(metrics)};
-
-			ProvObjects::DeviceConfigurationElement Services{.name = "services",
-															 .description = "default services",
-															 .weight = 0,
-															 .configuration = to_string(services)};
-
-			nlohmann::json InterfaceSection;
-			InterfaceSection["interfaces"] = Interfaces;
-			ProvObjects::DeviceConfigurationElement InterfacesList{
-				.name = "interfaces",
-				.description = "default interfaces",
-				.weight = 0,
-				.configuration = to_string(InterfaceSection)};
-
-			nlohmann::json RadiosSection;
-			RadiosSection["radios"] = radios;
-			ProvObjects::DeviceConfigurationElement RadiosList{.name = "radios",
-															   .description = "default radios",
-															   .weight = 0,
-															   .configuration =
-																   to_string(RadiosSection)};
-
-			ProvObjects::SubscriberDevice SubDevice;
-
-			if (SDK::Prov::Subscriber::GetDevice(nullptr, i.serialNumber, SubDevice)) {
-				SubDevice.configuration.clear();
-				SubDevice.configuration.push_back(Metrics);
-				SubDevice.configuration.push_back(Services);
-				SubDevice.configuration.push_back(InterfacesList);
-				SubDevice.configuration.push_back(RadiosList);
-				SubDevice.deviceRules.firmwareUpgrade = i.automaticUpgrade ? "yes" : "no";
-				if (SDK::Prov::Subscriber::SetDevice(nullptr, SubDevice)) {
-					Logger_.information(
-						fmt::format("Updating configuration for {}", i.serialNumber));
-				} else {
-					Logger_.information(
-						fmt::format("Cannot update configuration for {}", i.serialNumber));
-				}
-			} else {
-				Logger_.information(fmt::format(
-					"Could not find Subscriber device in provisioning for {}", i.serialNumber));
-			}
-			SDK::GW::Device::SetSubscriber(nullptr, i.serialNumber, SI.id);
-			SDK::Prov::Subscriber::SetSubscriber(nullptr, SI.id, i.serialNumber, false);
-		}
-		SI.modified = Utils::Now();
-		return StorageService()->SubInfoDB().UpdateRecord("id", id_, SI);
+	bool ConfigMaker::CreateSubDeviceInfo(const ProvObjects::InventoryTag &inventoryTag, const SecurityObjects::UserInfo &userInfo,
+										  ProvObjects::SubscriberDevice &device) {
+		device.info.name = inventoryTag.serialNumber;
+		device.serialNumber = inventoryTag.serialNumber;
+		device.deviceType = inventoryTag.deviceType;
+		device.operatorId = userInfo.owner;
+		device.subscriberId = userInfo.id;
+		device.realMacAddress = inventoryTag.serialNumber;
+		device.deviceRules = inventoryTag.deviceRules;
+		ProvObjects::CreateObjectInfo(userInfo, device.info);
+		return true;
 	}
-
 } // namespace OpenWifi

@@ -21,8 +21,8 @@ namespace OpenWifi::SDK::Prov {
 		// Get a single inventory tag for the given MAC/serial.
 		bool Get(RESTAPIHandler *client, const std::string &Mac,
 				 ProvObjects::InventoryTag &Device);
-		bool SetConfiguration(RESTAPIHandler *client, const std::string &Mac,
-							  const std::string &ConfigUUID);
+		bool UpdateInventoryVenue(RESTAPIHandler *client, const std::string &Mac, const std::string &venueId,
+						 ProvObjects::InventoryTag &Device);
 		bool DeleteInventoryDevice(RESTAPIHandler *client, const std::string &SerialNumber);
 	} // namespace Device
 
@@ -51,17 +51,14 @@ namespace OpenWifi::SDK::Prov {
 						Poco::JSON::Object::Ptr &CallResponse);
 		bool SetSubscriber(RESTAPIHandler *client, const std::string &SubscriberId,
 									 const std::string &SerialNumber, bool removeSubscriber = false);
-		Poco::JSON::Object::Ptr BuildMeshConfig(const Poco::JSON::Object::Ptr &configuration);
-		bool CreateSubDeviceInfo(RESTAPIHandler *client, const ProvObjects::InventoryTag &inventoryTag, const SecurityObjects::UserInfo &userInfo,
-					   ProvObjects::SubscriberDevice &device);
-		bool CreateDevice(RESTAPIHandler *client, ProvObjects::SubscriberDevice &device);
-		bool SetDevice(RESTAPIHandler *client, const ProvObjects::SubscriberDevice &D);
-		bool GetDevice(RESTAPIHandler *client, const std::string &SerialNumber,
+		bool CreateSubsciberDevice(RESTAPIHandler *client, ProvObjects::SubscriberDevice &device);
+		bool UpdateSubscriberDevice(RESTAPIHandler *client, const ProvObjects::SubscriberDevice &D);
+		bool GetSubscriberDevice(RESTAPIHandler *client, const std::string &SerialNumber,
 					   ProvObjects::SubscriberDevice &D);
-		bool DeleteProvSubscriberDevice(RESTAPIHandler *client, const std::string &SerialNumber);
-		bool DeleteProvisionSubscriber(RESTAPIHandler *client, const std::string &subscriberId,
+		bool DeleteSubscriberDevice(RESTAPIHandler *client, const std::string &SerialNumber);
+		bool DeleteSubscriberVenue(RESTAPIHandler *client, const std::string &subscriberId,
 									   Poco::Net::HTTPServerResponse::HTTPStatus &callStatus);
-		bool ProvisionSubscriber(RESTAPIHandler *client, const std::string &subscriberId,
+		bool CreateSubscriberVenue(RESTAPIHandler *client, const std::string &subscriberId,
 								 bool enableMonitoring, const std::optional<uint64_t> &retention,
 								 const std::optional<uint64_t> &interval,
 								 const std::optional<bool> &monitorSubVenues,
@@ -70,7 +67,8 @@ namespace OpenWifi::SDK::Prov {
 	} // namespace Subscriber
 
 	namespace Signup {
-		bool GetSignupDevice(RESTAPIHandler *client, const std::string &macAddress);
+		bool GetSignupDevice(RESTAPIHandler *client, const std::string &macAddress,
+							 Poco::JSON::Object::Ptr &response);
 		bool UpdateSignupDevice(RESTAPIHandler *client, const std::string &userId, const std::string &macAddress);
 	} // namespace Signup
 

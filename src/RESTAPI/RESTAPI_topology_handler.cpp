@@ -77,7 +77,7 @@ namespace OpenWifi {
 		if (venue.boards.empty()) {
 			Logger().debug(
 				fmt::format("[GET-TOPOLOGY] No boards found for venue {}.", inventory.venue));
-			return BadRequest(RESTAPI::Errors::RecordNotFound);
+			return NotFound();
 		}
 
 		// Use the first board for topology request

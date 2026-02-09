@@ -50,7 +50,7 @@ namespace OpenWifi {
 		Poco::Net::HTTPServerResponse::HTTPStatus callStatus = Poco::Net::HTTPServerResponse::HTTP_INTERNAL_SERVER_ERROR;
 		Poco::JSON::Object::Ptr callResponse = Poco::makeShared<Poco::JSON::Object>();
 
-		if (!SDK::Prov::Subscriber::GetDevices(this, UserInfo_.userinfo.id,
+		if (!SDK::Prov::Subscriber::GetDevices(nullptr, UserInfo_.userinfo.id,
 												UserInfo_.userinfo.owner, devices, callStatus, callResponse)) {
 			ForwardErrorResponse(this, callStatus, callResponse);
 			return false;
@@ -82,7 +82,7 @@ namespace OpenWifi {
 		ConfigMaker InitialConfig(Logger(), subInfo.id);
 		const std::string targetMac = subInfo.accessPoints.list[0].macAddress;
 
-		if (!SDK::Prov::Subscriber::GetDevice(this, targetMac, subDevice)) {
+		if (!SDK::Prov::Subscriber::GetSubscriberDevice(nullptr, targetMac, subDevice)) {
 			Logger().error(fmt::format("Could not find provisioning subdevice for {}.", targetMac));
 			InternalError(RESTAPI::Errors::SubNoDeviceActivated);
 			return false;
@@ -98,17 +98,17 @@ namespace OpenWifi {
 
 	bool RESTAPI_subscriber_handler::LinkSubscriberDevice(
 		const SubObjects::SubscriberInfo &subInfo, const ProvObjects::SubscriberDevice &subDevice) {
-		if (!SDK::Prov::Subscriber::SetDevice(this, subDevice)) {
+		if (!SDK::Prov::Subscriber::UpdateSubscriberDevice(nullptr, subDevice)) {
 			Logger().error(
 				fmt::format("Failed to persist provisioning config for {}.", subDevice.serialNumber));
 			InternalError(RESTAPI::Errors::ConfigBlockInvalid);
 			return false;
 		}
-		if (!SDK::GW::Device::SetSubscriber(this, subDevice.serialNumber, subInfo.id)) {
+		if (!SDK::GW::Device::SetSubscriber(nullptr, subDevice.serialNumber, subInfo.id)) {
 			Logger().error(fmt::format("Failed to link device {} to subscriber {} in gateway.",
 									   subDevice.serialNumber, subInfo.id));
 		}
-		if (!SDK::Prov::Subscriber::SetSubscriber(this, subInfo.id, subDevice.serialNumber, false)) {
+		if (!SDK::Prov::Subscriber::SetSubscriber(nullptr, subInfo.id, subDevice.serialNumber, false)) {
 			Logger().error(fmt::format("Couldn't link device {} to subscriber {} in inventory.",
 									   subDevice.serialNumber, subInfo.id));
 		}
@@ -123,25 +123,25 @@ namespace OpenWifi {
 		return true;
 	}
 
-	bool RESTAPI_subscriber_handler::ProvisionSubscriber(SubObjects::SubscriberInfo &subInfo) {
-		Poco::Net::HTTPServerResponse::HTTPStatus provisionStatus =
+	bool RESTAPI_subscriber_handler::CreateSubscriberVenue(){
+		Poco::Net::HTTPServerResponse::HTTPStatus venueStatus =
 			Poco::Net::HTTPServerResponse::HTTP_INTERNAL_SERVER_ERROR;
-		auto provisionResponse = Poco::makeShared<Poco::JSON::Object>();
-		if (!SDK::Prov::Subscriber::ProvisionSubscriber(
-				this, UserInfo_.userinfo.id, true, std::nullopt, std::nullopt, std::nullopt,
-				provisionStatus, provisionResponse)) {
-			ForwardErrorResponse(this, provisionStatus, provisionResponse);
+		auto venueResponse = Poco::makeShared<Poco::JSON::Object>();
+		if (!SDK::Prov::Subscriber::CreateSubscriberVenue(
+				nullptr, UserInfo_.userinfo.id, true, std::nullopt, std::nullopt, std::nullopt,
+				venueStatus, venueResponse)) {
+			ForwardErrorResponse(this, venueStatus, venueResponse);
 			return false;
 		}
 		return true;
 	}
 
-	bool RESTAPI_subscriber_handler::DeletePostSubscriber() {
-		Poco::Net::HTTPServerResponse::HTTPStatus provisionStatus =
+	bool RESTAPI_subscriber_handler::DeleteSubscriberVenue() {
+		Poco::Net::HTTPServerResponse::HTTPStatus venueStatus =
 			Poco::Net::HTTPServerResponse::HTTP_INTERNAL_SERVER_ERROR;
-		if (!SDK::Prov::Subscriber::DeleteProvisionSubscriber(
-				this, UserInfo_.userinfo.id, provisionStatus)) {
-			ForwardErrorResponse(this, provisionStatus, Poco::makeShared<Poco::JSON::Object>());
+		if (!SDK::Prov::Subscriber::DeleteSubscriberVenue(
+				nullptr, UserInfo_.userinfo.id, venueStatus)) {
+			ForwardErrorResponse(this, venueStatus, Poco::makeShared<Poco::JSON::Object>());
 			return false;
 		}
 		return true;
@@ -160,7 +160,6 @@ namespace OpenWifi {
 			ProvObjects::SubscriberDevice SubDevice{};
 		} ctx;
 
-		if (!ValidateUserInfo()) return;
 		Logger().debug(fmt::format("{}: Get Subscriber", UserInfo_.userinfo.email));
 
 		if (LoadSubscriberInfo(ctx.SubscriberInfo)) return;
@@ -169,7 +168,7 @@ namespace OpenWifi {
 		if (!PrepareDefaultConfig(ctx.SubscriberInfo, ctx.SubDevice)) return;
 		if (!LinkSubscriberDevice(ctx.SubscriberInfo, ctx.SubDevice)) return;
 		if (!CreateDbEntry(ctx.SubscriberInfo)) return;
-		if (!ProvisionSubscriber(ctx.SubscriberInfo)) return;
+		if (!CreateSubscriberVenue()) return;
 		Poco::JSON::Object Answer;
 		ctx.SubscriberInfo.to_json(Answer);
 		ReturnObject(Answer);
@@ -183,7 +182,7 @@ namespace OpenWifi {
 
 		Logger().information(fmt::format("Deleting subscriber {}.", UserInfo_.userinfo.id));
 
-		if (!DeletePostSubscriber()) {
+		if (!DeleteSubscriberVenue()) {
 			return;
 		}
 

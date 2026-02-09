@@ -50,7 +50,7 @@ namespace OpenWifi {
 		bool LinkSubscriberDevice(const SubObjects::SubscriberInfo &subInfo,
 											const ProvObjects::SubscriberDevice &subDevice);
 		bool CreateDbEntry(SubObjects::SubscriberInfo &subInfo);
-		bool ProvisionSubscriber(SubObjects::SubscriberInfo &subInfo);
-		bool DeletePostSubscriber();
+		bool CreateSubscriberVenue();
+		bool DeleteSubscriberVenue();
 	};
 } // namespace OpenWifi
