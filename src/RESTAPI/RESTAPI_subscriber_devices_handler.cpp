@@ -17,16 +17,23 @@
 
 namespace OpenWifi {
 
+	struct AddDeviceContext {
+		std::string Mac;
+		ProvObjects::InventoryTag InventoryTag{};
+		SubObjects::SubscriberInfo SubscriberInfo{};
+		ProvObjects::SubscriberDevice SubDevice{};
+	};
+
 	bool RESTAPI_subscriber_devices_handler::Validate_Inputs(std::string &mac) {
 		if (UserInfo_.userinfo.id.empty()) {
 			Logger().error("Subscriber id is missing.");
-			NotFound();
+			UnAuthorized(RESTAPI::Errors::InvalidSubscriberId);
 			return false;
 		}
 		mac = GetBinding("mac", "");
 		if (!Utils::NormalizeMac(mac)) {
 			Logger().error(fmt::format("Invalid MAC: [{}]", mac));
-			BadRequest(RESTAPI::Errors::InvalidSerialNumber);
+			BadRequest(RESTAPI::Errors::InvalidMacAddress);
 			return false;
 		}
 		return true;
@@ -37,27 +44,19 @@ namespace OpenWifi {
 		if (!StorageService()->SubInfoDB().GetRecord("id", UserInfo_.userinfo.id, subInfo)) {
 			Logger().error(fmt::format("Failed to fetch subscriber information for id: {}.",
 									   UserInfo_.userinfo.id));
-			InternalError(RESTAPI::Errors::RecordNotFound);
+			NotFound();
 			return false;
 		}
 		return true;
 	}
 
-	struct AddDeviceContext {
-		std::string Mac;
-		ProvObjects::InventoryTag InventoryTag{};
-		SubObjects::SubscriberInfo SubscriberInfo{};
-		ProvObjects::SubscriberDevice SubDevice{};
-	};
-
 	/*
 		Add_Device_Validate_Subscriber:
-		- Ensure device is not used in signup of another subscriber.
-		- Ensure the device is not already provisioned to another subscriber.
-		- If already linked to this subscriber, check if device exists in SubInfoDB and return error
-	   if found.
-		- If linked to same subcriber but not in SubInfoDB, proceed with adding the device as
-	   Gateway or Mesh.
+		- If device already exists in subscriber access point list, treat as idempotent replay and
+	   return OK without re-adding.
+		- If signup shows the device linked to a different subscriber, reject the request.
+		- If signup shows the device linked to this subscriber but not in SubInfoDB, allow adding
+	   the device as Gateway or Mesh.
 	*/
 	bool RESTAPI_subscriber_devices_handler::Add_Device_Validate_Subscriber(AddDeviceContext &ctx) {
 
@@ -65,7 +64,7 @@ namespace OpenWifi {
 			if (ap.macAddress == ctx.Mac) {
 				Logger().error(fmt::format("Device: {} is already linked to subscriber: {}",
 										   ctx.Mac, UserInfo_.userinfo.id));
-				BadRequest(RESTAPI::Errors::SerialNumberAlreadyProvisioned);
+				OK();
 				return false;
 			}
 		}
@@ -77,15 +76,14 @@ namespace OpenWifi {
 				Logger().error(
 					fmt::format("Device: [{}] is already linked to the another subscriber [{}]",
 								ctx.Mac, signupResponse->getValue<std::string>("userId")));
-			} else {
-				Logger().warning(
-					fmt::format("Device: [{}] is already linked to subscriber: [{}] in "
-								"signup but not found in subscriber Database.",
-								ctx.Mac, UserInfo_.userinfo.id));
+				BadRequest(RESTAPI::Errors::SerialNumberAlreadyProvisioned);
+				return false;
 			}
-			BadRequest(RESTAPI::Errors::SerialNumberAlreadyProvisioned);
-			return false;
 		}
+		Logger().warning(fmt::format("Device: [{}] is already linked to subscriber: [{}] in "
+									 "signup but not found in subscriber Database.",
+									 ctx.Mac, UserInfo_.userinfo.id));
+
 		return true;
 	}
 
@@ -322,7 +320,6 @@ namespace OpenWifi {
 	- Return OK on success or appropriate error response on failure.
 	*/
 	void RESTAPI_subscriber_devices_handler::DoPost() {
-
 		AddDeviceContext ctx;
 
 		if (!Validate_Inputs(ctx.Mac))
@@ -400,7 +397,7 @@ namespace OpenWifi {
 		}
 		Logger().error(fmt::format("Device: [{}] not found for subscriber: [{}].", ctx.Mac,
 								   UserInfo_.userinfo.id));
-		BadRequest(RESTAPI::Errors::RecordNotFound);
+		NotFound();
 		return false;
 	}
 
@@ -492,4 +489,4 @@ namespace OpenWifi {
 		SubscriberCache()->UpdateSubInfo(ctx.SubscriberInfo.id, ctx.SubscriberInfo);
 		return OK();
 	}
-} // namespace OpenWifi
+	} // namespace OpenWifi

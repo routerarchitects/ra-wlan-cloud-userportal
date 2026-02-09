@@ -97,8 +97,8 @@ namespace OpenWifi::RESTAPI::Errors {
 	static const struct msg ParentUUIDMustExist { 1016, "Parent UUID must exist." };
 	static const struct msg ConfigurationMustExist { 1017, "Configuration must exist." };
 	static const struct msg MissingOrInvalidParameters { 1018, "Invalid or missing parameters." };
-	static const struct msg UnknownSerialNumber { 1019, "Unknown Serial Number." };
-	static const struct msg InvalidSerialNumber { 1020, "Invalid Serial Number or MAC address" };
+	static const struct msg InvalidMacAddress { 1019, "Invalid MAC address." };
+	static const struct msg InvalidSerialNumber { 1020, "Invalid Serial Number" };
 	static const struct msg SerialNumberExists { 1021, "Serial Number already exists." };
 	static const struct msg ValidNonRootUUID { 1022, "Must be a non-root, and valid UUID." };
 	static const struct msg VenueMustExist { 1023, "Venue does not exist." };
@@ -444,7 +444,6 @@ namespace OpenWifi::RESTAPI::Errors {
 		1193, "Invalid SSID. Allowed characters: 1 to 32 chars (letters, digits, dot, underscore, hyphen, space.)"};
 	static const struct msg AddDeviceFailed {1194, "Failed to add new device."};
 	static const struct msg ApplyConfigFailed {1195, "Failed to apply configuration to device."};
-	static const struct msg RecordNotFound {1196, "No Record Found."};
 	static const struct msg RecordNotDeleted {1197, "Record could not be deleted."};
 	static const struct msg ClientAlreadyBlocked {1198, "Client is already blocked."};
 	static const struct msg ClientAlreadyUnblocked {1199, "Client is already unblocked."};

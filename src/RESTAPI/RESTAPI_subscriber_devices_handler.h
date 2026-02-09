@@ -36,6 +36,7 @@ namespace OpenWifi {
 	  private:
 		bool Validate_Inputs(std::string &mac);
 		bool Load_Subscriber_Info(SubObjects::SubscriberInfo &subInfo);
+		bool Load_Inventory_Tag(ProvObjects::InventoryTag &invTag, const std::string &mac);
 
 		bool Add_Device_Validate_Subscriber(AddDeviceContext &ctx);
 		bool Add_Device_Gateway(AddDeviceContext &ctx);
