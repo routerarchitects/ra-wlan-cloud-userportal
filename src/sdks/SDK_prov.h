@@ -53,7 +53,7 @@ namespace OpenWifi::SDK::Prov {
 									 const std::string &SerialNumber, bool removeSubscriber = false);
 		bool CreateSubsciberDevice(RESTAPIHandler *client, ProvObjects::SubscriberDevice &device);
 		bool UpdateSubscriberDevice(RESTAPIHandler *client, const ProvObjects::SubscriberDevice &D);
-		bool GetSubcriberDevice(RESTAPIHandler *client, const std::string &SerialNumber,
+		bool GetSubscriberDevice(RESTAPIHandler *client, const std::string &SerialNumber,
 					   ProvObjects::SubscriberDevice &D);
 		bool DeleteSubscriberDevice(RESTAPIHandler *client, const std::string &SerialNumber);
 		bool DeleteSubscriberVenue(RESTAPIHandler *client, const std::string &subscriberId,

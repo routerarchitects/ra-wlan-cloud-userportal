@@ -294,7 +294,7 @@ namespace OpenWifi::SDK::Prov {
 			return true;
 		}
 
-		bool GetSubcriberDevice(RESTAPIHandler *client, const std::string &SerialNumber,
+		bool GetSubscriberDevice(RESTAPIHandler *client, const std::string &SerialNumber,
 					   ProvObjects::SubscriberDevice &D) {
 			std::string EndPoint = "/api/v1/subscriberDevice/" + SerialNumber;
 			Poco::JSON::Object Body;
@@ -316,7 +316,7 @@ namespace OpenWifi::SDK::Prov {
 		*/
 		bool DeleteSubscriberDevice(RESTAPIHandler *client, const std::string &SerialNumber) {
 			ProvObjects::SubscriberDevice device;
-			if (!GetSubcriberDevice(client, SerialNumber, device) || device.info.id.empty()) {
+			if (!GetSubscriberDevice(client, SerialNumber, device) || device.info.id.empty()) {
 				Poco::Logger::get("SDK_prov").error(fmt::format("Could not find device [{}]", SerialNumber));
 				return false;
 			}

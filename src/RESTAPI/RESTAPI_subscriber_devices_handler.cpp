@@ -113,7 +113,7 @@ namespace OpenWifi {
 
 		ConfigMaker configMaker(Logger(), ctx.SubscriberInfo.id);
 
-		if (!SDK::Prov::Subscriber::GetSubcriberDevice(nullptr, ctx.Mac, ctx.SubDevice)) {
+		if (!SDK::Prov::Subscriber::GetSubscriberDevice(nullptr, ctx.Mac, ctx.SubDevice)) {
 			if (!configMaker.CreateSubDeviceInfo(ctx.InventoryTag, UserInfo_.userinfo,
 												 ctx.SubDevice)) {
 				Logger().error(fmt::format(
@@ -195,7 +195,7 @@ namespace OpenWifi {
 
 		Logger().information(fmt::format("Fetched gateway configuration for: {}.", gatewayMac));
 
-		if (!SDK::Prov::Subscriber::GetSubcriberDevice(nullptr, ctx.Mac, ctx.SubDevice)) {
+		if (!SDK::Prov::Subscriber::GetSubscriberDevice(nullptr, ctx.Mac, ctx.SubDevice)) {
 			if (!configMaker.CreateSubDeviceInfo(ctx.InventoryTag, UserInfo_.userinfo,
 												 ctx.SubDevice)) {
 				Logger().error(fmt::format(

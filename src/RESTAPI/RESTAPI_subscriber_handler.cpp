@@ -82,7 +82,7 @@ namespace OpenWifi {
 		ConfigMaker InitialConfig(Logger(), subInfo.id);
 		const std::string targetMac = subInfo.accessPoints.list[0].macAddress;
 
-		if (!SDK::Prov::Subscriber::GetSubcriberDevice(nullptr, targetMac, subDevice)) {
+		if (!SDK::Prov::Subscriber::GetSubscriberDevice(nullptr, targetMac, subDevice)) {
 			Logger().error(fmt::format("Could not find provisioning subdevice for {}.", targetMac));
 			InternalError(RESTAPI::Errors::SubNoDeviceActivated);
 			return false;
