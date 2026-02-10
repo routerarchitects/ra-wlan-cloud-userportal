@@ -69,6 +69,7 @@ namespace OpenWifi {
 		Add_Device_Validate_Subscriber:
 		- If device already exists in subscriber access point list, treat as idempotent replay and
 	   return OK without re-adding.
+		- If inventory shows the device linked to a different subscriber, reject the request.
 		- If signup shows the device linked to a different subscriber, reject the request.
 		- If signup shows the device linked to this subscriber but not in SubInfoDB, allow adding
 	   the device as Gateway or Mesh.
@@ -82,6 +83,12 @@ namespace OpenWifi {
 				OK();
 				return false;
 			}
+		}
+
+		if (!ctx.InventoryTag.subscriber.empty() && ctx.InventoryTag.subscriber != UserInfo_.userinfo.id) {
+			Logger().error(fmt::format("Device: {} is already linked to another subscriber: {} in inventory.", ctx.Mac, ctx.InventoryTag.subscriber));
+			BadRequest(RESTAPI::Errors::SerialNumberAlreadyProvisioned);
+			return false;
 		}
 
 		auto signupResponse = Poco::makeShared<Poco::JSON::Object>();
