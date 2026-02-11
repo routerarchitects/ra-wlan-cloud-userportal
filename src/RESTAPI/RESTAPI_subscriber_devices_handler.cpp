@@ -86,7 +86,7 @@ namespace OpenWifi {
 		}
 
 		if (!ctx.InventoryTag.subscriber.empty() && ctx.InventoryTag.subscriber != UserInfo_.userinfo.id) {
-			Logger().error(fmt::format("Device: {} is already linked to another subscriber: {} in inventory.", ctx.Mac, ctx.InventoryTag.subscriber));
+			Logger().information(fmt::format("Device: {} is already linked to another subscriber: {} in inventory.", ctx.Mac, ctx.InventoryTag.subscriber));
 			BadRequest(RESTAPI::Errors::SerialNumberAlreadyProvisioned);
 			return false;
 		}
