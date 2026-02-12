@@ -229,7 +229,7 @@ namespace OpenWifi::RESTAPI::Errors {
 	static const struct msg DefConfigNameExists { 1099, "Configuration name already exists." };
 
 	static const struct msg SubNoDeviceActivated { 1100, "No devices activated yet." };
-	static const struct msg SubConfigNotRefreshed { 1101, "Configuration could not be refreshed." };
+	static const struct msg ApplyConfigFailed {1101, "Failed to apply configuration to device."};
 
 	static const struct msg ProvServiceNotAvailable {
 		1102, "Provisioning service not available yet."
@@ -443,10 +443,9 @@ namespace OpenWifi::RESTAPI::Errors {
 	static const struct msg SSIDInvalidName{
 		1193, "Invalid SSID. Allowed characters: 1 to 32 chars (letters, digits, dot, underscore, hyphen, space.)"};
 	static const struct msg AddDeviceFailed {1194, "Failed to add new device."};
-	static const struct msg ApplyConfigFailed {1195, "Failed to apply configuration to device."};
-	static const struct msg RecordNotDeleted {1197, "Record could not be deleted."};
-	static const struct msg ClientAlreadyBlocked {1198, "Client is already blocked."};
-	static const struct msg ClientAlreadyUnblocked {1199, "Client is already unblocked."};
+	static const struct msg RecordNotDeleted {1195, "Record could not be deleted."};
+	static const struct msg ClientAlreadyBlocked {1196, "Client is already blocked."};
+	static const struct msg ClientAlreadyUnblocked {1197, "Client is already unblocked."};
     static const struct msg SimulationDoesNotExist {
         7000, "Simulation Instance ID does not exist."
     };
