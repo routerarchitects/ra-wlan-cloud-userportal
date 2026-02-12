@@ -75,7 +75,7 @@ namespace OpenWifi {
 			fmt::format("{}: Fetching Current configuration from controller", UserInfo_.userinfo.email));
 		if (subInfo.accessPoints.list.empty()) {
 			Logger().error("Subscriber access points list is empty.");
-			InternalError(RESTAPI::Errors::ConfigBlockInvalid);
+			InternalError(RESTAPI::Errors::SubNoDeviceActivated);
 			return false;
 		}
 
@@ -101,7 +101,7 @@ namespace OpenWifi {
 		if (!SDK::Prov::Subscriber::UpdateSubscriberDevice(nullptr, subDevice)) {
 			Logger().error(
 				fmt::format("Failed to persist provisioning config for {}.", subDevice.serialNumber));
-			InternalError(RESTAPI::Errors::ConfigBlockInvalid);
+			InternalError(RESTAPI::Errors::ApplyConfigFailed);
 			return false;
 		}
 		if (!SDK::GW::Device::SetSubscriber(nullptr, subDevice.serialNumber, subInfo.id)) {
