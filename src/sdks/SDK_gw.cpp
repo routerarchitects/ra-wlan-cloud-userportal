@@ -465,7 +465,7 @@ namespace OpenWifi::SDK::GW {
 			3. Detect our block-clients rule by name "Block_Clients".
 			4. Collect all src_mac entries from that rule into blockedMacs (normalized).
 		*/
-		static void GetBlockedClients(const Poco::JSON::Object::Ptr &Config, std::list<std::string> &blockedMacs) {
+		void GetBlockedClients(const Poco::JSON::Object::Ptr &Config, std::list<std::string> &blockedMacs) {
 			Poco::Logger::get("SDK_gw").debug("Reading blocked client MACs from config-raw.");
 			blockedMacs.clear();
 
