@@ -3,6 +3,7 @@
  * Copyright (c) 2025 Infernet Systems Pvt Ltd
  * Portions copyright (c) Telecom Infra Project (TIP), BSD-3-Clause
  */
+#include "sdks/SDK_gw.h"
 
 #include "RESTAPI_topology_handler.h"
 
@@ -96,6 +97,21 @@ namespace OpenWifi {
 				"[GET-TOPOLOGY] Failed to parse topology response for board {}.", boardId));
 			return InternalError(RESTAPI::Errors::InternalError);
 		}
+
+		auto blockedDevices = Poco::makeShared<Poco::JSON::Array>();
+		Poco::JSON::Object::Ptr deviceObj;
+		const auto gwStatus = SDK::GW::Device::GetConfig(nullptr, device.macAddress, deviceObj);
+		if (gwStatus == Poco::Net::HTTPServerResponse::HTTP_OK && deviceObj && deviceObj->has("configuration")) {
+			auto config = deviceObj->getObject("configuration");
+			if (config) {
+				std::list<std::string> blockedMacs;
+				SDK::GW::Device::GetBlockedClients(config, blockedMacs);
+				for (const auto &macNorm : blockedMacs) {
+					blockedDevices->add(Utils::SerialToMAC(macNorm));
+				}
+			}
+		}
+		topoResponse->set("blockedDevices", blockedDevices);
 
 		return ReturnObject(*topoResponse);
 	}

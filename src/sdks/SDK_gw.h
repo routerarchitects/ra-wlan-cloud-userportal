@@ -29,6 +29,7 @@ namespace OpenWifi::SDK::GW {
 					   Poco::JSON::Object::Ptr &Configuration, Poco::JSON::Object::Ptr &Response);
 		Poco::Net::HTTPResponse::HTTPStatus GetConfig(RESTAPIHandler *client, const std::string &Mac,
 					Poco::JSON::Object::Ptr &Response);
+		void GetBlockedClients(const Poco::JSON::Object::Ptr &Config, std::list<std::string> &blockedMacs);
 		bool SetConfig(RESTAPIHandler *client, const Poco::JSON::Object::Ptr &Body, const Poco::SharedPtr<SubObjects::SubscriberInfo> &SubInfo);
 		bool SetVenue(RESTAPIHandler *client, const std::string &SerialNumber,
 					  const std::string &uuid);
