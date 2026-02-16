@@ -110,6 +110,8 @@ namespace OpenWifi {
 					blockedDevices->add(Utils::SerialToMAC(macNorm));
 				}
 			}
+		} else {
+			Logger().debug(fmt::format("[GET-TOPOLOGY] Failed to fetch config for {}.", device.macAddress));
 		}
 		topoResponse->set("blockedDevices", blockedDevices);
 
