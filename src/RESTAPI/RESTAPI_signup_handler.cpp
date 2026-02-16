@@ -20,20 +20,12 @@ namespace OpenWifi {
 		Poco::toLowerInPlace(UserName);
 		Poco::trimInPlace(UserName);
 
-		// Serial number is actually the MAC address of the device
-		auto SerialNumber = GetParameter("macAddress");
-		Poco::toLowerInPlace(SerialNumber);
-		Poco::trimInPlace(SerialNumber);
 
 		auto registrationId = GetParameter("registrationId");
 		Poco::toLowerInPlace(registrationId);
 		Poco::trimInPlace(registrationId);
 
-		Logger().information(fmt::format("Signup request is coming for email: {} macAddress: {} registrationId: {}", UserName,SerialNumber, registrationId));
-
-		if (!Utils::ValidSerialNumber(SerialNumber)) {
-			return BadRequest(RESTAPI::Errors::InvalidSerialNumber);
-		}
+		Logger().information(fmt::format("Signup request is coming for email: {}  registrationId: {}", UserName, registrationId));
 
 		if (!Utils::ValidEMailAddress(UserName)) {
 			return BadRequest(RESTAPI::Errors::InvalidEmailAddress);
