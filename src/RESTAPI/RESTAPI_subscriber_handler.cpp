@@ -53,7 +53,10 @@ namespace OpenWifi {
 			Logger().warning("Received delete request without id.");
 			return NotFound();
 		}
-		Logger().information(fmt::format("Subscriber delete request for email: {} id: {}.", UserInfo_.userinfo.email, UserInfo_.userinfo.id));
-		return OK();
+		Logger().information(fmt::format("Subscriber delete request for email: {} id: {}.",
+										 UserInfo_.userinfo.email, UserInfo_.userinfo.id));
+		const auto endpoint = fmt::format("/api/v1/subscriber/{}", UserInfo_.userinfo.id);
+		return API_Proxy(Logger(), Request, Response, uSERVICE_PROVISIONING.c_str(),
+						 endpoint.c_str(), 60000);
 	}
 } // namespace OpenWifi
