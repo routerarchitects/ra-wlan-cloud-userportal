@@ -7,7 +7,7 @@
 #include <string>
 
 namespace OW_VERSION {
-    inline static const std::string VERSION{"2.8.0"};
+    inline static const std::string VERSION{"3.2.0"};
     inline static const std::string BUILD{"1"};
-    inline static const std::string HASH{"v2.7.0-RC3-16-g3dd23d5"};
+    inline static const std::string HASH{"dce4fc1"};
 }
