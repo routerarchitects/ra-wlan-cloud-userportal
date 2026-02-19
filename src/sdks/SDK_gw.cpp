@@ -107,23 +107,6 @@ namespace OpenWifi::SDK::GW {
 			}
 		}
 
-		bool SetVenue(RESTAPIHandler *client, const std::string &SerialNumber,
-					  const std::string &uuid) {
-			Poco::JSON::Object Body;
-
-			Body.set("serialNumber", SerialNumber);
-			Body.set("venue", uuid);
-			OpenWifi::OpenAPIRequestPut R(OpenWifi::uSERVICE_GATEWAY,
-										  "/api/v1/device/" + SerialNumber, {}, Body, 10000);
-			Poco::JSON::Object::Ptr Response;
-			auto ResponseStatus =
-				R.Do(Response, client ? client->UserInfo_.webtoken.access_token_ : "");
-			if (ResponseStatus == Poco::Net::HTTPResponse::HTTP_OK) {
-				return true;
-			}
-			return false;
-		}
-
 		bool GetLastStats(RESTAPIHandler *client, const std::string &Mac,
 						  Poco::JSON::Object::Ptr &Response) {
 			// "https://${OWGW}/api/v1/device/$1/statistics?lastOnly=true"
@@ -737,7 +720,7 @@ namespace OpenWifi::SDK::GW {
 			Poco::Logger::get("SDK_gw").information("Preparing new configuration for mesh devices.");
 			// 6) Build mesh config: force ipv4 dynamic + remove firewall config-raw commands.
 			Poco::JSON::Object::Ptr meshConfig;
-			ConfigMaker configMaker(Poco::Logger::get("SDK_gw"), "");
+			ConfigMaker configMaker(Poco::Logger::get("SDK_gw"));
 			if (!configMaker.BuildMeshConfig(DeviceObj, meshConfig)) {
 				client->InternalError(RESTAPI::Errors::InternalError);
 				return false;
@@ -755,25 +738,6 @@ namespace OpenWifi::SDK::GW {
 				}
 			}
 			return true;
-		}
-
-		bool SetSubscriber(RESTAPIHandler *client, const std::string &SerialNumber,
-						   const std::string &uuid) {
-			Poco::JSON::Object Body;
-
-			Body.set("serialNumber", SerialNumber);
-			Body.set("subscriber", uuid);
-			OpenWifi::OpenAPIRequestPut R(OpenWifi::uSERVICE_GATEWAY,
-										  "/api/v1/device/" + SerialNumber, {}, Body, 10000);
-			auto CallResponse = Poco::makeShared<Poco::JSON::Object>();
-			auto ResponseStatus =
-				R.Do(CallResponse, client ? client->UserInfo_.webtoken.access_token_ : "");
-			if (ResponseStatus == Poco::Net::HTTPResponse::HTTP_OK) {
-				Poco::Logger::get("SDK_gw").information(fmt::format(
-					"SetSubscriber: Successfully set subscriber [{}] for device {}.", SerialNumber, uuid));
-				return true;
-			}
-			return false;
 		}
 
 		struct Tag {
@@ -831,20 +795,6 @@ namespace OpenWifi::SDK::GW {
 				}
 			}
 			return false;
-		}
-		/*
-		   DeleteOwgwDevice:
-		   1. Issue a DELETE request to the gateway/controller for the given SerialNumber.
-		   2. Return success only when owgw responds with HTTP 200 OK.
-		*/
-		bool DeleteOwgwDevice(RESTAPIHandler *client, const std::string &SerialNumber) {
-			auto API = OpenAPIRequestDelete(uSERVICE_GATEWAY, "/api/v1/device/" + SerialNumber, {}, 15000);
-			const auto status =	API.Do(client ? client->UserInfo_.webtoken.access_token_ : "");
-			if (status != Poco::Net::HTTPResponse::HTTP_OK) {
-				Poco::Logger::get("SDK_gw").error(fmt::format("Controller delete device [{}] failed.", SerialNumber));
-				return false;
-			}
-			return true;
 		}
 	} // namespace Device
 } // namespace OpenWifi::SDK::GW

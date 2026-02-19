@@ -9,296 +9,463 @@
 //
 
 #include "ConfigMaker.h"
-#include "RESTObjects/RESTAPI_SubObjects.h"
-#include "StorageService.h"
-#include "framework/utils.h"
+#include "Poco/JSON/Parser.h"
+#include "Poco/JSON/Stringifier.h"
+#include "Poco/String.h"
 #include "framework/ow_constants.h"
 #include "nlohmann/json.hpp"
-#include "sdks/SDK_gw.h"
+#include <fmt/format.h>
+#include <exception>
+#include <sstream>
+#include <utility>
+#include <vector>
 
 namespace OpenWifi {
-	bool ConfigMaker::ValidateConfig(const Poco::JSON::Object::Ptr &deviceConfig, const std::string &serialNumber, Poco::Logger &logger) {
-		if (!deviceConfig || !deviceConfig->has("configuration") || !deviceConfig->isObject("configuration")) {
-			logger.error(fmt::format("Invalid configuration for device {}: missing configuration block.", serialNumber));
-			return false;
+	namespace {
+			std::string BuildDefaultSsid(const std::string &deviceMac) {
+				const std::string suffix = deviceMac.size() > MAC_SUFFIX_START_INDEX
+										   ? deviceMac.substr(MAC_SUFFIX_START_INDEX)
+										   : deviceMac;
+				return DEFAULT_SSID_PREFIX + suffix;
+			}
+
+			/*
+			 * This function prepares and updates the provisioning configuration for an
+			 * Access Point (AP) using the configuration fetched from the controller
+			 * (owgw).
+			 *
+			 * Example of configuration received from controller:
+			 * {
+			 *     "interfaces": [ ... ],
+			 *     "metrics": { ... },
+			 *     "radios": [ ... ],
+			 *     "services": { ... },
+			 *     "uuid": "some-uuid"
+			 * }
+			 *
+			 * Goal:
+			 * We need to convert this controller configuration into a provisioning format
+			 * that can be stored in the provisioning database.
+			 *
+			 * Conversion Rules:
+			 * - Keep only sections that are JSON objects or arrays (ignore simple
+			 *   key-value pairs).
+			 * - For each section (like "interfaces", "metrics", "radios", "services"):
+			 *     - Add a "name" (section name)
+			 *     - Add a "weight" (default: 1)
+			 *     - Store its full JSON data as a configuration element
+			 *
+			 * Example of resulting provisioning configuration format:
+			 * {
+			 *     "interfaces": {
+			 *         "name": "interfaces",
+			 *         "weight": 1,
+			 *         ...
+			 *     },
+			 *     "metrics": {
+			 *         "name": "metrics",
+			 *         "weight": 1,
+			 *         ...
+			 *     },
+			 *     "radios": {
+			 *         "name": "radios",
+			 *         "weight": 1,
+			 *         ...
+			 *     },
+			 *     "services": {
+			 *         "name": "services",
+			 *         "weight": 1,
+			 *         ...
+			 *     }
+			 * }
+			 *
+			 * In summary:
+			 * The function extracts each relevant section (object or array) from the
+			 * controller config, adds name and weight to it, and stores it in the
+			 * provisioning database for that AP.
+			 */
+			bool AppendWeightedSection(const Poco::JSON::Object::Ptr &config, const std::string &name,
+									   ProvObjects::DeviceConfigurationElementVec &out) {
+				Poco::JSON::Object::Ptr wrappedSection = new Poco::JSON::Object();
+			if (config->isArray(name)) {
+				auto section = config->getArray(name);
+				if (!section) {
+					return false;
+				}
+				wrappedSection->set(name, section);
+			} else if (config->isObject(name)) {
+				auto section = config->getObject(name);
+				if (!section) {
+					return false;
+				}
+				wrappedSection->set(name, section);
+			} else {
+				return true;
+			}
+
+			std::ostringstream serialized;
+			Poco::JSON::Stringifier::stringify(wrappedSection, serialized);
+
+			ProvObjects::DeviceConfigurationElement element;
+			element.name = name;
+			element.weight = DEFAULT_DEVICE_CONFIG_WEIGHT;
+			element.configuration = serialized.str();
+			out.push_back(std::move(element));
+			return true;
 		}
-		auto configuration = deviceConfig->getObject("configuration");
-		if (!configuration) {
-			logger.error(fmt::format("Invalid configuration for device {}: Empty configuration.", serialNumber));
-			return false;
-		}
-		if (!configuration->has("interfaces") || !configuration->isArray("interfaces")) {
-			logger.error(fmt::format("Invalid configuration for device {}: missing/invalid interfaces.", serialNumber));
-			return false;
-		}
-		auto interfaces = configuration->getArray("interfaces");
-		if (!interfaces || interfaces->size() == 0) {
-			logger.error(fmt::format("Invalid configuration for device {}: missing interfaces.", serialNumber));
-			return false;
-		}
-		bool downstreamFound = false;
-		for (std::size_t i = 0; i < interfaces->size(); ++i) {
-			auto iface = interfaces->getObject(i);
-			if (!iface || !iface->has("role") || !iface->get("role").isString()) {
-				logger.error(fmt::format("Invalid configuration for device {}: interface is not an object or missing/invalid role.", serialNumber));
+	} // namespace
+
+	bool ConfigMaker::ValidateConfig(const Poco::JSON::Object::Ptr &deviceConfig,
+									 const std::string &serialNumber, Poco::Logger &logger) {
+		try {
+			if (!deviceConfig) {
+				poco_error(logger,
+						   fmt::format("Invalid configuration for device {}: empty payload.",
+									   serialNumber));
 				return false;
 			}
-			std::string role = iface->getValue<std::string>("role");
-			Poco::JSON::Array::Ptr ssids;
-			if (iface->has("ssids") && iface->isArray("ssids")) {
-				ssids = iface->getArray("ssids");
+
+			if (!deviceConfig->has("configuration") || !deviceConfig->isObject("configuration")) {
+				poco_error(
+					logger,
+					fmt::format("Invalid configuration for device {}: missing configuration block.",
+								serialNumber));
+				return false;
 			}
-			if (role == "upstream") {
-				if (ssids && !ssids->empty()) {
-					logger.error(fmt::format("Invalid configuration for device {}: upstream interface contains SSIDs.",serialNumber));
+
+			auto configuration = deviceConfig->getObject("configuration");
+			if (!configuration) {
+				poco_error(logger,
+						   fmt::format("Invalid configuration for device {}: empty configuration.",
+									   serialNumber));
+				return false;
+			}
+
+			if (!configuration->has("interfaces") || !configuration->isArray("interfaces")) {
+				poco_error(
+					logger,
+					fmt::format("Invalid configuration for device {}: missing/invalid interfaces.",
+								serialNumber));
+				return false;
+			}
+
+			auto interfaces = configuration->getArray("interfaces");
+			if (!interfaces || interfaces->size() == 0) {
+				poco_error(logger,
+						   fmt::format("Invalid configuration for device {}: missing interfaces.",
+									   serialNumber));
+				return false;
+			}
+
+			bool downstreamFound = false;
+			for (std::size_t i = 0; i < interfaces->size(); ++i) {
+				auto iface = interfaces->getObject(i);
+				if (!iface || !iface->has("role") || !iface->get("role").isString()) {
+					poco_error(
+						logger,
+						fmt::format(
+							"Invalid configuration for device {}: interface is not an object or "
+							"missing/invalid role.",
+							serialNumber));
 					return false;
 				}
-			} else if (role == "downstream") {
+
+				const std::string role = iface->getValue<std::string>("role");
+				Poco::JSON::Array::Ptr ssids;
+				if (iface->has("ssids") && iface->isArray("ssids")) {
+					ssids = iface->getArray("ssids");
+				}
+
+				if (role == "upstream") {
+					if (ssids && ssids->size() != 0) {
+						poco_error(logger, fmt::format("Invalid configuration for device {}: "
+													   "upstream interface contains SSIDs.",
+													   serialNumber));
+						return false;
+					}
+					continue;
+				}
+
+				if (role != "downstream") {
+					poco_error(
+						logger,
+						fmt::format(
+							"Invalid configuration for device {}: invalid interface role (expected "
+							"'upstream' or 'downstream').",
+							serialNumber));
+					return false;
+				}
+
+				downstreamFound = true;
 				bool meshSsidFound = false;
 				bool apSsidFound = false;
-				downstreamFound = true;
+
 				if (!iface->has("ipv4") || !iface->isObject("ipv4")) {
-					logger.error(fmt::format("Invalid configuration for device {}: downstream interface missing or invalid IPv4 value.", serialNumber));
+					poco_error(logger, fmt::format("Invalid configuration for device {}: "
+												   "downstream interface missing or invalid "
+												   "IPv4 value.",
+												   serialNumber));
 					return false;
 				}
+
 				auto ipv4 = iface->getObject("ipv4");
-				if (!ipv4->has("addressing") || !ipv4->get("addressing").isString() || ipv4->getValue<std::string>("addressing") != "static") {
-					logger.error(fmt::format("Invalid configuration for device {}: downstream interface should have static IPv4 addressing.", serialNumber));
+				if (!ipv4->has("addressing") || !ipv4->get("addressing").isString() ||
+					ipv4->getValue<std::string>("addressing") != "static") {
+					poco_error(
+						logger,
+						fmt::format(
+							"Invalid configuration for device {}: downstream interface should have "
+							"static IPv4 addressing.",
+							serialNumber));
 					return false;
 				}
+
 				if (!iface->has("tunnel") || !iface->isObject("tunnel")) {
-					logger.error(fmt::format("Invalid configuration for device {}: downstream interface missing or invalid tunnel object.", serialNumber));
+					poco_error(logger, fmt::format("Invalid configuration for device {}: "
+												   "downstream interface missing or invalid "
+												   "tunnel object.",
+												   serialNumber));
 					return false;
 				}
+
 				auto tunnel = iface->getObject("tunnel");
-				if (!tunnel->has("proto") || !tunnel->get("proto").isString() || tunnel->getValue<std::string>("proto") != "mesh") {
-					logger.error(fmt::format("Invalid configuration for device {}: downstream interface must have tunnel-proto='mesh'.", serialNumber));
+				if (!tunnel->has("proto") || !tunnel->get("proto").isString() ||
+					tunnel->getValue<std::string>("proto") != "mesh") {
+					poco_error(
+						logger,
+						fmt::format(
+							"Invalid configuration for device {}: downstream interface must have "
+							"tunnel-proto='mesh'.",
+							serialNumber));
 					return false;
 				}
-				if (!ssids || ssids->empty()) {
-					logger.error(fmt::format("Invalid configuration for device {}: downstream interface missing or invalid SSIDs.", serialNumber));
+
+				if (!ssids || ssids->size() == 0) {
+					poco_error(logger, fmt::format("Invalid configuration for device {}: "
+												   "downstream interface missing or invalid "
+												   "SSIDs.",
+												   serialNumber));
 					return false;
 				}
+
 				for (std::size_t j = 0; j < ssids->size(); ++j) {
 					auto ssid = ssids->getObject(j);
 					if (!ssid) {
-						logger.error(fmt::format("Invalid configuration for device {}: downstream interface contains a non-object SSID entry.", serialNumber));
+						poco_error(logger, fmt::format("Invalid configuration for device {}: "
+													   "downstream interface contains a "
+													   "non-object SSID entry.",
+													   serialNumber));
 						return false;
 					}
+
 					if (!ssid->has("bss-mode") || !ssid->get("bss-mode").isString()) {
-						logger.error(fmt::format("Invalid configuration for device {}: SSID entry missing or invalid 'bss-mode'.", serialNumber));
+						poco_error(logger, fmt::format("Invalid configuration for device {}: SSID "
+													   "entry missing or invalid "
+													   "'bss-mode'.",
+													   serialNumber));
 						return false;
 					}
-					std::string mode = ssid->getValue<std::string>("bss-mode");
+
+					const std::string mode = ssid->getValue<std::string>("bss-mode");
 					if (mode == "ap") {
 						apSsidFound = true;
 					} else if (mode == "mesh") {
 						meshSsidFound = true;
 					}
 				}
+
 				if (!apSsidFound) {
-					logger.error(fmt::format("Invalid configuration for device {}: missing ap-SSID on downstream interface.", serialNumber));
+					poco_error(
+						logger,
+						fmt::format(
+							"Invalid configuration for device {}: missing ap-SSID on downstream "
+							"interface.",
+							serialNumber));
 					return false;
 				}
 				if (!meshSsidFound) {
-					logger.error(fmt::format("Invalid configuration for device {}: missing mesh-SSID on downstream interface.", serialNumber));
+					poco_error(
+						logger,
+						fmt::format(
+							"Invalid configuration for device {}: missing mesh-SSID on downstream "
+							"interface.",
+							serialNumber));
 					return false;
 				}
-			} else {
-				logger.error(fmt::format("Invalid configuration for device {}: invalid interface role (expected 'upstream' or 'downstream').", serialNumber));
+			}
+
+			if (!downstreamFound) {
+				poco_error(logger,
+						   fmt::format(
+							   "Invalid configuration for device {}: missing downstream interface.",
+							   serialNumber));
 				return false;
 			}
-		}
-		if (!downstreamFound) {
-			logger.error(fmt::format("Invalid configuration for device {}: missing downstream interface.", serialNumber));
-			return false;
-		}
-		return true;
-	}
 
-	bool ConfigMaker::BuildMeshConfig(const Poco::JSON::Object::Ptr &InputConfig, Poco::JSON::Object::Ptr &OutputConfig) {
-	if (!InputConfig || !InputConfig->has("configuration") || !InputConfig->isObject("configuration")) {
-		Logger_.error("BuildMeshConfig: missing configuration block.");
+			return true;
+		} catch (...) {
+			poco_error(logger, fmt::format("ValidateConfig failed for device {}.", serialNumber));
+		}
 		return false;
 	}
-	auto gatewayConfig = InputConfig->getObject("configuration");
-	if (!gatewayConfig) {
-		Logger_.error("BuildMeshConfig: empty configuration block.");
-		return false;
-	}
-	try {
-		std::ostringstream OS;
-		Poco::JSON::Stringifier::stringify(gatewayConfig, OS);
-		auto cfg = nlohmann::json::parse(OS.str());
-		if (cfg.contains("interfaces") && cfg["interfaces"].is_array() && !cfg["interfaces"].empty()) {
-			nlohmann::json meshInterfaces = nlohmann::json::array();
-			for (const auto &iface : cfg["interfaces"]) {
-				auto meshInterface = iface;
-				meshInterface["ipv4"] = {{"addressing", "dynamic"}};
-				meshInterfaces.push_back(meshInterface);
-			}
-			if (!meshInterfaces.empty()) {
-				cfg["interfaces"] = meshInterfaces;
-			}
-		}
 
-		// If config-raw contains our block-clients rule, don't send config-raw to mesh devices.
-		if (cfg.contains("config-raw")) {
-			for (const auto &cmd : cfg["config-raw"]) {
-				if (!cmd.is_array() || cmd.size() < 3)
-					continue;
-				if (cmd[0] != "set" || cmd[1] != "firewall.@rule[-1].name" || !cmd[2].is_string())
-					continue;
-				const auto ruleName = cmd[2].get<std::string>();
-				if (ruleName == "Block_Clients") {
-					Logger_.information("Removing firewall-rule [Block_Clients] from config-raw for mesh device.");
-					cfg.erase("config-raw");
-					break;
+	bool ConfigMaker::BuildMeshConfig(const Poco::JSON::Object::Ptr &inputConfig,
+									  Poco::JSON::Object::Ptr &outputConfig) {
+		try {
+			outputConfig = nullptr;
+			if (!inputConfig || !inputConfig->has("configuration") ||
+				!inputConfig->isObject("configuration")) {
+				poco_error(Logger_, "BuildMeshConfig: missing configuration block.");
+				return false;
+			}
+
+			auto gatewayConfig = inputConfig->getObject("configuration");
+			if (!gatewayConfig) {
+				poco_error(Logger_, "BuildMeshConfig: empty configuration block.");
+				return false;
+			}
+
+			std::ostringstream jsonStream;
+			Poco::JSON::Stringifier::stringify(gatewayConfig, jsonStream);
+			auto cfg = nlohmann::json::parse(jsonStream.str());
+
+			if (cfg.contains("interfaces") && cfg["interfaces"].is_array() &&
+				!cfg["interfaces"].empty()) {
+				nlohmann::json meshInterfaces = nlohmann::json::array();
+				for (const auto &iface : cfg["interfaces"]) {
+					auto meshInterface = iface;
+					meshInterface["ipv4"] = {{"addressing", "dynamic"}};
+					meshInterfaces.push_back(meshInterface);
+				}
+				if (!meshInterfaces.empty()) {
+					cfg["interfaces"] = meshInterfaces;
 				}
 			}
-		}
-		Poco::JSON::Parser parser;
-		auto parsed = parser.parse(cfg.dump());
-		OutputConfig = parsed.extract<Poco::JSON::Object::Ptr>();
-		return OutputConfig != nullptr;
-	} catch (...) {
-		Logger_.error("BuildMeshConfig: failed to parse/convert configuration.");
-		return false;
-	}
-}
-	/*
-		This function prepares and updates the provisioning configuration for an Access Point (AP)
-		using the configuration fetched from the controller (owgw).
 
-		Example of configuration received from controller:
-		{
-			"interfaces": [ ... ],
-			"metrics": { ... },
-			"radios": [ ... ],
-			"services": { ... },
-			"uuid": "some-uuid"
-		}
-
-		Goal:
-		We need to convert this controller configuration into a provisioning format that can be stored
-		in the provisioning database.
-
-		Conversion Rules:
-		- Keep only sections that are JSON objects or arrays (ignore simple key-value pairs).
-		- For each section (like "interfaces", "metrics", "radios", "services"):
-			- Add a "name" (section name)
-			- Add a "weight" (default: 1)
-			- Store its full JSON data as a configuration element
-
-		Example of resulting provisioning configuration format:
-		{
-			"interfaces": {
-				"name": "interfaces",
-				"weight": 1,
-				...
-			},
-			"metrics": {
-				"name": "metrics",
-				"weight": 1,
-				...
-			},
-			"radios": {
-				"name": "radios",
-				"weight": 1,
-				...
-			},
-			"services": {
-				"name": "services",
-				"weight": 1,
-				...
-			}
-		}
-
-		In summary:
-		The function extracts each relevant section (object or array) from the controller config,
-		adds name and weight to it, and stores it in the provisioning database for that AP.
-	*/
-	bool ConfigMaker::PrepareProvSubDeviceConfig(const Poco::JSON::Object::Ptr &Config, ProvObjects::DeviceConfigurationElementVec &ProvConfig){
-		// Clear existing configuration to prevent duplicate sections in case of retries
-		ProvConfig.clear();
-		std::vector<std::string> sectionNames;
-		Config->getNames(sectionNames);
-		for (size_t i = 0; i < sectionNames.size(); ++i) {
-			const std::string &name = sectionNames[i];
-			if (!(Config->isObject(name) || Config->isArray(name))) {
-				continue;
-			}
-			Poco::JSON::Object::Ptr sectionObj = new Poco::JSON::Object();
-			if (Config->isArray(name))
-				sectionObj->set(name, Config->getArray(name));
-			else
-				sectionObj->set(name, Config->getObject(name));
-			std::ostringstream jsonOutput;
-			Poco::JSON::Stringifier::stringify(sectionObj, jsonOutput);
-			ProvObjects::DeviceConfigurationElement elem;
-			elem.name = name;
-			elem.weight = DEFAULT_DEVICE_CONFIG_WEIGHT;
-			elem.configuration = jsonOutput.str();
-			ProvConfig.push_back(elem);
-		}
-		return true;
-	}
-
-	/*
-		PrepareDefaultConfig():
-		1. Fetch current config for the provided AccessPoint from the controller (/api/v1/device/MAC).
-		2. Validate mesh settings (no upstream SSIDs, mesh present).
-		3. Update SSID/password based on the device MAC (AP + mesh).
-		4. Return the updated configuration object so the caller can decide how to persist/apply it.
-	*/
-	bool ConfigMaker::PrepareDefaultConfig(const SubObjects::AccessPoint &ap, ProvObjects::SubscriberDevice &subDevice) {
-			Poco::JSON::Object::Ptr ConfigObj;
-			auto ResponseStatus = SDK::GW::Device::GetConfig(nullptr, ap.serialNumber, ConfigObj);
-			if (ResponseStatus != Poco::Net::HTTPResponse::HTTP_OK) {
-				Logger_.error(fmt::format("Failed to fetch current configuration for device {}.", ap.serialNumber));
-				return false;
-			}
-			if (!ValidateConfig(ConfigObj, ap.serialNumber, Logger_)) {
-				Logger_.error(fmt::format("Invalid configuration for device {}: wrong mesh config.", ap.serialNumber));
-				return false;
-			}
-			auto NewConfig = ConfigObj->getObject("configuration");
-			auto interfaces = NewConfig->getArray("interfaces");
-			std::string NewSsid = DEFAULT_SSID_PREFIX + ap.macAddress.substr(MAC_SUFFIX_START_INDEX);
-			std::string NewPassword = Poco::toUpper(ap.macAddress);
-			Logger_.information(fmt::format("Preparing default configuration for device {}  with SSID '{}' and Password '{}'.",
-											ap.serialNumber, NewSsid, NewPassword));
-			//  Update SSID and Password
-			for (std::size_t i = 0; i < interfaces->size(); ++i) {
-				auto iface = interfaces->getObject(i);
-				auto ssids = iface->getArray("ssids");
-				if (!ssids)
-					continue; // if no ssids to update, skip this interface
-				for (std::size_t j = 0; j < ssids->size(); ++j) {
-					auto ssid = ssids->getObject(j);
-					auto encryption = ssid->getObject("encryption");
-					auto bssMode = ssid->getValue<std::string>("bss-mode");
-					if (bssMode == "ap") {
-						ssid->set("name", NewSsid);
-						encryption->set("key", NewPassword);
-					} else if (bssMode == "mesh") {
-						encryption->set("key", NewPassword);
+			// If config-raw contains our block-clients rule, don't send config-raw to mesh devices.
+			if (cfg.contains("config-raw")) {
+				for (const auto &cmd : cfg["config-raw"]) {
+					if (!cmd.is_array() || cmd.size() < 3) {
+						continue;
+					}
+					if (cmd[0] != "set" || cmd[1] != "firewall.@rule[-1].name" ||
+						!cmd[2].is_string()) {
+						continue;
+					}
+					if (cmd[2].get<std::string>() == "Block_Clients") {
+						Logger_.information(
+							"Removing firewall-rule [Block_Clients] from config-raw for mesh "
+							"device.");
+						cfg.erase("config-raw");
+						break;
 					}
 				}
 			}
-		return PrepareProvSubDeviceConfig(NewConfig, subDevice.configuration);
+
+			Poco::JSON::Parser parser;
+			auto parsed = parser.parse(cfg.dump());
+			outputConfig = parsed.extract<Poco::JSON::Object::Ptr>();
+			return outputConfig != nullptr;
+		} catch (...) {
+			poco_error(Logger_, "BuildMeshConfig failed.");
+		}
+		return false;
 	}
 
-	bool ConfigMaker::CreateSubDeviceInfo(const ProvObjects::InventoryTag &inventoryTag, const SecurityObjects::UserInfo &userInfo,
-										  ProvObjects::SubscriberDevice &device) {
-		device.info.name = inventoryTag.serialNumber;
-		device.serialNumber = inventoryTag.serialNumber;
-		device.deviceType = inventoryTag.deviceType;
-		device.operatorId = userInfo.owner;
-		device.subscriberId = userInfo.id;
-		device.realMacAddress = inventoryTag.serialNumber;
-		device.deviceRules = inventoryTag.deviceRules;
-		ProvObjects::CreateObjectInfo(userInfo, device.info);
+	bool
+	ConfigMaker::AppendWeightedSections(const Poco::JSON::Object::Ptr &config,
+										ProvObjects::DeviceConfigurationElementVec &provConfig) {
+		if (!config) {
+			return false;
+		}
+
+		// Clear existing configuration to prevent duplicate sections in case of retries.
+		provConfig.clear();
+
+		std::vector<std::string> sectionNames;
+		config->getNames(sectionNames);
+		for (const auto &sectionName : sectionNames) {
+			if (!(config->isObject(sectionName) || config->isArray(sectionName))) {
+				continue;
+			}
+			if (!AppendWeightedSection(config, sectionName, provConfig)) {
+				return false;
+			}
+		}
 		return true;
+	}
+
+	bool ConfigMaker::BuildGatewayConfig(const Poco::JSON::Object::Ptr &deviceConfig,
+										 const std::string &deviceMac,
+										 ProvObjects::SubscriberDevice &subDevice) {
+		try {
+			if (!deviceConfig) {
+				poco_error(Logger_, fmt::format("BuildGatewayConfig: missing input for device {}.",
+												deviceMac));
+				return false;
+			}
+
+			if (!ValidateConfig(deviceConfig, deviceMac, Logger_)) {
+				poco_error(Logger_,
+						   fmt::format("BuildGatewayConfig: invalid source config for device {}.",
+									   deviceMac));
+				return false;
+			}
+
+			auto newConfig = deviceConfig->getObject("configuration");
+			if (!newConfig || !newConfig->has("interfaces") || !newConfig->isArray("interfaces")) {
+				poco_error(
+					Logger_,
+					fmt::format(
+						"BuildGatewayConfig: missing interfaces in configuration for device {}.",
+						deviceMac));
+				return false;
+			}
+
+			auto interfaces = newConfig->getArray("interfaces");
+			std::string newSsid = BuildDefaultSsid(deviceMac);
+			std::string newPassword = Poco::toUpper(deviceMac);
+			Logger_.information(fmt::format(
+				"Preparing default configuration for device {} with SSID '{}' and Password '{}'.",
+				deviceMac, newSsid, newPassword));
+
+			for (std::size_t i = 0; i < interfaces->size(); ++i) {
+				auto iface = interfaces->getObject(i);
+				if (!iface || !iface->has("ssids") || !iface->isArray("ssids")) {
+					continue;
+				}
+
+				auto ssids = iface->getArray("ssids");
+				if (!ssids) {
+					continue;
+				}
+
+				for (std::size_t j = 0; j < ssids->size(); ++j) {
+					auto ssid = ssids->getObject(j);
+					if (!ssid || !ssid->has("bss-mode") || !ssid->get("bss-mode").isString() ||
+						!ssid->has("encryption") || !ssid->isObject("encryption")) {
+						continue;
+					}
+
+					const std::string bssMode = ssid->getValue<std::string>("bss-mode");
+					auto encryption = ssid->getObject("encryption");
+					if (!encryption) {
+						continue;
+					}
+
+					if (bssMode == "ap") {
+						ssid->set("name", newSsid);
+						encryption->set("key", newPassword);
+					} else if (bssMode == "mesh") {
+						encryption->set("key", newPassword);
+					}
+				}
+			}
+
+			return AppendWeightedSections(newConfig, subDevice.configuration);
+		} catch (...) {
+			poco_error(Logger_, fmt::format("BuildGatewayConfig failed for device {}.", deviceMac));
+		}
+		return false;
 	}
 } // namespace OpenWifi

@@ -752,6 +752,7 @@ namespace OpenWifi::ProvObjects {
     struct SubscriberDevice {
         ObjectInfo info;
         std::string serialNumber;
+        std::string deviceGroup;
         std::string deviceType;
         Types::UUID_t operatorId;
         Types::UUID_t subscriberId;

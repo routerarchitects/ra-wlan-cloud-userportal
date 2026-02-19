@@ -30,13 +30,8 @@ namespace OpenWifi::SDK::GW {
 		Poco::Net::HTTPResponse::HTTPStatus GetConfig(RESTAPIHandler *client, const std::string &Mac,
 					Poco::JSON::Object::Ptr &Response);
 		bool SetConfig(RESTAPIHandler *client, const Poco::JSON::Object::Ptr &Body, const Poco::SharedPtr<SubObjects::SubscriberInfo> &SubInfo);
-		bool SetVenue(RESTAPIHandler *client, const std::string &SerialNumber,
-					  const std::string &uuid);
 		bool GetLastStats(RESTAPIHandler *client, const std::string &Mac,
 						  Poco::JSON::Object::Ptr &Response);
-		bool SetSubscriber(RESTAPIHandler *client, const std::string &SerialNumber,
-						   const std::string &uuid);
 		bool GetOUIs(RESTAPIHandler *client, Types::StringPairVec &MacList);
-		bool DeleteOwgwDevice(RESTAPIHandler *client, const std::string &SerialNumber);
 	} // namespace Device
 } // namespace OpenWifi::SDK::GW
