@@ -36,6 +36,7 @@ namespace OpenWifi {
 		bool Validate_Inputs(std::string &mac);
 		bool FetchSubscriberDevices(AddDeviceContext &ctx);
 		bool IsDeviceAlreadyProvisioned(const AddDeviceContext &ctx);
+		bool IsDevicePresentInInventory(const AddDeviceContext &ctx);
 		void InitializeSubscriberDevice(AddDeviceContext &ctx);
 		bool PrepareGatewayConfiguration(AddDeviceContext &ctx);
 		bool PrepareMeshConfiguration(AddDeviceContext &ctx);

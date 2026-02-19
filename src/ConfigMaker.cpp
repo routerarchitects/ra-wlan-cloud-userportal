@@ -116,10 +116,10 @@ namespace OpenWifi {
 	} // namespace
 
 	bool ConfigMaker::ValidateConfig(const Poco::JSON::Object::Ptr &deviceConfig,
-									 const std::string &serialNumber, Poco::Logger &logger) {
+									 const std::string &serialNumber) {
 		try {
 			if (!deviceConfig) {
-				poco_error(logger,
+				poco_error(Logger_,
 						   fmt::format("Invalid configuration for device {}: empty payload.",
 									   serialNumber));
 				return false;
@@ -127,7 +127,7 @@ namespace OpenWifi {
 
 			if (!deviceConfig->has("configuration") || !deviceConfig->isObject("configuration")) {
 				poco_error(
-					logger,
+					Logger_,
 					fmt::format("Invalid configuration for device {}: missing configuration block.",
 								serialNumber));
 				return false;
@@ -135,7 +135,7 @@ namespace OpenWifi {
 
 			auto configuration = deviceConfig->getObject("configuration");
 			if (!configuration) {
-				poco_error(logger,
+				poco_error(Logger_,
 						   fmt::format("Invalid configuration for device {}: empty configuration.",
 									   serialNumber));
 				return false;
@@ -143,7 +143,7 @@ namespace OpenWifi {
 
 			if (!configuration->has("interfaces") || !configuration->isArray("interfaces")) {
 				poco_error(
-					logger,
+					Logger_,
 					fmt::format("Invalid configuration for device {}: missing/invalid interfaces.",
 								serialNumber));
 				return false;
@@ -151,7 +151,7 @@ namespace OpenWifi {
 
 			auto interfaces = configuration->getArray("interfaces");
 			if (!interfaces || interfaces->size() == 0) {
-				poco_error(logger,
+				poco_error(Logger_,
 						   fmt::format("Invalid configuration for device {}: missing interfaces.",
 									   serialNumber));
 				return false;
@@ -162,7 +162,7 @@ namespace OpenWifi {
 				auto iface = interfaces->getObject(i);
 				if (!iface || !iface->has("role") || !iface->get("role").isString()) {
 					poco_error(
-						logger,
+						Logger_,
 						fmt::format(
 							"Invalid configuration for device {}: interface is not an object or "
 							"missing/invalid role.",
@@ -178,7 +178,7 @@ namespace OpenWifi {
 
 				if (role == "upstream") {
 					if (ssids && ssids->size() != 0) {
-						poco_error(logger, fmt::format("Invalid configuration for device {}: "
+						poco_error(Logger_, fmt::format("Invalid configuration for device {}: "
 													   "upstream interface contains SSIDs.",
 													   serialNumber));
 						return false;
@@ -188,7 +188,7 @@ namespace OpenWifi {
 
 				if (role != "downstream") {
 					poco_error(
-						logger,
+						Logger_,
 						fmt::format(
 							"Invalid configuration for device {}: invalid interface role (expected "
 							"'upstream' or 'downstream').",
@@ -201,7 +201,7 @@ namespace OpenWifi {
 				bool apSsidFound = false;
 
 				if (!iface->has("ipv4") || !iface->isObject("ipv4")) {
-					poco_error(logger, fmt::format("Invalid configuration for device {}: "
+					poco_error(Logger_, fmt::format("Invalid configuration for device {}: "
 												   "downstream interface missing or invalid "
 												   "IPv4 value.",
 												   serialNumber));
@@ -212,7 +212,7 @@ namespace OpenWifi {
 				if (!ipv4->has("addressing") || !ipv4->get("addressing").isString() ||
 					ipv4->getValue<std::string>("addressing") != "static") {
 					poco_error(
-						logger,
+						Logger_,
 						fmt::format(
 							"Invalid configuration for device {}: downstream interface should have "
 							"static IPv4 addressing.",
@@ -221,7 +221,7 @@ namespace OpenWifi {
 				}
 
 				if (!iface->has("tunnel") || !iface->isObject("tunnel")) {
-					poco_error(logger, fmt::format("Invalid configuration for device {}: "
+					poco_error(Logger_, fmt::format("Invalid configuration for device {}: "
 												   "downstream interface missing or invalid "
 												   "tunnel object.",
 												   serialNumber));
@@ -232,7 +232,7 @@ namespace OpenWifi {
 				if (!tunnel->has("proto") || !tunnel->get("proto").isString() ||
 					tunnel->getValue<std::string>("proto") != "mesh") {
 					poco_error(
-						logger,
+						Logger_,
 						fmt::format(
 							"Invalid configuration for device {}: downstream interface must have "
 							"tunnel-proto='mesh'.",
@@ -241,7 +241,7 @@ namespace OpenWifi {
 				}
 
 				if (!ssids || ssids->size() == 0) {
-					poco_error(logger, fmt::format("Invalid configuration for device {}: "
+					poco_error(Logger_, fmt::format("Invalid configuration for device {}: "
 												   "downstream interface missing or invalid "
 												   "SSIDs.",
 												   serialNumber));
@@ -251,7 +251,7 @@ namespace OpenWifi {
 				for (std::size_t j = 0; j < ssids->size(); ++j) {
 					auto ssid = ssids->getObject(j);
 					if (!ssid) {
-						poco_error(logger, fmt::format("Invalid configuration for device {}: "
+						poco_error(Logger_, fmt::format("Invalid configuration for device {}: "
 													   "downstream interface contains a "
 													   "non-object SSID entry.",
 													   serialNumber));
@@ -259,7 +259,7 @@ namespace OpenWifi {
 					}
 
 					if (!ssid->has("bss-mode") || !ssid->get("bss-mode").isString()) {
-						poco_error(logger, fmt::format("Invalid configuration for device {}: SSID "
+						poco_error(Logger_, fmt::format("Invalid configuration for device {}: SSID "
 													   "entry missing or invalid "
 													   "'bss-mode'.",
 													   serialNumber));
@@ -276,7 +276,7 @@ namespace OpenWifi {
 
 				if (!apSsidFound) {
 					poco_error(
-						logger,
+						Logger_,
 						fmt::format(
 							"Invalid configuration for device {}: missing ap-SSID on downstream "
 							"interface.",
@@ -285,7 +285,7 @@ namespace OpenWifi {
 				}
 				if (!meshSsidFound) {
 					poco_error(
-						logger,
+						Logger_,
 						fmt::format(
 							"Invalid configuration for device {}: missing mesh-SSID on downstream "
 							"interface.",
@@ -295,7 +295,7 @@ namespace OpenWifi {
 			}
 
 			if (!downstreamFound) {
-				poco_error(logger,
+				poco_error(Logger_,
 						   fmt::format(
 							   "Invalid configuration for device {}: missing downstream interface.",
 							   serialNumber));
@@ -304,7 +304,7 @@ namespace OpenWifi {
 
 			return true;
 		} catch (...) {
-			poco_error(logger, fmt::format("ValidateConfig failed for device {}.", serialNumber));
+			poco_error(Logger_, fmt::format("ValidateConfig failed for device {}.", serialNumber));
 		}
 		return false;
 	}
@@ -405,7 +405,7 @@ namespace OpenWifi {
 				return false;
 			}
 
-			if (!ValidateConfig(deviceConfig, deviceMac, Logger_)) {
+			if (!ValidateConfig(deviceConfig, deviceMac)) {
 				poco_error(Logger_,
 						   fmt::format("BuildGatewayConfig: invalid source config for device {}.",
 									   deviceMac));

@@ -20,7 +20,7 @@ namespace OpenWifi {
 		explicit ConfigMaker(Poco::Logger &L) : Logger_(L) {}
 
 		bool ValidateConfig(const Poco::JSON::Object::Ptr &deviceConfig,
-							const std::string &serialNumber, Poco::Logger &logger);
+							const std::string &serialNumber);
 		bool BuildMeshConfig(const Poco::JSON::Object::Ptr &inputConfig,
 							 Poco::JSON::Object::Ptr &outputConfig);
 		bool BuildGatewayConfig(const Poco::JSON::Object::Ptr &deviceConfig,

@@ -77,9 +77,9 @@ namespace OpenWifi::SDK::Prov {
 			return false;
 		}
 
-		bool CreateSubsciberDeviceMinimal(
+		bool CreateSubsciberDevice(
 			RESTAPIHandler *client, const std::string &name, const std::string &serialNumber,
-			const std::string &subscriberId, const std::string &deviceGroup,
+			const std::string &subscriberId, const std::string &operatorId, const std::string &deviceGroup,
 			const ProvObjects::DeviceConfigurationElementVec &configuration,
 			ProvObjects::SubscriberDevice &device) {
 			std::string EndPoint = "/api/v1/subscriberDevice/0";
@@ -87,6 +87,7 @@ namespace OpenWifi::SDK::Prov {
 			Body.set("name", name);
 			Body.set("serialNumber", serialNumber);
 			Body.set("subscriberId", subscriberId);
+			Body.set("operatorId", operatorId);
 			Body.set("deviceGroup", deviceGroup);
 			RESTAPI_utils::field_to_json(Body, "configuration", configuration);
 			auto API = OpenAPIRequestPost(uSERVICE_PROVISIONING, EndPoint, {}, Body, 120000);

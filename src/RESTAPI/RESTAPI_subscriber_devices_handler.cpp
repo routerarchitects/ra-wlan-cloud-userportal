@@ -42,7 +42,7 @@ namespace OpenWifi {
 		Poco::Net::HTTPServerResponse::HTTPStatus status =
 			Poco::Net::HTTPServerResponse::HTTP_INTERNAL_SERVER_ERROR;
 		auto response = Poco::makeShared<Poco::JSON::Object>();
-		if (SDK::Prov::Subscriber::GetDevices(this, UserInfo_.userinfo.id, UserInfo_.userinfo.owner,
+		if (SDK::Prov::Subscriber::GetDevices(nullptr, UserInfo_.userinfo.id, UserInfo_.userinfo.owner,
 											  ctx.ExistingDevices, status, response)) {
 			// list loaded
 		} else if (status == Poco::Net::HTTPServerResponse::HTTP_NOT_FOUND) {
@@ -71,6 +71,18 @@ namespace OpenWifi {
 		return false;
 	}
 
+	bool RESTAPI_subscriber_devices_handler::IsDevicePresentInInventory(
+		const AddDeviceContext &ctx) {
+		ProvObjects::InventoryTag inventory;
+		if (!SDK::Prov::Device::Get(nullptr, ctx.Mac, inventory)) {
+			Logger().warning(
+				fmt::format("Device [{}] not found in provisioning inventory.", ctx.Mac));
+			BadRequest(RESTAPI::Errors::SubNoDeviceActivated);
+			return false;
+		}
+		return true;
+	}
+
 	void RESTAPI_subscriber_devices_handler::InitializeSubscriberDevice(AddDeviceContext &ctx) {
 		ctx.DeviceGroup = ctx.ExistingDevices.subscriberDevices.empty() ? "olg" : "ap";
 		ctx.DeviceName = fmt::format("Device-{}", ctx.ExistingDevices.subscriberDevices.size() + 1);
@@ -82,7 +94,7 @@ namespace OpenWifi {
 
 	bool RESTAPI_subscriber_devices_handler::PrepareGatewayConfiguration(AddDeviceContext &ctx) {
 		Poco::JSON::Object::Ptr ConfigObj;
-		auto ResponseStatus = SDK::GW::Device::GetConfig(this, ctx.Mac, ConfigObj);
+		auto ResponseStatus = SDK::GW::Device::GetConfig(nullptr, ctx.Mac, ConfigObj);
 		if (ResponseStatus != Poco::Net::HTTPResponse::HTTP_OK) {
 			Logger().error(
 				fmt::format("Failed to fetch current configuration for device [{}].", ctx.Mac));
@@ -119,7 +131,7 @@ namespace OpenWifi {
 		}
 
 		Poco::JSON::Object::Ptr config;
-		auto status = SDK::GW::Device::GetConfig(this, GatewayMac, config);
+		auto status = SDK::GW::Device::GetConfig(nullptr, GatewayMac, config);
 		if (status != Poco::Net::HTTPResponse::HTTP_OK) {
 			Logger().error(fmt::format("Failed to fetch gateway [{}] configuration for mesh [{}].",
 									   GatewayMac, ctx.Mac));
@@ -128,7 +140,7 @@ namespace OpenWifi {
 		}
 
 		ConfigMaker configMaker(Logger());
-		if (!configMaker.ValidateConfig(config, GatewayMac, Logger())) {
+		if (!configMaker.ValidateConfig(config, GatewayMac)) {
 			Logger().error(
 				fmt::format("Gateway [{}] configuration is invalid for mesh onboarding [{}].",
 							GatewayMac, ctx.Mac));
@@ -153,8 +165,8 @@ namespace OpenWifi {
 
 	bool RESTAPI_subscriber_devices_handler::CreateProvisioningRecord(
 		AddDeviceContext &ctx) {
-		if (!SDK::Prov::Subscriber::CreateSubsciberDeviceMinimal(
-				this, ctx.DeviceName, ctx.Mac, UserInfo_.userinfo.id, ctx.DeviceGroup,
+		if (!SDK::Prov::Subscriber::CreateSubsciberDevice(
+				this, ctx.DeviceName, ctx.Mac, UserInfo_.userinfo.id, UserInfo_.userinfo.owner, ctx.DeviceGroup,
 				ctx.SubDevice.configuration, ctx.SubDevice)) {
 			Logger().error(fmt::format(
 				"Failed to create subscriberDevice for serial [{}] in provisioning.", ctx.Mac));
@@ -177,6 +189,8 @@ namespace OpenWifi {
 		if (!FetchSubscriberDevices(ctx))
 			return;
 		if (IsDeviceAlreadyProvisioned(ctx))
+			return;
+		if (!IsDevicePresentInInventory(ctx))
 			return;
 
 		InitializeSubscriberDevice(ctx);
@@ -206,7 +220,7 @@ namespace OpenWifi {
 
 		Poco::Net::HTTPServerResponse::HTTPStatus callStatus =
 			Poco::Net::HTTPServerResponse::HTTP_INTERNAL_SERVER_ERROR;
-		if (!SDK::Prov::Subscriber::DeleteSubscriberDevice(this, Mac, callStatus)) {
+		if (!SDK::Prov::Subscriber::DeleteSubscriberDevice(nullptr, Mac, callStatus)) {
 			return ForwardErrorResponse(this, callStatus, Poco::makeShared<Poco::JSON::Object>());
 		}
 
