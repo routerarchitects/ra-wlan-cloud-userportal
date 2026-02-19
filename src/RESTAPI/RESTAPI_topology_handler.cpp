@@ -107,7 +107,7 @@ namespace OpenWifi {
 				std::list<std::string> blockedMacs;
 				SDK::GW::Device::GetBlockedClients(config, blockedMacs);
 				for (const auto &macNorm : blockedMacs) {
-					blockedDevices->add(Utils::SerialToMAC(macNorm));
+					blockedDevices->add(macNorm);
 				}
 			}
 		} else {
