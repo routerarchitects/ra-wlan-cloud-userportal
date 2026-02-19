@@ -11,6 +11,7 @@
 #pragma once
 
 #include "framework/RESTAPI_Handler.h"
+#include "RESTObjects/RESTAPI_ProvObjects.h"
 
 namespace OpenWifi {
 	class RESTAPI_topology_handler : public RESTAPIHandler {
@@ -31,5 +32,10 @@ namespace OpenWifi {
 		void DoDelete() final {};
 
 	  private:
+		bool FetchSubscriberDevices(ProvObjects::SubscriberDeviceList &subscriberDevices);
+		bool FindGatewaySerial(const ProvObjects::SubscriberDeviceList &subscriberDevices,
+							   std::string &gatewaySerial);
+		bool ResolveBoardIdFromGateway(const std::string &gatewaySerial, std::string &boardId);
+		bool FetchTopology(const std::string &boardId, Poco::JSON::Object::Ptr &topologyResponse);
 	};
 } // namespace OpenWifi
