@@ -442,14 +442,12 @@ namespace OpenWifi::RESTAPI::Errors {
 	static const struct msg InvalidRRMAction { 1192, "Invalid RRM Action." };
 	static const struct msg SSIDInvalidName{
 		1193, "Invalid SSID. Allowed characters: 1 to 32 chars (letters, digits, dot, underscore, hyphen, space.)"};
-	static const struct msg AddDeviceFailed {1194, "Failed to add new device."};
-	static const struct msg ApplyConfigFailed {1195, "Failed to apply configuration to device."};
-	static const struct msg RecordNotDeleted {1197, "Record could not be deleted."};
-	static const struct msg ClientAlreadyBlocked {1198, "Client is already blocked."};
-	static const struct msg ClientAlreadyUnblocked {1199, "Client is already unblocked."};
-    static const struct msg SimulationDoesNotExist {
-        7000, "Simulation Instance ID does not exist."
-    };
+		static const struct msg AddDeviceFailed {1194, "Failed to add new device."};
+		static const struct msg ApplyConfigFailed {1195, "Failed to apply configuration to device."};
+		static const struct msg RecordNotDeleted {1197, "Record could not be deleted."};
+	    static const struct msg SimulationDoesNotExist {
+	        7000, "Simulation Instance ID does not exist."
+	    };
 
     static const struct msg SimulationIsAlreadyRunning {
         7001, "There is an instance of this simulation already running.."
