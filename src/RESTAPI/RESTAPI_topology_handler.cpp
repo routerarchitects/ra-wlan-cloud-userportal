@@ -3,15 +3,18 @@
  * Copyright (c) 2025 Infernet Systems Pvt Ltd
  * Portions copyright (c) Telecom Infra Project (TIP), BSD-3-Clause
  */
+#include <unordered_set>
 #include "sdks/SDK_gw.h"
 
 #include "RESTAPI_topology_handler.h"
+
 
 #include "RESTObjects/RESTAPI_SubObjects.h"
 #include "StorageService.h"
 #include "framework/MicroServiceNames.h"
 #include "framework/OpenAPIRequests.h"
 #include "framework/ow_constants.h"
+#include "framework/utils.h"
 #include "sdks/SDK_nw_topology.h"
 #include "sdks/SDK_prov.h"
 
@@ -98,22 +101,76 @@ namespace OpenWifi {
 			return InternalError(RESTAPI::Errors::InternalError);
 		}
 
-		auto blockedDevices = Poco::makeShared<Poco::JSON::Array>();
+		std::list<std::string> blockedMacs;
 		Poco::JSON::Object::Ptr deviceObj;
 		const auto gwStatus = SDK::GW::Device::GetConfig(nullptr, device.macAddress, deviceObj);
 		if (gwStatus == Poco::Net::HTTPServerResponse::HTTP_OK && deviceObj && deviceObj->has("configuration")) {
 			auto config = deviceObj->getObject("configuration");
 			if (config) {
-				std::list<std::string> blockedMacs;
 				SDK::GW::Device::GetBlockedClients(config, blockedMacs);
-				for (const auto &macNorm : blockedMacs) {
-					blockedDevices->add(Utils::SerialToMAC(macNorm));
-				}
 			}
 		} else {
 			Logger().debug(fmt::format("[GET-TOPOLOGY] Failed to fetch config for {}.", device.macAddress));
 		}
-		topoResponse->set("blockedDevices", blockedDevices);
+
+		std::unordered_set<std::string> blockedMacSet;
+		for (const auto &macNorm : blockedMacs) {
+			blockedMacSet.insert(Utils::SerialToMAC(macNorm));
+		}
+
+		if (auto historicalDevices = topoResponse->getArray("historicalDevices")) {
+			auto historicalClientsWithFlags = Poco::makeShared<Poco::JSON::Array>();
+			for (std::size_t i = 0; i < historicalDevices->size(); ++i) {
+				std::string station;
+				try {
+					station = historicalDevices->getElement<std::string>(i);
+				} catch (...) {
+					continue;
+				}
+				auto entry = Poco::makeShared<Poco::JSON::Object>();
+				entry->set("station", station);
+				entry->set("blocked", blockedMacSet.count(station) ? "1" : "0");
+				historicalClientsWithFlags->add(entry);
+			}
+			topoResponse->set("historicalClients", historicalClientsWithFlags);
+			topoResponse->remove("historicalDevices");
+		}
+
+		if (auto nodes = topoResponse->getArray("nodes")) {
+			for (std::size_t i = 0; i < nodes->size(); ++i) {
+				auto node = nodes->getObject(i);
+				if (!node) {
+					continue;
+				}
+				auto aps = node->getArray("aps");
+				if (!aps) {
+					continue;
+				}
+				for (std::size_t apIndex = 0; apIndex < aps->size(); ++apIndex) {
+					auto ap = aps->getObject(apIndex);
+					if (!ap) {
+						continue;
+					}
+					auto clients = ap->getArray("clients");
+					if (!clients) {
+						continue;
+					}
+					for (std::size_t clientIndex = 0; clientIndex < clients->size(); ++clientIndex) {
+						auto client = clients->getObject(clientIndex);
+						if (!client || !client->has("station")) {
+							continue;
+						}
+						std::string station;
+						try {
+							station = client->getValue<std::string>("station");
+						} catch (...) {
+							continue;
+						}
+						client->set("blocked", blockedMacSet.count(station) ? "1" : "0");
+					}
+				}
+			}
+		}
 
 		return ReturnObject(*topoResponse);
 	}
