@@ -21,8 +21,7 @@ namespace OpenWifi {
 		if (instance_ == nullptr) {
 			instance_ = new Daemon(vDAEMON_PROPERTIES_FILENAME, vDAEMON_ROOT_ENV_VAR,
 								   vDAEMON_CONFIG_ENV_VAR, vDAEMON_APP_NAME, vDAEMON_BUS_TIMER,
-								   SubSystemVec{StorageService(), SubscriberCache(), StatsSvr(),
-												UI_WebSocketClientServer()});
+								   SubSystemVec{StorageService(), SubscriberCache()});
 		}
 		return instance_;
 	}
