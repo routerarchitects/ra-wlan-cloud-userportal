@@ -32,10 +32,6 @@ namespace OpenWifi::SDK::GW {
 					 const std::string &ImageName, bool KeepRedirector,
 					 Poco::Net::HTTPResponse::HTTPStatus &ResponseStatus,
 					 Poco::JSON::Object::Ptr &Response);
-		bool ExecuteCommand(RESTAPIHandler *client, const std::string &Command,
-							const std::string &EndPoint, Poco::JSON::Object &CommandRequest,
-							Poco::Net::HTTPResponse::HTTPStatus &ResponseStatus,
-							Poco::JSON::Object::Ptr &Response);
 		bool Configure(RESTAPIHandler *client, const std::string &Mac,
 					   Poco::JSON::Object::Ptr &Configuration,
 					   Poco::Net::HTTPResponse::HTTPStatus &ResponseStatus,

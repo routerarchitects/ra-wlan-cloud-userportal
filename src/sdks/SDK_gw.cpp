@@ -18,6 +18,20 @@
 #include "framework/utils.h"
 
 namespace OpenWifi::SDK::GW {
+	namespace {
+		bool ExecuteGatewayCommand(RESTAPIHandler *client, const std::string &endPoint,
+								   Poco::JSON::Object &commandRequest,
+								   Poco::Net::HTTPResponse::HTTPStatus &responseStatus,
+								   Poco::JSON::Object::Ptr &response) {
+			auto API = OpenAPIRequestPost(uSERVICE_GATEWAY, endPoint, {}, commandRequest, 60000);
+			Poco::JSON::Object::Ptr callResponse;
+			responseStatus =
+				API.Do(callResponse, client ? client->UserInfo_.webtoken.access_token_ : "");
+			response = callResponse ? callResponse : Poco::makeShared<Poco::JSON::Object>();
+			return responseStatus == Poco::Net::HTTPServerResponse::HTTP_OK;
+		}
+	} // namespace
+
 	namespace Device {
 		bool Reboot(RESTAPIHandler *client, const std::string &Mac,
 					[[maybe_unused]] uint64_t When,
@@ -28,7 +42,7 @@ namespace OpenWifi::SDK::GW {
 
 			ObjRequest.set("serialNumber", Mac);
 			ObjRequest.set("when", 0);
-			return ExecuteCommand(client, "reboot", EndPoint, ObjRequest, ResponseStatus, Response);
+			return ExecuteGatewayCommand(client, EndPoint, ObjRequest, ResponseStatus, Response);
 		}
 
 		bool LEDs(RESTAPIHandler *client, const std::string &Mac, uint64_t When, uint64_t Duration,
@@ -42,7 +56,7 @@ namespace OpenWifi::SDK::GW {
 			ObjRequest.set("when", When);
 			ObjRequest.set("duration", Duration);
 			ObjRequest.set("pattern", Pattern);
-			return ExecuteCommand(client, "leds", EndPoint, ObjRequest, ResponseStatus, Response);
+			return ExecuteGatewayCommand(client, EndPoint, ObjRequest, ResponseStatus, Response);
 		}
 
 		bool Factory(RESTAPIHandler *client, const std::string &Mac, uint64_t When,
@@ -55,7 +69,7 @@ namespace OpenWifi::SDK::GW {
 			ObjRequest.set("serialNumber", Mac);
 			ObjRequest.set("when", When);
 			ObjRequest.set("keepRedirector", KeepRedirector);
-			return ExecuteCommand(client, "factory", EndPoint, ObjRequest, ResponseStatus, Response);
+			return ExecuteGatewayCommand(client, EndPoint, ObjRequest, ResponseStatus, Response);
 		}
 
 		bool Upgrade(RESTAPIHandler *client, const std::string &Mac, uint64_t When,
@@ -68,39 +82,7 @@ namespace OpenWifi::SDK::GW {
 			ObjRequest.set("serialNumber", Mac);
 			ObjRequest.set("when", When);
 			ObjRequest.set("uri", ImageName);
-			return ExecuteCommand(client, "upgrade", EndPoint, ObjRequest, ResponseStatus, Response);
-		}
-
-		bool ExecuteCommand(RESTAPIHandler *client, const std::string &Command,
-							const std::string &EndPoint, Poco::JSON::Object &CommandRequest,
-							Poco::Net::HTTPResponse::HTTPStatus &ResponseStatus,
-							Poco::JSON::Object::Ptr &Response) {
-			auto API = OpenAPIRequestPost(uSERVICE_GATEWAY, EndPoint, {}, CommandRequest, 60000);
-			Poco::JSON::Object::Ptr callResponse;
-			ResponseStatus =
-				API.Do(callResponse, client ? client->UserInfo_.webtoken.access_token_ : "");
-			if (!callResponse)
-				callResponse = Poco::makeShared<Poco::JSON::Object>();
-
-			Response = Poco::makeShared<Poco::JSON::Object>();
-			if (ResponseStatus == Poco::Net::HTTPServerResponse::HTTP_GATEWAY_TIMEOUT) {
-				Response->set("Code", Poco::Net::HTTPServerResponse::HTTP_GATEWAY_TIMEOUT);
-				Response->set(
-					"Details",
-					"Command could not complete, you may want to retry this operation later.");
-				Response->set("Operation", Command);
-				return false;
-			}
-
-			if (callResponse->has("command") && callResponse->has("errorCode") &&
-				callResponse->has("errorText")) {
-				Response->set("Operation", callResponse->get("command").toString());
-				Response->set("Details", callResponse->get("errorText").toString());
-				Response->set("Code", callResponse->get("errorCode"));
-			} else {
-				Response = callResponse;
-			}
-			return ResponseStatus == Poco::Net::HTTPServerResponse::HTTP_OK;
+			return ExecuteGatewayCommand(client, EndPoint, ObjRequest, ResponseStatus, Response);
 		}
 
 		bool GetLastStats(RESTAPIHandler *client, const std::string &Mac,
