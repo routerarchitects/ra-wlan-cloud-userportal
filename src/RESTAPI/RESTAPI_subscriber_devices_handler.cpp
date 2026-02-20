@@ -94,8 +94,9 @@ namespace OpenWifi {
 
 	bool RESTAPI_subscriber_devices_handler::PrepareGatewayConfiguration(AddDeviceContext &ctx) {
 		Poco::JSON::Object::Ptr ConfigObj;
-		auto ResponseStatus = SDK::GW::Device::GetConfig(nullptr, ctx.Mac, ConfigObj);
-		if (ResponseStatus != Poco::Net::HTTPResponse::HTTP_OK) {
+		Poco::Net::HTTPResponse::HTTPStatus responseStatus =
+			Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR;
+		if (!SDK::GW::Device::GetConfig(nullptr, ctx.Mac, responseStatus, ConfigObj)) {
 			Logger().error(
 				fmt::format("Failed to fetch current configuration for device [{}].", ctx.Mac));
 			InternalError(RESTAPI::Errors::ApplyConfigFailed);
@@ -131,8 +132,9 @@ namespace OpenWifi {
 		}
 
 		Poco::JSON::Object::Ptr config;
-		auto status = SDK::GW::Device::GetConfig(nullptr, GatewayMac, config);
-		if (status != Poco::Net::HTTPResponse::HTTP_OK) {
+		Poco::Net::HTTPResponse::HTTPStatus responseStatus =
+			Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR;
+		if (!SDK::GW::Device::GetConfig(nullptr, GatewayMac, responseStatus, config)) {
 			Logger().error(fmt::format("Failed to fetch gateway [{}] configuration for mesh [{}].",
 									   GatewayMac, ctx.Mac));
 			InternalError(RESTAPI::Errors::AddDeviceFailed);

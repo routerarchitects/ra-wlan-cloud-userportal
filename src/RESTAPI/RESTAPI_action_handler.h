@@ -5,8 +5,11 @@
 #pragma once
 
 #include "framework/RESTAPI_Handler.h"
+#include "RESTObjects/RESTAPI_ProvObjects.h"
 
 namespace OpenWifi {
+	struct ActionContext;
+
 	class RESTAPI_action_handler : public RESTAPIHandler {
 	  public:
 		RESTAPI_action_handler(const RESTAPIHandler::BindingMap &bindings, Poco::Logger &L,
@@ -33,5 +36,13 @@ namespace OpenWifi {
 		void DoDelete() final{};
 
 	  private:
+		bool ParseRequest(ActionContext &ctx);
+		bool FetchSubscriberDevices(ActionContext &ctx);
+		bool FindGatewaySerial(ActionContext &ctx);
+		bool ResolveTargetSerial(ActionContext &ctx);
+		bool ExecuteConfigure(ActionContext &ctx);
+		bool ExecuteCommand(ActionContext &ctx);
+		void ReturnSDKResponse(Poco::Net::HTTPResponse::HTTPStatus status,
+							   const Poco::JSON::Object::Ptr &response);
 	};
 } // namespace OpenWifi
