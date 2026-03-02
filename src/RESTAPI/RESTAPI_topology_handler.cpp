@@ -3,6 +3,10 @@
  * Copyright (c) 2025 Infernet Systems Pvt Ltd
  * Portions copyright (c) Telecom Infra Project (TIP), BSD-3-Clause
  */
+#include <list>
+#include <unordered_set>
+#include "framework/utils.h"
+#include "sdks/SDK_gw.h"
 
 #include "RESTAPI_topology_handler.h"
 
@@ -62,7 +66,8 @@ namespace OpenWifi {
 			Logger().debug(fmt::format(
 				"[GET-TOPOLOGY] No gateway device (deviceGroup=olg) found for subscriber {}.",
 				UserInfo_.userinfo.id));
-			BadRequest(RESTAPI::Errors::SubNoDeviceActivated);
+			Poco::JSON::Object response;
+			ReturnObject(response);
 			return false;
 		}
 		return true;
@@ -147,6 +152,112 @@ namespace OpenWifi {
 		return true;
 	}
 
+	/*
+		FinalizeTopologyResponse:
+		1. Filter topology nodes based on subscriber devices.
+		2. Fetch blocked MACs from the gateway configuration.
+		3. Attach a "blocked" flag to historical clients and live client entries in the topology.
+	*/
+	void RESTAPI_topology_handler::FinalizeTopologyResponse(const ProvObjects::SubscriberDeviceList &subscriberDevices,
+		const std::string &gatewaySerial, Poco::JSON::Object::Ptr &topologyResponse) {
+		if (!topologyResponse)
+			return;
+
+		FilterTopologyNodes(subscriberDevices, topologyResponse);
+		MarkBlockedClients(gatewaySerial, topologyResponse);
+	}
+
+	void RESTAPI_topology_handler::FilterTopologyNodes(
+		const ProvObjects::SubscriberDeviceList &subscriberDevices,
+		Poco::JSON::Object::Ptr &topologyResponse) {
+		if (!topologyResponse || !topologyResponse->has("nodes") || !topologyResponse->isArray("nodes")) {
+			return;
+		}
+
+		std::unordered_set<std::string> allowedSerials;
+		allowedSerials.reserve(subscriberDevices.subscriberDevices.size());
+		for (const auto &device : subscriberDevices.subscriberDevices) {
+			if (device.serialNumber.empty())
+				continue;
+			auto serial = device.serialNumber;
+			Poco::toLowerInPlace(serial);
+			allowedSerials.insert(serial);
+		}
+
+		auto nodes = topologyResponse->getArray("nodes");
+		auto filteredNodes = Poco::makeShared<Poco::JSON::Array>();
+		for (std::size_t i = 0; i < nodes->size(); ++i) {
+			auto node = nodes->getObject(i);
+			if (!node || !node->has("serial") || !node->get("serial").isString())
+				continue;
+
+			auto serial = node->getValue<std::string>("serial");
+			Poco::toLowerInPlace(serial);
+			if (allowedSerials.find(serial) != allowedSerials.end())
+				filteredNodes->add(node);
+		}
+		topologyResponse->set("nodes", filteredNodes);
+	}
+
+	/*
+		MarkBlockedClients:
+		1. Fetch blocked MACs from the gateway configuration.
+		2. Attach a "blocked" flag to historical clients and live client entries in the topology.
+	*/
+	void RESTAPI_topology_handler::MarkBlockedClients(const std::string &gatewaySerial, Poco::JSON::Object::Ptr &topologyResponse) {
+
+		std::list<std::string> blockedMacs;
+		if (!SDK::GW::Device::GetBlockedClients(nullptr, gatewaySerial, blockedMacs)) {
+			Logger().debug(fmt::format("[GET-TOPOLOGY] Failed to fetch config for {}.", gatewaySerial));
+		}
+
+		std::unordered_set<std::string> blockedMacSet;
+		blockedMacSet.reserve(blockedMacs.size());
+		for (const auto &macNorm : blockedMacs) {
+			blockedMacSet.insert(Utils::SerialToMAC(macNorm));
+		}
+
+		if (auto historicalDevices = topologyResponse->getArray("historicalDevices")) {
+			auto historicalClientsWithFlags = Poco::makeShared<Poco::JSON::Array>();
+			for (std::size_t i = 0; i < historicalDevices->size(); ++i) {
+				std::string station;
+				try {
+					station = historicalDevices->getElement<std::string>(i);
+				} catch (...) {
+					continue;
+				}
+				auto entry = Poco::makeShared<Poco::JSON::Object>();
+				entry->set("station", station);
+				entry->set("blocked", blockedMacSet.count(station) ? "1" : "0");
+				historicalClientsWithFlags->add(entry);
+			}
+			topologyResponse->set("historicalClients", historicalClientsWithFlags);
+			topologyResponse->remove("historicalDevices");
+		}
+
+		if (auto nodes = topologyResponse->getArray("nodes")) {
+			for (std::size_t i = 0; i < nodes->size(); ++i) {
+				auto node = nodes->getObject(i);
+				auto aps = node->getArray("aps");
+				if (!aps) {
+					continue;
+				}
+				for (std::size_t apIndex = 0; apIndex < aps->size(); ++apIndex) {
+					auto ap = aps->getObject(apIndex);
+					auto clients = ap->getArray("clients");
+					if (!clients) {
+						continue;
+					}
+					for (std::size_t clientIndex = 0; clientIndex < clients->size(); ++clientIndex) {
+						auto client = clients->getObject(clientIndex);
+						const auto station = client->getValue<std::string>("station");
+						client->set("blocked", blockedMacSet.count(station) ? "1" : "0");
+					}
+				}
+			}
+		}
+	}
+
 	void RESTAPI_topology_handler::DoGet() {
 		if (UserInfo_.userinfo.id.empty()) {
 			Logger().debug("[GET-TOPOLOGY] Received topology request without subscriber id.");
@@ -168,6 +279,8 @@ namespace OpenWifi {
 		Poco::JSON::Object::Ptr topologyResponse;
 		if (!FetchTopology(boardId, topologyResponse))
 			return;
+
+		FinalizeTopologyResponse(subscriberDevices, gatewaySerial, topologyResponse);
 
 		return ReturnObject(*topologyResponse);
 	}

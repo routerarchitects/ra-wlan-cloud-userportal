@@ -37,5 +37,8 @@ namespace OpenWifi {
 							   std::string &gatewaySerial);
 		bool ResolveBoardIdFromGateway(const std::string &gatewaySerial, std::string &boardId);
 		bool FetchTopology(const std::string &boardId, Poco::JSON::Object::Ptr &topologyResponse);
+		void FinalizeTopologyResponse(const ProvObjects::SubscriberDeviceList &subscriberDevices, const std::string &gatewaySerial, Poco::JSON::Object::Ptr &topologyResponse);
+		void FilterTopologyNodes(const ProvObjects::SubscriberDeviceList &subscriberDevices, Poco::JSON::Object::Ptr &topologyResponse);
+		void MarkBlockedClients(const std::string &gatewaySerial, Poco::JSON::Object::Ptr &topologyResponse);
 	};
 } // namespace OpenWifi
