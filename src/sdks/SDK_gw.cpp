@@ -127,26 +127,13 @@ namespace OpenWifi::SDK::GW {
 
 		/*
 			GetBlockedClients():
-			1. Fetch device configuration.
-			2. Read Config["config-raw"] (if missing/empty, return an empty list).
-			3. Walk firewall rule blocks (started by ["add","firewall","rule"]).
-			4. Detect our block-clients rule by name "Block_Clients".
-			5. Collect all src_mac entries from that rule into blockedMacs (normalized).
+			1. Read Config["config-raw"] (if missing/empty, return an empty list).
+			2. Walk firewall rule blocks (started by ["add","firewall","rule"]).
+			3. Detect our block-clients rule by name "Block_Clients".
+			4. Collect all src_mac entries from that rule into blockedMacs (normalized).
 		*/
-		bool GetBlockedClients(RESTAPIHandler *client, const std::string &Mac, std::list<std::string> &blockedMacs) {
+		bool GetBlockedClients(const Poco::JSON::Object::Ptr &config, std::list<std::string> &blockedMacs) {
 			blockedMacs.clear();
-
-			Poco::JSON::Object::Ptr deviceObj;
-			Poco::Net::HTTPResponse::HTTPStatus getStatus = Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR;
-			if (!GetConfig(client, Mac, getStatus, deviceObj)) {
-				return false;
-			}
-			if (!deviceObj || !deviceObj->has("configuration") ||
-				!deviceObj->isObject("configuration")) {
-				return false;
-			}
-
-			auto config = deviceObj->getObject("configuration");
 			if (!config) {
 				return false;
 			}
@@ -584,9 +571,10 @@ namespace OpenWifi::SDK::GW {
 			ApplyClientAccessChanges():
 			1. Read and validate the request "client" array (each item needs "mac" + "access").
 			2. Normalize MAC addresses and validate access is either "allow" or "deny".
-			3. Remove existing Config["config-raw"] completely.
-			4. Rebuild blocked list from request entries where access="deny".
-			5. Write new block rule to Config["config-raw"] if blocked list is non-empty.
+			3. Load current blocked list from Config["config-raw"].
+			4. Apply request entries as a delta (deny adds, allow removes).
+			5. Remove existing Config["config-raw"] completely.
+			6. Write new block rule to Config["config-raw"] if blocked list is non-empty.
 		*/
 		static bool ApplyClientAccessChanges(
 			Poco::JSON::Object::Ptr &Config, const Poco::JSON::Object::Ptr &Body,
@@ -606,6 +594,11 @@ namespace OpenWifi::SDK::GW {
 			}
 
 			std::list<std::string> blockedMacs;
+			if (!GetBlockedClients(Config, blockedMacs)) {
+				return SetErrorResponse(Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR,
+										RESTAPI::Errors::InternalError, responseStatus, response);
+			}
+
 			for (std::size_t i = 0; i < clientList->size(); ++i) {
 				auto entry = clientList->getObject(i);
 				if (!entry || !entry->has("mac") || !entry->has("access")) {
@@ -636,6 +629,8 @@ namespace OpenWifi::SDK::GW {
 					if (std::find(blockedMacs.begin(), blockedMacs.end(), mac) == blockedMacs.end()) {
 						blockedMacs.push_back(mac);
 					}
+				} else {
+					blockedMacs.remove(mac);
 				}
 			}
 

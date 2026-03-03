@@ -16,7 +16,6 @@
 #include "sdks/SDK_prov.h"
 
 namespace OpenWifi {
-
 	bool RESTAPI_topology_handler::FetchSubscriberDevices(
 		ProvObjects::SubscriberDeviceList &subscriberDevices) {
 		Poco::Net::HTTPServerResponse::HTTPStatus callStatus =
@@ -180,7 +179,9 @@ namespace OpenWifi {
 			if (device.serialNumber.empty())
 				continue;
 			auto serial = device.serialNumber;
-			Poco::toLowerInPlace(serial);
+			if (!Utils::NormalizeMac(serial)) {
+				Poco::toLowerInPlace(serial);
+			}
 			allowedSerials.insert(serial);
 		}
 
@@ -192,7 +193,9 @@ namespace OpenWifi {
 				continue;
 
 			auto serial = node->getValue<std::string>("serial");
-			Poco::toLowerInPlace(serial);
+			if (!Utils::NormalizeMac(serial)) {
+				Poco::toLowerInPlace(serial);
+			}
 			if (allowedSerials.find(serial) != allowedSerials.end())
 				filteredNodes->add(node);
 		}
@@ -207,7 +210,17 @@ namespace OpenWifi {
 	void RESTAPI_topology_handler::MarkBlockedClients(const std::string &gatewaySerial, Poco::JSON::Object::Ptr &topologyResponse) {
 
 		std::list<std::string> blockedMacs;
-		if (!SDK::GW::Device::GetBlockedClients(nullptr, gatewaySerial, blockedMacs)) {
+		Poco::JSON::Object::Ptr deviceObj;
+		Poco::Net::HTTPServerResponse::HTTPStatus status = Poco::Net::HTTPServerResponse::HTTP_INTERNAL_SERVER_ERROR;
+
+		const bool gotConfig = SDK::GW::Device::GetConfig(nullptr, gatewaySerial, status, deviceObj);
+
+		Poco::JSON::Object::Ptr config;
+		if (gotConfig && deviceObj && deviceObj->has("configuration") && deviceObj->isObject("configuration")) {
+			config = deviceObj->getObject("configuration");
+		}
+
+		if (!config || !SDK::GW::Device::GetBlockedClients(config, blockedMacs)) {
 			Logger().debug(fmt::format("[GET-TOPOLOGY] Failed to fetch config for {}.", gatewaySerial));
 		}
 
@@ -244,12 +257,18 @@ namespace OpenWifi {
 				}
 				for (std::size_t apIndex = 0; apIndex < aps->size(); ++apIndex) {
 					auto ap = aps->getObject(apIndex);
+					if (!ap) {
+						continue;
+					}
 					auto clients = ap->getArray("clients");
 					if (!clients) {
 						continue;
 					}
 					for (std::size_t clientIndex = 0; clientIndex < clients->size(); ++clientIndex) {
 						auto client = clients->getObject(clientIndex);
+						if (!client || !client->has("station") || !client->get("station").isString()) {
+							continue;
+						}
 						const auto station = client->getValue<std::string>("station");
 						client->set("blocked", blockedMacSet.count(station) ? "1" : "0");
 					}

@@ -44,7 +44,7 @@ namespace OpenWifi::SDK::GW {
 					   const std::string &GatewaySerial,
 					   Poco::Net::HTTPResponse::HTTPStatus &ResponseStatus,
 					   Poco::JSON::Object::Ptr &Response);
-		bool GetBlockedClients(RESTAPIHandler *client, const std::string &Mac, std::list<std::string> &blockedMacs);
+		bool GetBlockedClients(const Poco::JSON::Object::Ptr &Config, std::list<std::string> &blockedMacs);
 		bool GetLastStats(RESTAPIHandler *client, const std::string &Mac,
 						  Poco::JSON::Object::Ptr &Response);
 		bool GetOUIs(RESTAPIHandler *client, Types::StringPairVec &MacList);
