@@ -11,6 +11,7 @@
 #include <regex>
 #include <sstream>
 #include "framework/RESTAPI_Handler.h"
+#include "RESTAPI/RESTAPI_topology_handler.h"
 
 #include "ConfigMaker.h"
 #include "SDK_gw.h"
@@ -121,68 +122,6 @@ namespace OpenWifi::SDK::GW {
 				Poco::Logger::get("SDK_gw").error(fmt::format(
 					"GetConfig: Could not get configuration from controller for device id {}.", Mac));
 				return false;
-			}
-			return true;
-		}
-
-		/*
-			GetBlockedClients():
-			1. Read Config["config-raw"] (if missing/empty, return an empty list).
-			2. Walk firewall rule blocks (started by ["add","firewall","rule"]).
-			3. Detect our block-clients rule by name "Block_Clients".
-			4. Collect all src_mac entries from that rule into blockedMacs (normalized).
-		*/
-		bool GetBlockedClients(const Poco::JSON::Object::Ptr &config, std::list<std::string> &blockedMacs) {
-			blockedMacs.clear();
-			if (!config) {
-				return false;
-			}
-
-			if (!config->has("config-raw") || !config->isArray("config-raw")) {
-				return true;
-			}
-
-			auto configRaw = config->getArray("config-raw");
-			if (!configRaw || configRaw->size() == 0)
-				return true;
-
-			bool inFirewallRule = false;
-			bool isBlockRule = false;
-
-			for (std::size_t i = 0; i < configRaw->size(); ++i) {
-				try {
-					auto cmd = configRaw->getArray(i);
-					if (!cmd || cmd->size() != 3)
-						continue;
-
-					auto op = cmd->getElement<std::string>(0);
-					auto key = cmd->getElement<std::string>(1);
-					auto val = cmd->getElement<std::string>(2);
-
-					if (op == "add" && key == "firewall" && val == "rule") {
-						inFirewallRule = true;
-						isBlockRule = false;
-						continue;
-					}
-
-					if (!inFirewallRule)
-						continue;
-
-					if (op == "set" && key == "firewall.@rule[-1].name") {
-						isBlockRule = (val == "Block_Clients");
-						continue;
-					}
-
-					if (isBlockRule && op == "add_list" && key == "firewall.@rule[-1].src_mac") {
-						std::string mac = val;
-						if (Utils::NormalizeMac(mac)) {
-							blockedMacs.push_back(mac);
-							Poco::Logger::get("SDK_gw").debug(fmt::format("Blocked client MAC found: {}", Utils::SerialToMAC(mac)));
-						}
-					}
-				} catch (...) {
-					continue;
-				}
 			}
 			return true;
 		}

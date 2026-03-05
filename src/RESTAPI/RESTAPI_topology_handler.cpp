@@ -152,6 +152,68 @@ namespace OpenWifi {
 	}
 
 	/*
+		GetBlockedClients():
+		1. Read Config["config-raw"] (if missing/empty, return an empty list).
+		2. Walk firewall rule blocks (started by ["add","firewall","rule"]).
+		3. Detect our block-clients rule by name "Block_Clients".
+		4. Collect all src_mac entries from that rule into blockedMacs (normalized).
+	*/
+	bool GetBlockedClients(const Poco::JSON::Object::Ptr &config, std::list<std::string> &blockedMacs) {
+		blockedMacs.clear();
+		if (!config) {
+			return false;
+		}
+
+		if (!config->has("config-raw") || !config->isArray("config-raw")) {
+			return true;
+		}
+
+		auto configRaw = config->getArray("config-raw");
+		if (!configRaw || configRaw->size() == 0)
+			return true;
+
+		bool inFirewallRule = false;
+		bool isBlockRule = false;
+
+		for (std::size_t i = 0; i < configRaw->size(); ++i) {
+			try {
+				auto cmd = configRaw->getArray(i);
+				if (!cmd || cmd->size() != 3)
+					continue;
+
+				auto op = cmd->getElement<std::string>(0);
+				auto key = cmd->getElement<std::string>(1);
+				auto val = cmd->getElement<std::string>(2);
+
+				if (op == "add" && key == "firewall" && val == "rule") {
+					inFirewallRule = true;
+					isBlockRule = false;
+					continue;
+				}
+
+				if (!inFirewallRule)
+					continue;
+
+				if (op == "set" && key == "firewall.@rule[-1].name") {
+					isBlockRule = (val == "Block_Clients");
+					continue;
+				}
+
+				if (isBlockRule && op == "add_list" && key == "firewall.@rule[-1].src_mac") {
+					std::string mac = val;
+					if (Utils::NormalizeMac(mac)) {
+						blockedMacs.push_back(mac);
+						Poco::Logger::get("SDK_gw").debug(fmt::format("Blocked client MAC found: {}", Utils::SerialToMAC(mac)));
+					}
+				}
+			} catch (...) {
+				continue;
+			}
+		}
+		return true;
+	}
+
+	/*
 		FinalizeTopologyResponse:
 		1. Filter topology nodes based on subscriber devices.
 		2. Fetch blocked MACs from the gateway configuration.
@@ -163,7 +225,7 @@ namespace OpenWifi {
 			return;
 
 		FilterTopologyNodes(subscriberDevices, topologyResponse);
-		MarkBlockedClients(gatewaySerial, topologyResponse);
+		TagBlockedClients(gatewaySerial, topologyResponse);
 	}
 
 	void RESTAPI_topology_handler::FilterTopologyNodes(
@@ -179,9 +241,6 @@ namespace OpenWifi {
 			if (device.serialNumber.empty())
 				continue;
 			auto serial = device.serialNumber;
-			if (!Utils::NormalizeMac(serial)) {
-				Poco::toLowerInPlace(serial);
-			}
 			allowedSerials.insert(serial);
 		}
 
@@ -193,9 +252,6 @@ namespace OpenWifi {
 				continue;
 
 			auto serial = node->getValue<std::string>("serial");
-			if (!Utils::NormalizeMac(serial)) {
-				Poco::toLowerInPlace(serial);
-			}
 			if (allowedSerials.find(serial) != allowedSerials.end())
 				filteredNodes->add(node);
 		}
@@ -203,11 +259,53 @@ namespace OpenWifi {
 	}
 
 	/*
-		MarkBlockedClients:
+		TagBlockedClients:
 		1. Fetch blocked MACs from the gateway configuration.
 		2. Attach a "blocked" flag to historical clients and live client entries in the topology.
+
+		Required Topology Response:-
+		{
+			"historicalClients": [
+			{
+				"blocked": "0",
+				"station": "3a:6e:34:8a:a1:d6"
+			},
+			{
+				"blocked": "1",
+				"station": "56:36:22:9d:b9:af"
+			}
+			]
+		},
+		"nodes": [
+			{
+				"aps": [
+					{
+						"band": "5",
+						"bssid": "f0:09:0d:2d:b4:9b",
+						"clients": [
+							{
+								"blocked": "1",
+								...
+								"station": "6c:c7:ec:de:10:65"
+							},
+							{
+								"blocked": "1",
+								...
+								"station": "94:97:ae:f7:44:fd"
+							}
+						],
+					"mode": "ap",
+					"ssid": "OpenWiFi-SSID"
+					}
+				],
+				"connected": true,
+				"mesh": [...],
+				"serial": "f0090d2db49c"
+			}
+		]
+		}
 	*/
-	void RESTAPI_topology_handler::MarkBlockedClients(const std::string &gatewaySerial, Poco::JSON::Object::Ptr &topologyResponse) {
+	void RESTAPI_topology_handler::TagBlockedClients(const std::string &gatewaySerial, Poco::JSON::Object::Ptr &topologyResponse) {
 
 		std::list<std::string> blockedMacs;
 		Poco::JSON::Object::Ptr deviceObj;
@@ -220,7 +318,7 @@ namespace OpenWifi {
 			config = deviceObj->getObject("configuration");
 		}
 
-		if (!config || !SDK::GW::Device::GetBlockedClients(config, blockedMacs)) {
+		if (!config || !GetBlockedClients(config, blockedMacs)) {
 			Logger().debug(fmt::format("[GET-TOPOLOGY] Failed to fetch config for {}.", gatewaySerial));
 		}
 

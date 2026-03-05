@@ -14,6 +14,7 @@
 #include "RESTObjects/RESTAPI_ProvObjects.h"
 
 namespace OpenWifi {
+	bool GetBlockedClients(const Poco::JSON::Object::Ptr &config, std::list<std::string> &blockedMacs);
 	class RESTAPI_topology_handler : public RESTAPIHandler {
 	  public:
 		RESTAPI_topology_handler(const RESTAPIHandler::BindingMap &bindings, Poco::Logger &L,
@@ -39,6 +40,6 @@ namespace OpenWifi {
 		bool FetchTopology(const std::string &boardId, Poco::JSON::Object::Ptr &topologyResponse);
 		void FinalizeTopologyResponse(const ProvObjects::SubscriberDeviceList &subscriberDevices, const std::string &gatewaySerial, Poco::JSON::Object::Ptr &topologyResponse);
 		void FilterTopologyNodes(const ProvObjects::SubscriberDeviceList &subscriberDevices, Poco::JSON::Object::Ptr &topologyResponse);
-		void MarkBlockedClients(const std::string &gatewaySerial, Poco::JSON::Object::Ptr &topologyResponse);
+		void TagBlockedClients(const std::string &gatewaySerial, Poco::JSON::Object::Ptr &topologyResponse);
 	};
 } // namespace OpenWifi
