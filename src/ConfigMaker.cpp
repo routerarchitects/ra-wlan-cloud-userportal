@@ -399,11 +399,6 @@ namespace OpenWifi {
 										 const std::string &deviceMac,
 										 ProvObjects::SubscriberDevice &subDevice) {
 		try {
-			if (!deviceConfig) {
-				poco_error(Logger_, fmt::format("BuildGatewayConfig: missing input for device {}.",
-												deviceMac));
-				return false;
-			}
 
 			if (!ValidateConfig(deviceConfig, deviceMac)) {
 				poco_error(Logger_,
@@ -413,15 +408,6 @@ namespace OpenWifi {
 			}
 
 			auto newConfig = deviceConfig->getObject("configuration");
-			if (!newConfig || !newConfig->has("interfaces") || !newConfig->isArray("interfaces")) {
-				poco_error(
-					Logger_,
-					fmt::format(
-						"BuildGatewayConfig: missing interfaces in configuration for device {}.",
-						deviceMac));
-				return false;
-			}
-
 			auto interfaces = newConfig->getArray("interfaces");
 			std::string newSsid = BuildDefaultSsid(deviceMac);
 			std::string newPassword = Poco::toUpper(deviceMac);
