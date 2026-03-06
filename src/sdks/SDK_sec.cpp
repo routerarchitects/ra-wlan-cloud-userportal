@@ -60,8 +60,8 @@ namespace OpenWifi::SDK::Sec {
 		bool Delete(RESTAPIHandler *client, const Types::UUID_t &Id) {
 			OpenAPIRequestDelete Req(uSERVICE_SECURITY, "/api/v1/subuser/" + Id, {}, 15000);
 
-			auto StatusCode =
-				Req.Do(client == nullptr ? "" : client->UserInfo_.webtoken.access_token_);
+			Poco::JSON::Object::Ptr Response;
+			auto StatusCode = Req.Do(Response, client == nullptr ? "" : client->UserInfo_.webtoken.access_token_);
 			if (StatusCode >= 200 && StatusCode <= 204) {
 				return true;
 			}

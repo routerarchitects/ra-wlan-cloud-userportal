@@ -238,7 +238,7 @@ namespace OpenWifi {
 	}
 
 	Poco::Net::HTTPServerResponse::HTTPStatus
-	OpenAPIRequestDelete::Do(const std::string &BearerToken) {
+	OpenAPIRequestDelete::Do(Poco::JSON::Object::Ptr &ResponseObject, const std::string &BearerToken) {
 		try {
 			auto Services = MicroServiceGetServices(Type_);
 
@@ -271,14 +271,24 @@ namespace OpenWifi {
 					Session.setTimeout(Poco::Timespan(msTimeout_ / 1000, msTimeout_ % 1000));
 					Session.sendRequest(Request);
 					Poco::Net::HTTPResponse Response;
-					Session.receiveResponse(Response);
+					std::istream &is = Session.receiveResponse(Response);
+					try {
+						Poco::JSON::Parser P;
+						ResponseObject = P.parse(is).extract<Poco::JSON::Object::Ptr>();
+					} catch (...) {
+					}
 					return Response.getStatus();
 				} else {
 					Poco::Net::HTTPClientSession Session(URI.getHost(), URI.getPort());
 					Session.setTimeout(Poco::Timespan(msTimeout_ / 1000, msTimeout_ % 1000));
 					Session.sendRequest(Request);
 					Poco::Net::HTTPResponse Response;
-					Session.receiveResponse(Response);
+					std::istream &is = Session.receiveResponse(Response);
+					try {
+						Poco::JSON::Parser P;
+						ResponseObject = P.parse(is).extract<Poco::JSON::Object::Ptr>();
+					} catch (...) {
+					}
 					return Response.getStatus();
 				}
 			}

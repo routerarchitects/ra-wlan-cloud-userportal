@@ -222,8 +222,10 @@ namespace OpenWifi {
 
 		Poco::Net::HTTPServerResponse::HTTPStatus callStatus =
 			Poco::Net::HTTPServerResponse::HTTP_INTERNAL_SERVER_ERROR;
-		if (!SDK::Prov::Subscriber::DeleteSubscriberDevice(this, Mac, callStatus)) {
-			return ForwardErrorResponse(this, callStatus, Poco::makeShared<Poco::JSON::Object>());
+		auto callResponse = Poco::makeShared<Poco::JSON::Object>();
+
+		if (!SDK::Prov::Subscriber::DeleteSubscriberDevice(this, Mac, callStatus, callResponse)) {
+			return ForwardErrorResponse(this, callStatus, callResponse);
 		}
 
 		return OK();

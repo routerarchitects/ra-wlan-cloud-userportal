@@ -101,10 +101,10 @@ namespace OpenWifi::SDK::Prov {
 		}
 
 		bool DeleteSubscriberDevice(RESTAPIHandler *client, const std::string &SerialNumber,
-									Poco::Net::HTTPServerResponse::HTTPStatus &CallStatus) {
+									Poco::Net::HTTPServerResponse::HTTPStatus &CallStatus, Poco::JSON::Object::Ptr &CallResponse) {
 			std::string EndPoint = "/api/v1/subscriberDevice/" + SerialNumber;
 			auto API = OpenAPIRequestDelete(uSERVICE_PROVISIONING, EndPoint, {}, 60000);
-			CallStatus = API.Do(client ? client->UserInfo_.webtoken.access_token_ : "");
+			CallStatus = API.Do(CallResponse, client ? client->UserInfo_.webtoken.access_token_ : "");
 			if (CallStatus != Poco::Net::HTTPResponse::HTTP_OK) {
 				Poco::Logger::get("SDK_prov").error(fmt::format("Failed to delete device [{}] from provisioning subdevice table ", SerialNumber));
 			}

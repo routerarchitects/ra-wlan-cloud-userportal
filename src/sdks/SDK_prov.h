@@ -37,8 +37,8 @@ namespace OpenWifi::SDK::Prov {
 			const std::string &subscriberId, const std::string &operatorId, const std::string &deviceGroup,
 			const ProvObjects::DeviceConfigurationElementVec &configuration,
 			ProvObjects::SubscriberDevice &device);
-		bool DeleteSubscriberDevice(RESTAPIHandler *client, const std::string &SerialNumber,
-									Poco::Net::HTTPServerResponse::HTTPStatus &CallStatus);
+		bool DeleteSubscriberDevice(RESTAPIHandler *client, const std::string &SerialNumber, Poco::Net::HTTPServerResponse::HTTPStatus &CallStatus,
+									Poco::JSON::Object::Ptr &CallResponse);
 	} // namespace Subscriber
 
 } // namespace OpenWifi::SDK::Prov

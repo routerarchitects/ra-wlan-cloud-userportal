@@ -79,7 +79,7 @@ namespace OpenWifi {
 									  const std::string &LoggingStr = "")
 			: Type_(Type), EndPoint_(EndPoint), QueryData_(QueryData), msTimeout_(msTimeout),
 			  LoggingStr_(LoggingStr){};
-		Poco::Net::HTTPServerResponse::HTTPStatus Do(const std::string &BearerToken = "");
+		Poco::Net::HTTPServerResponse::HTTPStatus Do(Poco::JSON::Object::Ptr &ResponseObject, const std::string &BearerToken = "");
 
 	  private:
 		std::string Type_;

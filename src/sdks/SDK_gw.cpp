@@ -671,7 +671,7 @@ namespace OpenWifi::SDK::GW {
 			}
 
 			ResponseStatus = Poco::Net::HTTPResponse::HTTP_OK;
-			Response = gatewayResponse ? gatewayResponse : Poco::makeShared<Poco::JSON::Object>();
+			Response = Poco::makeShared<Poco::JSON::Object>();
 
 			if (!Body->has("ssid") || SubscriberDevices.subscriberDevices.size() <= 1) {
 				return true;
