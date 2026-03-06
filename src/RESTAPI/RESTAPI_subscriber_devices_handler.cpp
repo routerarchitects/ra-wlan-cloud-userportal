@@ -68,6 +68,27 @@ namespace OpenWifi {
 				return true;
 			}
 		}
+
+		Poco::Net::HTTPServerResponse::HTTPStatus callStatus =
+			Poco::Net::HTTPServerResponse::HTTP_INTERNAL_SERVER_ERROR;
+		auto callResponse = Poco::makeShared<Poco::JSON::Object>();
+		ProvObjects::SubscriberDevice existingDevice;
+		if (SDK::Prov::Subscriber::GetDevice(this, ctx.Mac, existingDevice, callStatus, callResponse)) {
+			Logger().warning(fmt::format(
+				"Device [{}] is already provisioned for subscriber [{}].", ctx.Mac,
+				existingDevice.subscriberId));
+			BadRequest(RESTAPI::Errors::SerialNumberAlreadyProvisioned);
+			return true;
+		}
+
+		if (callStatus != Poco::Net::HTTPServerResponse::HTTP_NOT_FOUND) {
+			Logger().error(
+				fmt::format("Failed to validate existing provisioning record for device [{}], "
+							"status [{}].",
+							ctx.Mac, static_cast<int>(callStatus)));
+			ForwardErrorResponse(this, callStatus, callResponse);
+			return true;
+		}
 		return false;
 	}
 
@@ -99,7 +120,7 @@ namespace OpenWifi {
 		if (!SDK::GW::Device::GetConfig(nullptr, ctx.Mac, responseStatus, ConfigObj)) {
 			Logger().error(
 				fmt::format("Failed to fetch current configuration for device [{}].", ctx.Mac));
-			InternalError(RESTAPI::Errors::ApplyConfigFailed);
+			ForwardErrorResponse(this, responseStatus, ConfigObj);
 			return false;
 		}
 
@@ -167,12 +188,15 @@ namespace OpenWifi {
 
 	bool RESTAPI_subscriber_devices_handler::CreateProvisioningRecord(
 		AddDeviceContext &ctx) {
+		Poco::Net::HTTPServerResponse::HTTPStatus callStatus =
+			Poco::Net::HTTPServerResponse::HTTP_INTERNAL_SERVER_ERROR;
+		auto callResponse = Poco::makeShared<Poco::JSON::Object>();
 		if (!SDK::Prov::Subscriber::CreateSubsciberDevice(
 				this, ctx.DeviceName, ctx.Mac, UserInfo_.userinfo.id, UserInfo_.userinfo.owner, ctx.DeviceGroup,
-				ctx.SubDevice.configuration, ctx.SubDevice)) {
+				ctx.SubDevice.configuration, ctx.SubDevice, callStatus, callResponse)) {
 			Logger().error(fmt::format(
 				"Failed to create subscriberDevice for serial [{}] in provisioning.", ctx.Mac));
-			InternalError(RESTAPI::Errors::RecordNotCreated);
+			ForwardErrorResponse(this, callStatus, callResponse);
 			return false;
 		}
 		return true;

@@ -77,11 +77,31 @@ namespace OpenWifi::SDK::Prov {
 			return false;
 		}
 
+		bool GetDevice(RESTAPIHandler *client, const std::string &SerialNumber,
+					   ProvObjects::SubscriberDevice &device,
+					   Poco::Net::HTTPServerResponse::HTTPStatus &CallStatus,
+					   Poco::JSON::Object::Ptr &CallResponse) {
+			std::string EndPoint = "/api/v1/subscriberDevice/" + SerialNumber;
+			auto API = OpenAPIRequestGet(uSERVICE_PROVISIONING, EndPoint, {}, 60000);
+			CallStatus = API.Do(
+				CallResponse, client == nullptr ? "" : client->UserInfo_.webtoken.access_token_);
+			if (CallStatus == Poco::Net::HTTPServerResponse::HTTP_OK) {
+				try {
+					return device.from_json(CallResponse);
+				} catch (...) {
+					return false;
+				}
+			}
+			return false;
+		}
+
 		bool CreateSubsciberDevice(
 			RESTAPIHandler *client, const std::string &name, const std::string &serialNumber,
 			const std::string &subscriberId, const std::string &operatorId, const std::string &deviceGroup,
 			const ProvObjects::DeviceConfigurationElementVec &configuration,
-			ProvObjects::SubscriberDevice &device) {
+			ProvObjects::SubscriberDevice &device,
+			Poco::Net::HTTPServerResponse::HTTPStatus &CallStatus,
+			Poco::JSON::Object::Ptr &CallResponse) {
 			std::string EndPoint = "/api/v1/subscriberDevice/0";
 			Poco::JSON::Object Body;
 			Body.set("name", name);
@@ -91,10 +111,9 @@ namespace OpenWifi::SDK::Prov {
 			Body.set("deviceGroup", deviceGroup);
 			RESTAPI_utils::field_to_json(Body, "configuration", configuration);
 			auto API = OpenAPIRequestPost(uSERVICE_PROVISIONING, EndPoint, {}, Body, 120000);
-			auto CallResponse = Poco::makeShared<Poco::JSON::Object>();
-			auto ResponseStatus =
+			CallStatus =
 				API.Do(CallResponse, client == nullptr ? "" : client->UserInfo_.webtoken.access_token_);
-			if (ResponseStatus != Poco::Net::HTTPResponse::HTTP_OK) {
+			if (CallStatus != Poco::Net::HTTPResponse::HTTP_OK) {
 				return false;
 			}
 			return device.from_json(CallResponse);
