@@ -7,8 +7,11 @@
 //
 // Created by stephane bourque on 2022-01-11.
 //
+#include <algorithm>
 #include <regex>
+#include <sstream>
 #include "framework/RESTAPI_Handler.h"
+#include "RESTAPI/RESTAPI_topology_handler.h"
 
 #include "ConfigMaker.h"
 #include "SDK_gw.h"
@@ -17,19 +20,37 @@
 #include "framework/utils.h"
 
 namespace OpenWifi::SDK::GW {
+	namespace {
+		bool ExecuteGatewayCommand(RESTAPIHandler *client, const std::string &endPoint,
+								   Poco::JSON::Object &commandRequest,
+								   Poco::Net::HTTPResponse::HTTPStatus &responseStatus,
+								   Poco::JSON::Object::Ptr &response) {
+			auto API = OpenAPIRequestPost(uSERVICE_GATEWAY, endPoint, {}, commandRequest, 60000);
+			Poco::JSON::Object::Ptr callResponse;
+			responseStatus =
+				API.Do(callResponse, client ? client->UserInfo_.webtoken.access_token_ : "");
+			response = callResponse ? callResponse : Poco::makeShared<Poco::JSON::Object>();
+			return responseStatus == Poco::Net::HTTPServerResponse::HTTP_OK;
+		}
+	} // namespace
+
 	namespace Device {
-		void Reboot(RESTAPIHandler *client, const std::string &Mac,
-					[[maybe_unused]] uint64_t When) {
+		bool Reboot(RESTAPIHandler *client, const std::string &Mac,
+					[[maybe_unused]] uint64_t When,
+					Poco::Net::HTTPResponse::HTTPStatus &ResponseStatus,
+					Poco::JSON::Object::Ptr &Response) {
 			std::string EndPoint = "/api/v1/device/" + Mac + "/reboot";
 			Poco::JSON::Object ObjRequest;
 
 			ObjRequest.set("serialNumber", Mac);
 			ObjRequest.set("when", 0);
-			PerformCommand(client, "reboot", EndPoint, ObjRequest);
+			return ExecuteGatewayCommand(client, EndPoint, ObjRequest, ResponseStatus, Response);
 		}
 
-		void LEDs(RESTAPIHandler *client, const std::string &Mac, uint64_t When, uint64_t Duration,
-				  const std::string &Pattern) {
+		bool LEDs(RESTAPIHandler *client, const std::string &Mac, uint64_t When, uint64_t Duration,
+				  const std::string &Pattern,
+				  Poco::Net::HTTPResponse::HTTPStatus &ResponseStatus,
+				  Poco::JSON::Object::Ptr &Response) {
 			std::string EndPoint = "/api/v1/device/" + Mac + "/leds";
 			Poco::JSON::Object ObjRequest;
 
@@ -37,91 +58,33 @@ namespace OpenWifi::SDK::GW {
 			ObjRequest.set("when", When);
 			ObjRequest.set("duration", Duration);
 			ObjRequest.set("pattern", Pattern);
-			PerformCommand(client, "leds", EndPoint, ObjRequest);
+			return ExecuteGatewayCommand(client, EndPoint, ObjRequest, ResponseStatus, Response);
 		}
 
-		void Factory(RESTAPIHandler *client, const std::string &Mac, uint64_t When,
-					 bool KeepRedirector) {
+		bool Factory(RESTAPIHandler *client, const std::string &Mac, uint64_t When,
+					 bool KeepRedirector,
+					 Poco::Net::HTTPResponse::HTTPStatus &ResponseStatus,
+					 Poco::JSON::Object::Ptr &Response) {
 			std::string EndPoint = "/api/v1/device/" + Mac + "/factory";
 			Poco::JSON::Object ObjRequest;
 
 			ObjRequest.set("serialNumber", Mac);
 			ObjRequest.set("when", When);
 			ObjRequest.set("keepRedirector", KeepRedirector);
-			PerformCommand(client, "factory", EndPoint, ObjRequest);
+			return ExecuteGatewayCommand(client, EndPoint, ObjRequest, ResponseStatus, Response);
 		}
 
-		void Upgrade(RESTAPIHandler *client, const std::string &Mac, uint64_t When,
-					 const std::string &ImageName, [[maybe_unused]] bool KeepRedirector) {
+		bool Upgrade(RESTAPIHandler *client, const std::string &Mac, uint64_t When,
+					 const std::string &ImageName, [[maybe_unused]] bool KeepRedirector,
+					 Poco::Net::HTTPResponse::HTTPStatus &ResponseStatus,
+					 Poco::JSON::Object::Ptr &Response) {
 			std::string EndPoint = "/api/v1/device/" + Mac + "/upgrade";
 			Poco::JSON::Object ObjRequest;
 
 			ObjRequest.set("serialNumber", Mac);
 			ObjRequest.set("when", When);
 			ObjRequest.set("uri", ImageName);
-			PerformCommand(client, "upgrade", EndPoint, ObjRequest);
-		}
-
-		void PerformCommand(RESTAPIHandler *client, const std::string &Command,
-							const std::string &EndPoint, Poco::JSON::Object &CommandRequest) {
-			auto API = OpenAPIRequestPost(uSERVICE_GATEWAY, EndPoint, {}, CommandRequest, 60000);
-			Poco::JSON::Object::Ptr CallResponse;
-
-			auto ResponseStatus = API.Do(CallResponse, client ? client->UserInfo_.webtoken.access_token_ : "");
-			if (client == nullptr) {
-				return;
-			}
-			if (ResponseStatus == Poco::Net::HTTPServerResponse::HTTP_GATEWAY_TIMEOUT) {
-				Poco::JSON::Object ResponseObject;
-				ResponseObject.set("Code", Poco::Net::HTTPServerResponse::HTTP_GATEWAY_TIMEOUT);
-				ResponseObject.set(
-					"Details",
-					"Command could not complete, you may want to retry this operation later.");
-				ResponseObject.set("Operation", Command);
-				client->Response->setStatus(ResponseStatus);
-				std::stringstream SS;
-				Poco::JSON::Stringifier::condense(ResponseObject, SS);
-				client->Response->setContentLength(SS.str().size());
-				client->Response->setContentType("application/json");
-				auto &os = client->Response->send();
-				os << SS.str();
-			} else {
-				client->Response->setStatus(ResponseStatus);
-				std::stringstream SS;
-				Poco::JSON::Stringifier::condense(CallResponse, SS);
-				Poco::JSON::Parser P;
-				auto Raw = P.parse(SS.str()).extract<Poco::JSON::Object::Ptr>();
-				if (Raw->has("command") && Raw->has("errorCode") && Raw->has("errorText")) {
-					Poco::JSON::Object ReturnResponse;
-					ReturnResponse.set("Operation", Raw->get("command").toString());
-					ReturnResponse.set("Details", Raw->get("errorText").toString());
-					ReturnResponse.set("Code", Raw->get("errorCode"));
-
-					std::stringstream Ret;
-					Poco::JSON::Stringifier::condense(ReturnResponse, Ret);
-					client->Response->setContentLength(Ret.str().size());
-					client->Response->setContentType("application/json");
-					auto &os = client->Response->send();
-					os << Ret.str();
-				}
-			}
-		}
-
-		bool SetVenue(RESTAPIHandler *client, const std::string &SerialNumber,
-					  const std::string &uuid) {
-			Poco::JSON::Object Body;
-
-			Body.set("serialNumber", SerialNumber);
-			Body.set("venue", uuid);
-			OpenWifi::OpenAPIRequestPut R(OpenWifi::uSERVICE_GATEWAY,
-										  "/api/v1/device/" + SerialNumber, {}, Body, 10000);
-			Poco::JSON::Object::Ptr Response;
-			auto ResponseStatus =
-				R.Do(Response, client ? client->UserInfo_.webtoken.access_token_ : "");
-			if (ResponseStatus == Poco::Net::HTTPResponse::HTTP_OK) {
-				return true;
-			}
-			return false;
+			return ExecuteGatewayCommand(client, EndPoint, ObjRequest, ResponseStatus, Response);
 		}
 
 		bool GetLastStats(RESTAPIHandler *client, const std::string &Mac,
@@ -141,26 +104,28 @@ namespace OpenWifi::SDK::GW {
 			return false;
 		}
 
-	    Poco::Net::HTTPResponse::HTTPStatus GetConfig(RESTAPIHandler *client, const std::string &Mac,
-                                           Poco::JSON::Object::Ptr &Response) {
-            std::string EndPoint = "/api/v1/device/" + Mac;
-            auto API = OpenAPIRequestGet(uSERVICE_GATEWAY, EndPoint, {}, 1000);
-            auto ResponseStatus =
-                API.Do(Response, client == nullptr ? "" : client->UserInfo_.webtoken.access_token_);
-            if (ResponseStatus != Poco::Net::HTTPServerResponse::HTTP_OK) {
-                Poco::Logger::get("SDK_gw").error(fmt::format(
-                    "GetConfig: Could not get configuration from controller for device id {}. "
-                    "Status={}",
-                    Mac, int(ResponseStatus)));
-                return ResponseStatus;
-            }
-            if (!Response || !Response->has("configuration")) {
-                Poco::Logger::get("SDK_gw").error(fmt::format(
-                    "GetConfig: Could not get configuration from controller for device id {}.", Mac));
-                return ResponseStatus;
-            }
-			return Poco::Net::HTTPServerResponse::HTTP_OK;
-        }
+		bool GetConfig(RESTAPIHandler *client, const std::string &Mac,
+					   Poco::Net::HTTPResponse::HTTPStatus &ResponseStatus,
+					   Poco::JSON::Object::Ptr &Response) {
+			std::string EndPoint = "/api/v1/device/" + Mac;
+			auto API = OpenAPIRequestGet(uSERVICE_GATEWAY, EndPoint, {}, 1000);
+			ResponseStatus =
+				API.Do(Response, client == nullptr ? "" : client->UserInfo_.webtoken.access_token_);
+			if (ResponseStatus != Poco::Net::HTTPServerResponse::HTTP_OK) {
+				Poco::Logger::get("SDK_gw").error(fmt::format(
+					"GetConfig: Could not get configuration from controller for device id {}. "
+					"Status={}",
+					Mac, int(ResponseStatus)));
+				return false;
+			}
+			if (!Response || !Response->has("configuration")) {
+				Poco::Logger::get("SDK_gw").error(fmt::format(
+					"GetConfig: Could not get configuration from controller for device id {}.", Mac));
+				return false;
+			}
+			return true;
+		}
+
 		/*
 			Example of valid configuration format:
 			{
@@ -247,11 +212,11 @@ namespace OpenWifi::SDK::GW {
 		*/
 
 		bool Configure(RESTAPIHandler *client, const std::string &Mac,
-					   Poco::JSON::Object::Ptr &Configuration, Poco::JSON::Object::Ptr &Response) {
+					   Poco::JSON::Object::Ptr &Configuration,
+					   Poco::Net::HTTPResponse::HTTPStatus &ResponseStatus,
+					   Poco::JSON::Object::Ptr &Response) {
 
 			Poco::JSON::Object Body;
-
-			Poco::JSON::Parser P;
 			uint64_t Now = Utils::Now();
 
 			Configuration->set("uuid", Now);
@@ -263,8 +228,7 @@ namespace OpenWifi::SDK::GW {
 			OpenWifi::OpenAPIRequestPost R(OpenWifi::uSERVICE_GATEWAY,
 										   "/api/v1/device/" + Mac + "/configure", {}, Body, 90000);
 
-			auto ResponseStatus =
-				R.Do(Response, client ? client->UserInfo_.webtoken.access_token_ : "");
+			ResponseStatus = R.Do(Response, client ? client->UserInfo_.webtoken.access_token_ : "");
 			if (ResponseStatus == Poco::Net::HTTPResponse::HTTP_OK) {
 				std::ostringstream os;
 				Poco::JSON::Stringifier::stringify(Response, os);
@@ -337,30 +301,51 @@ namespace OpenWifi::SDK::GW {
 				]
 				}
         */
-		// Validate SSID & password using helper functions validateSsid() & validatePassword()
-		static bool validateSsid(RESTAPIHandler *client, std::string &ssid) {
-			Poco::trimInPlace(ssid); // trim spaces around the SSID
-			static const std::regex Ssid_Regex(R"(^[A-Za-z0-9._ \-]{1,32}$)");
-			if (!std::regex_match(ssid, Ssid_Regex)) {
-				Poco::Logger::get("Configure").error(fmt::format("Invalid SSID ({}). Allowed: 1 to 32 chars (letters, numbers, dot, underscore, hyphen, space).", ssid));
-				client->BadRequest(RESTAPI::Errors::SSIDInvalidName);
-				return false;
+		static bool SetErrorResponse(
+			Poco::Net::HTTPResponse::HTTPStatus status, const OpenWifi::RESTAPI::Errors::msg &error,
+			Poco::Net::HTTPResponse::HTTPStatus &responseStatus, Poco::JSON::Object::Ptr &response,
+			const std::string &extra = "") {
+			responseStatus = status;
+			response = Poco::makeShared<Poco::JSON::Object>();
+			response->set("ErrorCode", static_cast<uint32_t>(status));
+			if (extra.empty()) {
+				response->set("ErrorDescription", fmt::format("{}: {}", error.err_num, error.err_txt));
+			} else {
+				response->set("ErrorDescription",
+							  fmt::format("{}: {} ({})", error.err_num, error.err_txt, extra));
+			}
+			return false;
+		}
+
+		static bool ValidateSsidName(
+			std::string &ssid, Poco::Net::HTTPResponse::HTTPStatus &responseStatus,
+			Poco::JSON::Object::Ptr &response) {
+			Poco::trimInPlace(ssid);
+			static const std::regex kSsidRegex(R"(^[A-Za-z0-9._ \-]{1,32}$)");
+			if (!std::regex_match(ssid, kSsidRegex)) {
+				Poco::Logger::get("Configure")
+					.error(fmt::format("Invalid SSID [{}].", ssid));
+				return SetErrorResponse(Poco::Net::HTTPResponse::HTTP_BAD_REQUEST,
+										RESTAPI::Errors::SSIDInvalidName, responseStatus, response);
 			}
 			return true;
 		}
 
-		static bool validatePassword(RESTAPIHandler *client, const std::string &password) {
-			static const std::regex Pass_Regex(R"(^\S{8,32}$)");
-			if (!std::regex_match(password, Pass_Regex)) {
-				Poco::Logger::get("Configure").error("Invalid password. Must be 8 to 32 characters without spaces.");
-				client->BadRequest(RESTAPI::Errors::SSIDInvalidPassword);
-				return false;
+		static bool ValidateSsidPassword(
+			const std::string &password, Poco::Net::HTTPResponse::HTTPStatus &responseStatus,
+			Poco::JSON::Object::Ptr &response) {
+			static const std::regex kPasswordRegex(R"(^\S{8,32}$)");
+			if (!std::regex_match(password, kPasswordRegex)) {
+				Poco::Logger::get("Configure")
+					.error("Invalid SSID password. Must be 8-32 chars without spaces.");
+				return SetErrorResponse(Poco::Net::HTTPResponse::HTTP_BAD_REQUEST,
+										RESTAPI::Errors::SSIDInvalidPassword, responseStatus, response);
 			}
 			return true;
 		}
 
 		/*
-			SetInterfacesSsids():
+			ApplySsidOverrides():
 			1. Read Body["ssid"] and extract required fields "name" and "password".
 			2. Validate SSID name and password format.
 			3. For each interface in Config["interfaces"], update non-mesh SSID entries:
@@ -368,149 +353,105 @@ namespace OpenWifi::SDK::GW {
 			   - ssid["encryption"]["key"] = requested password
 			4. Return success if at least one SSID was updated; otherwise return error.
 		*/
-		static bool SetInterfacesSsids(RESTAPIHandler *client, Poco::JSON::Object::Ptr &Config, const std::string &SerialNumber, const Poco::JSON::Object::Ptr &Body) {
-			std::string override_ssid{};
-			std::string override_password{};
-
-			/*
-			  Request body shape:
-				"ssid": {
-					"name": " SSID_Name",
-					"password": "SSID_Password"
-				}
-			*/
-
-			auto ssidObj = Body->getObject("ssid");
-			if (!ssidObj) {
-				client->BadRequest(RESTAPI::Errors::MissingOrInvalidParameters);
-				return false;
+		static bool ApplySsidOverrides(
+			Poco::JSON::Object::Ptr &Config, const std::string &SerialNumber,
+			const Poco::JSON::Object::Ptr &Body,
+			Poco::Net::HTTPResponse::HTTPStatus &responseStatus,
+			Poco::JSON::Object::Ptr &response) {
+			if (!Config || !Body || !Body->has("ssid") || !Body->isObject("ssid")) {
+				return SetErrorResponse(Poco::Net::HTTPResponse::HTTP_BAD_REQUEST,
+										RESTAPI::Errors::MissingOrInvalidParameters, responseStatus,
+										response);
 			}
 
-			if (!ssidObj->has("name") || !ssidObj->has("password")) {
-				client->BadRequest(RESTAPI::Errors::MissingOrInvalidParameters);
+			std::string overrideSsid;
+			std::string overridePassword;
+			try {
+				auto ssidObj = Body->getObject("ssid");
+				if (!ssidObj || !ssidObj->has("name") || !ssidObj->has("password")) {
+					return SetErrorResponse(Poco::Net::HTTPResponse::HTTP_BAD_REQUEST,
+											RESTAPI::Errors::MissingOrInvalidParameters, responseStatus,
+											response);
+				}
+				overrideSsid = ssidObj->getValue<std::string>("name");
+				overridePassword = ssidObj->getValue<std::string>("password");
+			} catch (...) {
+				return SetErrorResponse(Poco::Net::HTTPResponse::HTTP_BAD_REQUEST,
+										RESTAPI::Errors::MissingOrInvalidParameters, responseStatus,
+										response);
+			}
+
+			Poco::trimInPlace(overrideSsid);
+			Poco::trimInPlace(overridePassword);
+			if (overrideSsid.empty() || overridePassword.empty()) {
+				return SetErrorResponse(Poco::Net::HTTPResponse::HTTP_BAD_REQUEST,
+										RESTAPI::Errors::MissingOrInvalidParameters, responseStatus,
+										response);
+			}
+
+			if (!ValidateSsidName(overrideSsid, responseStatus, response) ||
+				!ValidateSsidPassword(overridePassword, responseStatus, response)) {
 				return false;
 			}
 
 			try {
-				override_ssid = ssidObj->getValue<std::string>("name");
-				override_password = ssidObj->getValue<std::string>("password");
-			} catch (...) {
-				client->BadRequest(RESTAPI::Errors::MissingOrInvalidParameters);
-				return false;
-			}
-
-			Poco::trimInPlace(override_ssid);
-			Poco::trimInPlace(override_password);
-			if (override_ssid.empty() || override_password.empty()) {
-				client->BadRequest(RESTAPI::Errors::MissingOrInvalidParameters);
-				return false;
-			}
-
-			if (!validateSsid(client, override_ssid) || !validatePassword(client, override_password)) {
-				return false;
-			}
-			if (Config) {
-				Poco::Logger::get("Configure").information(
-					fmt::format("Applying SSID/Password overrides to device {}.", SerialNumber));
-				try {
-					auto interfaces = Config->getArray("interfaces");
-					if (!interfaces || interfaces->size() == 0) {
-						Poco::Logger::get("Configure").error(fmt::format("Missing or empty 'interfaces' for device {}.", SerialNumber));
-						client->InternalError(RESTAPI::Errors::InternalError);
-						return false;
-					}
-					bool iface_ssids = false; // used a flag to ensure at least one SSID is found
-					for (std::size_t i = 0; i < interfaces->size(); ++i) {
-						auto iface = interfaces->getObject(i);
-						auto ssids = iface->getArray("ssids");
-						if (!ssids || ssids->size() == 0) // skip the interface being checked if no SSIDs is found
-							continue; // eg: if WAN has no ssid but LAN has some
-						iface_ssids = true;
-						for (std::size_t j = 0; j < ssids->size(); ++j) {
-							auto ssid = ssids->getObject(j);
-							if (ssid->has("bss-mode") && ssid->getValue<std::string>("bss-mode") == "mesh") {
-								continue; //skipping ssid if bss-mode is mesh
-							}
-							auto encrypt = ssid->getObject("encryption");
-							if (!encrypt || encrypt->size() == 0) {
-								Poco::Logger::get("Configure").error(fmt::format("Missing or invalid 'encryption' for device {}.", SerialNumber));
-								client->InternalError(RESTAPI::Errors::InternalError);
-								return false;
-							}
-							ssid->set("name", override_ssid);
-							Poco::Logger::get("Configure").information(fmt::format("Applied New SSID: [{}] on device {}.", override_ssid, SerialNumber));
-							encrypt->set("key", override_password);
-							Poco::Logger::get("Configure").information(fmt::format("Applied New Password for SSID: [{}] on device {}.", override_ssid, SerialNumber));
-						}
-					}
-					Poco::Logger::get("Configure").information(fmt::format("SSID/Password overrides applied to device {}.", SerialNumber));
-					if (!iface_ssids) {
-						Poco::Logger::get("Configure").error(fmt::format("No SSID configuration found for device {}.", SerialNumber));
-						client->InternalError(RESTAPI::Errors::InternalError);
-						return false;
-					}
-				} catch (const std::exception &ex) {
-					Poco::Logger::get("Configure").error(fmt::format("SetInterfaceSsid: exception for device {}: {}", SerialNumber, ex.what()));
-					client->InternalError(RESTAPI::Errors::InternalError);
-					return false;
+				auto interfaces = Config->getArray("interfaces");
+				if (!interfaces || interfaces->size() == 0) {
+					return SetErrorResponse(Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR,
+											RESTAPI::Errors::InternalError, responseStatus, response);
 				}
+
+				bool hasSsidEntries = false;
+				for (std::size_t i = 0; i < interfaces->size(); ++i) {
+					auto iface = interfaces->getObject(i);
+					if (!iface || !iface->has("ssids") || !iface->isArray("ssids")) {
+						continue;
+					}
+					auto ssids = iface->getArray("ssids");
+					if (!ssids || ssids->size() == 0) {
+						continue;
+					}
+					hasSsidEntries = true;
+
+					for (std::size_t j = 0; j < ssids->size(); ++j) {
+						auto ssid = ssids->getObject(j);
+						if (!ssid) {
+							continue;
+						}
+						if (ssid->has("bss-mode") && ssid->get("bss-mode").isString() &&
+							ssid->getValue<std::string>("bss-mode") == "mesh") {
+							continue;
+						}
+						if (!ssid->has("encryption") || !ssid->isObject("encryption")) {
+							return SetErrorResponse(Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR,
+													RESTAPI::Errors::InternalError, responseStatus,
+													response);
+						}
+						auto encryption = ssid->getObject("encryption");
+						if (!encryption) {
+							return SetErrorResponse(Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR,
+													RESTAPI::Errors::InternalError, responseStatus,
+													response);
+						}
+						ssid->set("name", overrideSsid);
+						encryption->set("key", overridePassword);
+					}
+				}
+
+				if (!hasSsidEntries) {
+					Poco::Logger::get("Configure")
+						.error(fmt::format("No SSID entries available for device {}.", SerialNumber));
+					return SetErrorResponse(Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR,
+											RESTAPI::Errors::InternalError, responseStatus, response);
+				}
+			} catch (const std::exception &ex) {
+				Poco::Logger::get("Configure")
+					.error(fmt::format("ApplySsidOverrides failed for device {}: {}",
+									   SerialNumber, ex.what()));
+				return SetErrorResponse(Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR,
+										RESTAPI::Errors::InternalError, responseStatus, response);
 			}
 			return true;
-		}
-
-		/*
-			GetBlockedClients():
-			1. Read Config["config-raw"] (if missing/empty, return an empty list).
-			2. Walk firewall rule blocks (started by ["add","firewall","rule"]).
-			3. Detect our block-clients rule by name "Block_Clients".
-			4. Collect all src_mac entries from that rule into blockedMacs (normalized).
-		*/
-		static void GetBlockedClients(const Poco::JSON::Object::Ptr &Config, std::list<std::string> &blockedMacs) {
-			Poco::Logger::get("SDK_gw").debug("Reading blocked client MACs from config-raw.");
-			blockedMacs.clear();
-
-			auto configRaw = Config->getArray("config-raw");
-			if (!configRaw || configRaw->size() == 0)
-			return;
-
-			bool inFirewallRule = false;
-			bool isBlockRule = false;
-
-			for (std::size_t i = 0; i < configRaw->size(); ++i) {
-				try {
-					auto cmd = configRaw->getArray(i);
-					if (!cmd || cmd->size() != 3)
-						continue;
-
-					auto op = cmd->getElement<std::string>(0);
-					auto key = cmd->getElement<std::string>(1);
-					auto val = cmd->getElement<std::string>(2);
-
-					if (op == "add" && key == "firewall" && val == "rule") {
-						inFirewallRule = true;
-						isBlockRule = false;
-						continue;
-					}
-
-					if (!inFirewallRule)
-						continue;
-
-					if (op == "set" && key == "firewall.@rule[-1].name") {
-						isBlockRule = (val == "Block_Clients");
-						continue;
-					}
-
-					if (isBlockRule && op == "add_list" && key == "firewall.@rule[-1].src_mac") {
-						std::string mac = val;
-						if (Utils::NormalizeMac(mac)) {
-							blockedMacs.push_back(mac);
-							Poco::Logger::get("SDK_gw").debug(fmt::format("Blocked client MAC found: {}", Utils::SerialToMAC(mac)));
-						}
-					}
-				} catch (...) {
-					continue;
-				}
-			}
 		}
 
 		/*
@@ -518,12 +459,23 @@ namespace OpenWifi::SDK::GW {
 			1. Build a single config-raw command array with 3 elements: [op, path, value].
 			2. Return it so callers can append it into a config-raw list.
 		*/
-		static Poco::JSON::Array::Ptr MakeConfigRawCmd(const std::string &op, const std::string &path, const std::string &value) {
+		static Poco::JSON::Array::Ptr BuildConfigRawCommand(const std::string &op,
+															const std::string &path,
+															const std::string &value) {
 			auto cmd = Poco::makeShared<Poco::JSON::Array>();
 			cmd->add(op);
 			cmd->add(path);
 			cmd->add(value);
 			return cmd;
+		}
+
+		static std::string SerializeJson(const Poco::JSON::Object::Ptr &object) {
+			if (!object) {
+				return {};
+			}
+			std::ostringstream os;
+			Poco::JSON::Stringifier::condense(object, os);
+			return os.str();
 		}
 
 		/*
@@ -532,49 +484,66 @@ namespace OpenWifi::SDK::GW {
 			2. Add one src_mac entry per blocked MAC (from blockedMacsNorm).
 			3. Return the constructed config-raw array so it can be saved into Config["config-raw"].
 		*/
-		static Poco::JSON::Array::Ptr MakeBlockRuleRaw(const std::list<std::string> &blockedMacsNorm) {
+		static Poco::JSON::Array::Ptr BuildBlockClientsRule(
+			const std::list<std::string> &blockedMacsNorm) {
 			auto raw = Poco::makeShared<Poco::JSON::Array>();
 
-			raw->add(MakeConfigRawCmd("add", "firewall", "rule"));
-			raw->add(MakeConfigRawCmd("set", "firewall.@rule[-1].name", "Block_Clients"));
-			raw->add(MakeConfigRawCmd("set", "firewall.@rule[-1].src", "down1v0"));
-			raw->add(MakeConfigRawCmd("set", "firewall.@rule[-1].dest", "up0v0"));
+			raw->add(BuildConfigRawCommand("add", "firewall", "rule"));
+			raw->add(BuildConfigRawCommand("set", "firewall.@rule[-1].name", "Block_Clients"));
+			raw->add(BuildConfigRawCommand("set", "firewall.@rule[-1].src", "down1v0"));
+			raw->add(BuildConfigRawCommand("set", "firewall.@rule[-1].dest", "up0v0"));
 
 			for (const auto &macNorm : blockedMacsNorm) {
-				raw->add(MakeConfigRawCmd("add_list", "firewall.@rule[-1].src_mac", Utils::SerialToMAC(macNorm)));
+				raw->add(BuildConfigRawCommand("add_list", "firewall.@rule[-1].src_mac",
+											   Utils::SerialToMAC(macNorm)));
 			}
 
-			raw->add(MakeConfigRawCmd("set", "firewall.@rule[-1].family", "any"));
-			raw->add(MakeConfigRawCmd("set", "firewall.@rule[-1].proto", "all"));
-			raw->add(MakeConfigRawCmd("set", "firewall.@rule[-1].target", "REJECT"));
-			raw->add(MakeConfigRawCmd("set", "firewall.@rule[-1].enabled", "1"));
+			raw->add(BuildConfigRawCommand("set", "firewall.@rule[-1].family", "any"));
+			raw->add(BuildConfigRawCommand("set", "firewall.@rule[-1].proto", "all"));
+			raw->add(BuildConfigRawCommand("set", "firewall.@rule[-1].target", "REJECT"));
+			raw->add(BuildConfigRawCommand("set", "firewall.@rule[-1].enabled", "1"));
 
 			return raw;
 		}
 
 		/*
-			BlockClient():
+			ApplyClientAccessChanges():
 			1. Read and validate the request "client" array (each item needs "mac" + "access").
 			2. Normalize MAC addresses and validate access is either "allow" or "deny".
-			3. Parse current blocked client MACs from fetched config "config-raw" (Block_Clients rule).
-			4. Apply allow/deny updates to the blocked list.
-			5. Persist the updated blocked list back into Config["config-raw"] (or remove it if empty).
+			3. Load current blocked list from Config["config-raw"].
+			4. Apply request entries as a delta (deny adds, allow removes).
+			5. Remove existing Config["config-raw"] completely.
+			6. Write new block rule to Config["config-raw"] if blocked list is non-empty.
 		*/
-		static bool BlockClient(RESTAPIHandler *client, Poco::JSON::Object::Ptr &Config, const Poco::JSON::Object::Ptr &Body) {
-
-			// 1) Fetch client list
-			auto clientList = Body->getArray("client");
-			if (!clientList || clientList->size() == 0) {
-				client->BadRequest(RESTAPI::Errors::MissingOrInvalidParameters);
-				return false;
+		static bool ApplyClientAccessChanges(
+			Poco::JSON::Object::Ptr &Config, const Poco::JSON::Object::Ptr &Body,
+			Poco::Net::HTTPResponse::HTTPStatus &responseStatus,
+			Poco::JSON::Object::Ptr &response) {
+			if (!Config || !Body || !Body->has("client") || !Body->isArray("client")) {
+				return SetErrorResponse(Poco::Net::HTTPResponse::HTTP_BAD_REQUEST,
+										RESTAPI::Errors::MissingOrInvalidParameters, responseStatus,
+										response);
 			}
 
-			// 2) Validate request entries
+			auto clientList = Body->getArray("client");
+			if (!clientList || clientList->size() == 0) {
+				return SetErrorResponse(Poco::Net::HTTPResponse::HTTP_BAD_REQUEST,
+										RESTAPI::Errors::MissingOrInvalidParameters, responseStatus,
+										response);
+			}
+
+			std::list<std::string> blockedMacs;
+			if (!GetBlockedClients(Config, blockedMacs)) {
+				return SetErrorResponse(Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR,
+										RESTAPI::Errors::InternalError, responseStatus, response);
+			}
+
 			for (std::size_t i = 0; i < clientList->size(); ++i) {
 				auto entry = clientList->getObject(i);
 				if (!entry || !entry->has("mac") || !entry->has("access")) {
-					client->BadRequest(RESTAPI::Errors::MissingOrInvalidParameters);
-					return false;
+					return SetErrorResponse(Poco::Net::HTTPResponse::HTTP_BAD_REQUEST,
+											RESTAPI::Errors::MissingOrInvalidParameters, responseStatus,
+											response);
 				}
 
 				std::string mac;
@@ -583,80 +552,33 @@ namespace OpenWifi::SDK::GW {
 					mac = entry->getValue<std::string>("mac");
 					access = entry->getValue<std::string>("access");
 				} catch (...) {
-					client->BadRequest(RESTAPI::Errors::MissingOrInvalidParameters);
-					return false;
+					return SetErrorResponse(Poco::Net::HTTPResponse::HTTP_BAD_REQUEST,
+											RESTAPI::Errors::MissingOrInvalidParameters, responseStatus,
+											response);
 				}
-
 				Poco::trimInPlace(access);
 				Poco::toLowerInPlace(access);
-
-				if (!Utils::NormalizeMac(mac)) {
-					client->BadRequest(RESTAPI::Errors::MissingOrInvalidParameters);
-					return false;
+				if (!Utils::NormalizeMac(mac) || (access != "allow" && access != "deny")) {
+					return SetErrorResponse(Poco::Net::HTTPResponse::HTTP_BAD_REQUEST,
+											RESTAPI::Errors::MissingOrInvalidParameters, responseStatus,
+											response);
 				}
 
-				if (access != "allow" && access != "deny") {
-					client->BadRequest(RESTAPI::Errors::MissingOrInvalidParameters);
-					return false;
+				if (access == "deny") {
+					if (std::find(blockedMacs.begin(), blockedMacs.end(), mac) == blockedMacs.end()) {
+						blockedMacs.push_back(mac);
+					}
+				} else {
+					blockedMacs.remove(mac);
 				}
 			}
 
-			// 3) Read current blocked MACs from fetched config
-			std::list<std::string> blockedMacs;
-			GetBlockedClients(Config, blockedMacs);
-
-			// 4) Apply allow/deny updates
-			for (std::size_t i = 0; i < clientList->size(); ++i) {
-				auto requestedClient = clientList->getObject(i);
-
-				std::string requestedMac = requestedClient->getValue<std::string>("mac");
-				std::string requestedAccess = requestedClient->getValue<std::string>("access");
-
-				Poco::trimInPlace(requestedAccess);
-				Poco::toLowerInPlace(requestedAccess);
-
-				if (!Utils::NormalizeMac(requestedMac)) {
-					client->BadRequest(RESTAPI::Errors::MissingOrInvalidParameters);
-					return false;
-				}
-
-				bool alreadyBlocked = false;
-				for (const auto &blockedMac : blockedMacs) {
-					if (blockedMac == requestedMac) {
-						alreadyBlocked = true;
-						break;
-					}
-				}
-
-				if (requestedAccess == "deny") {
-					if (alreadyBlocked) {
-						Poco::Logger::get("SDK_gw").error(fmt::format("Client MAC {} is already blocked.", requestedMac));
-						client->BadRequest(RESTAPI::Errors::ClientAlreadyBlocked);
-						return false;
-					}
-					Poco::Logger::get("SDK_gw").information(fmt::format("Blocking client MAC: {}", requestedMac));
-					blockedMacs.push_back(requestedMac); // block it
-				} else { // access = allow
-					if (!alreadyBlocked) {
-						Poco::Logger::get("SDK_gw").error(fmt::format("Client MAC {} is not blocked.", requestedMac));
-						client->BadRequest(RESTAPI::Errors::ClientAlreadyUnblocked);
-						return false;
-					}
-					Poco::Logger::get("SDK_gw").information(fmt::format("Allowing client MAC: {}", requestedMac));
-					blockedMacs.remove(requestedMac); // unblock it
-				}
+			if (Config->has("config-raw")) {
+				Config->remove("config-raw");
 			}
-
-			// 5) Save updated blocked list back into config-raw
-			if (blockedMacs.empty()) {
-				Poco::Logger::get("SDK_gw").information("No blocked clients, removing config-raw.");
-				if (Config->has("config-raw"))
-					Config->remove("config-raw");
-			} else {
-				Poco::Logger::get("SDK_gw").information("Updating config-raw with blocked clients.");
-				Config->set("config-raw", MakeBlockRuleRaw(blockedMacs));
+			if (!blockedMacs.empty()) {
+				Config->set("config-raw", BuildBlockClientsRule(blockedMacs));
 			}
-
 			return true;
 		}
 
@@ -669,111 +591,118 @@ namespace OpenWifi::SDK::GW {
 			5. Send the updated config to the gateway device.
 			6. If mesh devices exist and SSID changes were requested, build mesh config and push it to each mesh device.
 		*/
-		bool SetConfig(RESTAPIHandler *client, const Poco::JSON::Object::Ptr &Body, const Poco::SharedPtr<SubObjects::SubscriberInfo> &SubInfo) {
+		static bool IsSameSerial(const std::string &lhs, const std::string &rhs) {
+			std::string normalizedLhs = lhs;
+			std::string normalizedRhs = rhs;
+			if (Utils::NormalizeMac(normalizedLhs) && Utils::NormalizeMac(normalizedRhs)) {
+				return normalizedLhs == normalizedRhs;
+			}
+			return lhs == rhs;
+		}
 
+		bool SetConfig(RESTAPIHandler *client, const Poco::JSON::Object::Ptr &Body,
+					   const ProvObjects::SubscriberDeviceList &SubscriberDevices,
+					   const std::string &GatewaySerial,
+					   Poco::Net::HTTPResponse::HTTPStatus &ResponseStatus,
+					   Poco::JSON::Object::Ptr &Response) {
 			if (!Body) {
-				client->BadRequest(RESTAPI::Errors::MissingOrInvalidParameters);
-				return false;
+				return SetErrorResponse(Poco::Net::HTTPResponse::HTTP_BAD_REQUEST,
+										RESTAPI::Errors::MissingOrInvalidParameters, ResponseStatus,
+										Response);
 			}
-
-			if (SubInfo->accessPoints.list.empty()) {
-				client->BadRequest(RESTAPI::Errors::SubNoDeviceActivated);
-				return false;
+			if (SubscriberDevices.subscriberDevices.empty()) {
+				return SetErrorResponse(Poco::Net::HTTPResponse::HTTP_BAD_REQUEST,
+										RESTAPI::Errors::SubNoDeviceActivated, ResponseStatus,
+										Response);
 			}
-
-			const auto &GatewaySerial = SubInfo->accessPoints.list.front().serialNumber;
 			if (GatewaySerial.empty()) {
-				client->BadRequest(RESTAPI::Errors::MissingSerialNumber);
+				return SetErrorResponse(Poco::Net::HTTPResponse::HTTP_BAD_REQUEST,
+										RESTAPI::Errors::MissingSerialNumber, ResponseStatus,
+										Response);
+			}
+
+			Poco::JSON::Object::Ptr deviceObj;
+			Poco::Net::HTTPResponse::HTTPStatus getStatus =
+				Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR;
+			if (!GetConfig(client, GatewaySerial, getStatus, deviceObj)) {
+				ResponseStatus = getStatus;
+				Response = deviceObj ? deviceObj : Poco::makeShared<Poco::JSON::Object>();
 				return false;
 			}
 
-			// 1) Fetch gateway config
-			Poco::JSON::Object::Ptr DeviceObj;
-			auto getStatus = GetConfig(client, GatewaySerial, DeviceObj);
-			if (getStatus != Poco::Net::HTTPServerResponse::HTTP_OK) {
-				client->ForwardErrorResponse(client, getStatus, DeviceObj);
+			if (!deviceObj || !deviceObj->has("configuration") || !deviceObj->isObject("configuration")) {
+				return SetErrorResponse(Poco::Net::HTTPResponse::HTTP_BAD_REQUEST,
+										RESTAPI::Errors::MissingOrInvalidParameters, ResponseStatus,
+										Response);
+			}
+			auto config = deviceObj->getObject("configuration");
+			if (!config) {
+				return SetErrorResponse(Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR,
+										RESTAPI::Errors::InternalError, ResponseStatus, Response);
+			}
+			const auto originalConfigSnapshot = SerializeJson(config);
+
+			if (Body->has("ssid") &&
+				!ApplySsidOverrides(config, GatewaySerial, Body, ResponseStatus, Response)) {
 				return false;
 			}
 
-			if (!DeviceObj || !DeviceObj->has("configuration")) {
-				client->BadRequest(RESTAPI::Errors::MissingOrInvalidParameters);
+			if (Body->has("client") &&
+				!ApplyClientAccessChanges(config, Body, ResponseStatus, Response)) {
 				return false;
 			}
-
-			auto Config = DeviceObj->getObject("configuration");
-			if (!Config) {
-				client->InternalError(RESTAPI::Errors::InternalError);
-				return false;
+			const auto updatedConfigSnapshot = SerializeJson(config);
+			if (updatedConfigSnapshot == originalConfigSnapshot) {
+				ResponseStatus = Poco::Net::HTTPResponse::HTTP_OK;
+				Response = Poco::makeShared<Poco::JSON::Object>();
+				return true;
 			}
 
-			// 2) Apply SSID updates (only if requested)
-			if (Body->has("ssid")) {
-				if (!SetInterfacesSsids(client, Config, GatewaySerial, Body))
-				return false;
-			}
-
-			// 3) Apply client block/unblock (only if requested)
-			if (Body->has("client")) {
-				if (!BlockClient(client, Config, Body)) {
-					return false;
-				}
-			}
-
-			// 4) Send config to gateway
 			Poco::JSON::Object::Ptr gatewayResponse;
-			if (!Configure(client, GatewaySerial, Config, gatewayResponse)) {
-				client->ForwardErrorResponse(client, Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR, gatewayResponse);
+			Poco::Net::HTTPResponse::HTTPStatus gatewayStatus =
+				Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR;
+			if (!Configure(client, GatewaySerial, config, gatewayStatus, gatewayResponse)) {
+				ResponseStatus = gatewayStatus;
+				if (ResponseStatus == Poco::Net::HTTPResponse::HTTP_OK) {
+					ResponseStatus = Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR;
+				}
+				Response = gatewayResponse ? gatewayResponse : Poco::makeShared<Poco::JSON::Object>();
 				return false;
 			}
 
-			// 5) If only gateway, done
-			if (SubInfo->accessPoints.list.size() <= 1)
-				return true;
+			ResponseStatus = Poco::Net::HTTPResponse::HTTP_OK;
+			Response = Poco::makeShared<Poco::JSON::Object>();
 
-			// Mesh devices should be configured only when SSID changes are requested.
-			if (!Body->has("ssid"))
+			if (!Body->has("ssid") || SubscriberDevices.subscriberDevices.size() <= 1) {
 				return true;
+			}
 
-			Poco::Logger::get("SDK_gw").information("Preparing new configuration for mesh devices.");
-			// 6) Build mesh config: force ipv4 dynamic + remove firewall config-raw commands.
 			Poco::JSON::Object::Ptr meshConfig;
-			ConfigMaker configMaker(Poco::Logger::get("SDK_gw"), "");
-			if (!configMaker.BuildMeshConfig(DeviceObj, meshConfig)) {
-				client->InternalError(RESTAPI::Errors::InternalError);
-				return false;
+			ConfigMaker configMaker(Poco::Logger::get("SDK_gw"));
+			if (!configMaker.BuildMeshConfig(deviceObj, meshConfig)) {
+				return SetErrorResponse(Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR,
+										RESTAPI::Errors::InternalError, ResponseStatus, Response);
 			}
 
-			Poco::Logger::get("SDK_gw").information("Sending new configuration to mesh devices.");
-			// 7) Send config to mesh devices
-			for (size_t i = 1; i < SubInfo->accessPoints.list.size(); ++i) {
-				const auto &meshSerial = SubInfo->accessPoints.list[i].serialNumber;
+			for (const auto &subscriberDevice : SubscriberDevices.subscriberDevices) {
+				const auto &meshSerial = subscriberDevice.serialNumber;
+				if (meshSerial.empty() || IsSameSerial(meshSerial, GatewaySerial)) {
+					continue;
+				}
 
 				Poco::JSON::Object::Ptr meshResponse;
-				if (!Configure(client, meshSerial, meshConfig, meshResponse)) {
-					client->ForwardErrorResponse(client, Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR, meshResponse);
+				Poco::Net::HTTPResponse::HTTPStatus meshStatus =
+					Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR;
+				if (!Configure(client, meshSerial, meshConfig, meshStatus, meshResponse)) {
+					ResponseStatus = meshStatus;
+					if (ResponseStatus == Poco::Net::HTTPResponse::HTTP_OK) {
+						ResponseStatus = Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR;
+					}
+					Response = meshResponse ? meshResponse : Poco::makeShared<Poco::JSON::Object>();
 					return false;
 				}
 			}
 			return true;
-		}
-
-		bool SetSubscriber(RESTAPIHandler *client, const std::string &SerialNumber,
-						   const std::string &uuid) {
-			Poco::JSON::Object Body;
-
-			Body.set("serialNumber", SerialNumber);
-			Body.set("subscriber", uuid);
-			OpenWifi::OpenAPIRequestPut R(OpenWifi::uSERVICE_GATEWAY,
-										  "/api/v1/device/" + SerialNumber, {}, Body, 10000);
-			auto CallResponse = Poco::makeShared<Poco::JSON::Object>();
-			auto ResponseStatus =
-				R.Do(CallResponse, client ? client->UserInfo_.webtoken.access_token_ : "");
-			if (ResponseStatus == Poco::Net::HTTPResponse::HTTP_OK) {
-				Poco::Logger::get("SDK_gw").information(fmt::format(
-					"SetSubscriber: Successfully set subscriber [{}] for device {}.", SerialNumber, uuid));
-				return true;
-			}
-			return false;
 		}
 
 		struct Tag {
@@ -831,20 +760,6 @@ namespace OpenWifi::SDK::GW {
 				}
 			}
 			return false;
-		}
-		/*
-		   DeleteOwgwDevice:
-		   1. Issue a DELETE request to the gateway/controller for the given SerialNumber.
-		   2. Return success only when owgw responds with HTTP 200 OK.
-		*/
-		bool DeleteOwgwDevice(RESTAPIHandler *client, const std::string &SerialNumber) {
-			auto API = OpenAPIRequestDelete(uSERVICE_GATEWAY, "/api/v1/device/" + SerialNumber, {}, 15000);
-			const auto status =	API.Do(client ? client->UserInfo_.webtoken.access_token_ : "");
-			if (status != Poco::Net::HTTPResponse::HTTP_OK) {
-				Poco::Logger::get("SDK_gw").error(fmt::format("Controller delete device [{}] failed.", SerialNumber));
-				return false;
-			}
-			return true;
 		}
 	} // namespace Device
 } // namespace OpenWifi::SDK::GW

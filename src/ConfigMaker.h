@@ -10,24 +10,26 @@ Portions copyright (c) Telecom Infra Project (TIP), BSD-3-Clause
 
 #pragma once
 
+#include "Poco/JSON/Object.h"
 #include "Poco/Logger.h"
 #include "RESTObjects/RESTAPI_ProvObjects.h"
-#include "RESTObjects/RESTAPI_SubObjects.h" // for SubObjects::SubscriberInfo
 
 namespace OpenWifi {
 	class ConfigMaker {
 	  public:
-		explicit ConfigMaker(Poco::Logger &L, const std::string &Id) : Logger_(L), id_(Id) {}
-		bool PrepareDefaultConfig(const SubObjects::AccessPoint &ap, ProvObjects::SubscriberDevice &subDevice);
-		bool PrepareProvSubDeviceConfig(const Poco::JSON::Object::Ptr &Config, ProvObjects::DeviceConfigurationElementVec &ProvConfig);
-		bool ValidateConfig(const Poco::JSON::Object::Ptr &deviceConfig, const std::string &serialNumber, Poco::Logger &logger);
-		bool BuildMeshConfig(const Poco::JSON::Object::Ptr &InputConfig, Poco::JSON::Object::Ptr &OutputConfig);
-		bool CreateSubDeviceInfo(const ProvObjects::InventoryTag &inventoryTag, const SecurityObjects::UserInfo &userInfo,
-										ProvObjects::SubscriberDevice &device);
+		explicit ConfigMaker(Poco::Logger &L) : Logger_(L) {}
+
+		bool ValidateConfig(const Poco::JSON::Object::Ptr &deviceConfig,
+							const std::string &serialNumber);
+		bool BuildMeshConfig(const Poco::JSON::Object::Ptr &inputConfig,
+							 Poco::JSON::Object::Ptr &outputConfig);
+		bool BuildGatewayConfig(const Poco::JSON::Object::Ptr &deviceConfig,
+								const std::string &deviceMac,
+								ProvObjects::SubscriberDevice &subDevice);
+		bool AppendWeightedSections(const Poco::JSON::Object::Ptr &config,
+									ProvObjects::DeviceConfigurationElementVec &provConfig);
 
 	  private:
 		Poco::Logger &Logger_;
-		const std::string id_;
-		bool bad_ = false;
 	};
 } // namespace OpenWifi

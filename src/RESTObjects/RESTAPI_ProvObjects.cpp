@@ -980,6 +980,7 @@ namespace OpenWifi::ProvObjects {
 	void SubscriberDevice::to_json(Poco::JSON::Object &Obj) const {
 		info.to_json(Obj);
 		field_to_json(Obj, "serialNumber", serialNumber);
+		field_to_json(Obj, "deviceGroup", deviceGroup);
 		field_to_json(Obj, "deviceType", deviceType);
 		field_to_json(Obj, "operatorId", operatorId);
 		field_to_json(Obj, "subscriberId", subscriberId);
@@ -1002,6 +1003,11 @@ namespace OpenWifi::ProvObjects {
 		try {
 			info.from_json(Obj);
 			field_from_json(Obj, "serialNumber", serialNumber);
+			if (Obj->has("deviceGroup")) {
+				field_from_json(Obj, "deviceGroup", deviceGroup);
+			} else {
+				deviceGroup.clear();
+			}
 			field_from_json(Obj, "deviceType", deviceType);
 			field_from_json(Obj, "operatorId", operatorId);
 			field_from_json(Obj, "subscriberId", subscriberId);
