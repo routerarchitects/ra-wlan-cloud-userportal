@@ -225,7 +225,49 @@ namespace OpenWifi {
 			return;
 
 		FilterTopologyNodes(subscriberDevices, topologyResponse);
+		FilterTopologyEdges(subscriberDevices, topologyResponse);
 		TagBlockedClients(gatewaySerial, topologyResponse);
+	}
+
+	static std::unordered_set<std::string>BuildAllowedSerialsSet(const ProvObjects::SubscriberDeviceList &subscriberDevices) {
+		std::unordered_set<std::string> allowedSerials;
+		allowedSerials.reserve(subscriberDevices.subscriberDevices.size());
+		for (const auto &device : subscriberDevices.subscriberDevices) {
+			if (device.serialNumber.empty())
+				continue;
+			allowedSerials.insert(device.serialNumber);
+		}
+		return allowedSerials;
+	}
+
+	void RESTAPI_topology_handler::FilterTopologyEdges(
+		const ProvObjects::SubscriberDeviceList &subscriberDevices,
+		Poco::JSON::Object::Ptr &topologyResponse) {
+		if (!topologyResponse || !topologyResponse->has("edges") || !topologyResponse->isObject("edges")) {
+			return;
+		}
+		auto allowedSerials = BuildAllowedSerialsSet(subscriberDevices);
+		auto edges = topologyResponse->getObject("edges");
+		const std::vector<std::string> edgeTypes{"mesh", "wired"};
+		for (const auto &edgeType : edgeTypes) {
+			if (!edges->has(edgeType) || !edges->isArray(edgeType))
+				continue;
+
+			auto edgeArray = edges->getArray(edgeType);
+			auto filteredEdges = Poco::makeShared<Poco::JSON::Array>();
+			for (std::size_t i = 0; i < edgeArray->size(); ++i) {
+				auto edge = edgeArray->getObject(i);
+				if (!edge || !edge->has("from") || !edge->get("from").isString()|| !edge->has("to") || !edge->get("to").isString())
+					continue;
+
+				auto from = edge->getValue<std::string>("from");
+				auto to = edge->getValue<std::string>("to");
+				if (allowedSerials.find(from) != allowedSerials.end() && allowedSerials.find(to) != allowedSerials.end()) {
+					filteredEdges->add(edge);
+				}
+			}
+			edges->set(edgeType, filteredEdges);
+		}
 	}
 
 	void RESTAPI_topology_handler::FilterTopologyNodes(
@@ -234,16 +276,7 @@ namespace OpenWifi {
 		if (!topologyResponse || !topologyResponse->has("nodes") || !topologyResponse->isArray("nodes")) {
 			return;
 		}
-
-		std::unordered_set<std::string> allowedSerials;
-		allowedSerials.reserve(subscriberDevices.subscriberDevices.size());
-		for (const auto &device : subscriberDevices.subscriberDevices) {
-			if (device.serialNumber.empty())
-				continue;
-			auto serial = device.serialNumber;
-			allowedSerials.insert(serial);
-		}
-
+		auto allowedSerials = BuildAllowedSerialsSet(subscriberDevices);
 		auto nodes = topologyResponse->getArray("nodes");
 		auto filteredNodes = Poco::makeShared<Poco::JSON::Array>();
 		for (std::size_t i = 0; i < nodes->size(); ++i) {
@@ -264,6 +297,23 @@ namespace OpenWifi {
 		2. Attach a "blocked" flag to historical clients and live client entries in the topology.
 
 		Required Topology Response:-
+		{
+		"edges": {
+			"mesh": [
+			{
+				...
+				"from": "f0090d2db49c",
+				"ssid": "Mesh-SSID",
+				"to": "dc62796520cd"
+			},
+			{
+				...
+				"from": "dc62796520cd",
+				"ssid": "Mesh-SSID",
+				"to": "f0090d2db49c"
+			},
+			"wired": []
+		},
 		{
 			"historicalClients": [
 			{

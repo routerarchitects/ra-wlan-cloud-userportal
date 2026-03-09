@@ -40,6 +40,7 @@ namespace OpenWifi {
 		bool FetchTopology(const std::string &boardId, Poco::JSON::Object::Ptr &topologyResponse);
 		void FinalizeTopologyResponse(const ProvObjects::SubscriberDeviceList &subscriberDevices, const std::string &gatewaySerial, Poco::JSON::Object::Ptr &topologyResponse);
 		void FilterTopologyNodes(const ProvObjects::SubscriberDeviceList &subscriberDevices, Poco::JSON::Object::Ptr &topologyResponse);
+		void FilterTopologyEdges(const ProvObjects::SubscriberDeviceList &subscriberDevices, Poco::JSON::Object::Ptr &topologyResponse);
 		void TagBlockedClients(const std::string &gatewaySerial, Poco::JSON::Object::Ptr &topologyResponse);
 	};
 } // namespace OpenWifi
