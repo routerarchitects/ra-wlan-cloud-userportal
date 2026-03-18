@@ -1,4 +1,4 @@
-openapi: 3.0.1
+openapi: 1.0.0
 info:
   title: OpenWiFi User Portal
   description: API describing User Self Care interaction with OpenWifi.
@@ -1074,6 +1074,30 @@ components:
 
 paths:
   /oauth2:
+    get:
+      tags:
+        - Authentication
+      summary: Get access token
+      operationId: getAccessTokenGet
+      parameters:
+        - in: query
+          name: grant_type
+          schema:
+            type: string
+          required: false
+      responses:
+        200:
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/WebTokenResult'
+                  - $ref: '#/components/schemas/MFAChallengeRequest'
+        403:
+          $ref: '#/components/responses/Unauthorized'
+        404:
+          $ref: '#/components/responses/NotFound'
     post:
       tags:
         - Authentication
@@ -1139,6 +1163,30 @@ paths:
           $ref: '#/components/responses/NotFound'
 
   /oauth2/{token}:
+    get:
+      tags:
+        - Authentication
+      summary: Retrieve token information
+      operationId: getAccessTokenWithToken
+      parameters:
+        - in: path
+          name: token
+          schema:
+            type: string
+          required: true
+      responses:
+        200:
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/WebTokenResult'
+                  - $ref: '#/components/schemas/MFAChallengeRequest'
+        403:
+          $ref: '#/components/responses/Unauthorized'
+        404:
+          $ref: '#/components/responses/NotFound'
     delete:
       tags:
         - Authentication
@@ -1148,56 +1196,37 @@ paths:
         - in: path
           name: token
           schema:
-            type:
-              string
+            type: string
           required: true
       responses:
         204:
           description: successful operation
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/responses/Success'
         403:
           $ref: '#/components/responses/Unauthorized'
         404:
           $ref: '#/components/responses/NotFound'
 
   /subscriber:
-    get:
+    post:
       tags:
         - Subscriber Information
-      summary: Get the information about the subscriber
-      operationId: getSubscriberInfo
-      responses:
-        200:
-          $ref: '#/components/schemas/SubscriberInfo'
-    put:
-      tags:
-        - Subscriber Information
-      summary: Modify the information stored about the subscriber
-      operationId: modifySubscriberInfo
+      summary: Register a subscriber
+      operationId: createSubscriber
       parameters:
         - in: query
-          name: configChanged
+          name: email
           schema:
-            type: boolean
-            default: false
-          required: false
+            type: string
+            format: email
+          required: true
         - in: query
-          name: applyConfigOnly
+          name: registrationId
           schema:
-            type: boolean
-            default: false
-          required: false
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SubscriberInfo'
+            type: string
+          required: true
       responses:
         200:
-          $ref: '#/components/schemas/SubscriberInfo'
+          $ref: '#/components/responses/Success'
         400:
           $ref: '#/components/responses/BadRequest'
     delete:
@@ -1211,6 +1240,44 @@ paths:
         400:
           $ref: '#/components/responses/BadRequest'
 
+
+  /subscriber/devices/{mac}:
+    post:
+      tags:
+        - Subscriber Devices
+      summary: Add a device to the subscriber account
+      operationId: addSubscriberDevice
+      parameters:
+        - in: path
+          name: mac
+          schema:
+            type: string
+          required: true
+      responses:
+        200:
+          $ref: '#/components/responses/Success'
+        400:
+          $ref: '#/components/responses/BadRequest'
+        404:
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags:
+        - Subscriber Devices
+      summary: Remove a device from the subscriber account
+      operationId: deleteSubscriberDevice
+      parameters:
+        - in: path
+          name: mac
+          schema:
+            type: string
+          required: true
+      responses:
+        200:
+          $ref: '#/components/responses/Success'
+        400:
+          $ref: '#/components/responses/BadRequest'
+        404:
+          $ref: '#/components/responses/NotFound'
 
   /wiredclients:
     get:
@@ -1236,7 +1303,7 @@ paths:
     get:
       tags:
         - WiFi Clients
-      summary: Get the list of wired clients
+      summary: Get the list of Wi-Fi clients
       operationId: getWifiClients
       parameters:
         - in: query
@@ -1260,7 +1327,11 @@ paths:
       operationId: getMFS
       responses:
         200:
-          $ref: '#/components/schemas/SubMfaConfig'
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubMfaConfig'
 
     put:
       tags:
@@ -1290,7 +1361,11 @@ paths:
               $ref: '#/components/schemas/SubMfaConfig'
       responses:
         200:
-          $ref: '#/components/schemas/SubMfaConfig'
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubMfaConfig'
         400:
           $ref: '#/components/responses/BadRequest'
 
@@ -1306,31 +1381,59 @@ paths:
           schema:
             type: string
             enum:
+              - configure
               - reboot
               - blink
               - upgrade
               - factory
-              - refresh
       requestBody:
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                mac:
-                  type: string
-                when:
-                  type: integer
-                  format: int64
-                duration:
-                  type: integer
-                  format: int64
-                pattern:
-                  type: string
-                  enum:
-                    - on
-                    - off
-                    - blink
+              oneOf:
+                - description: Configure action body
+                  type: object
+                  properties:
+                    ssid:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        password:
+                          type: string
+                    client:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          mac:
+                            type: string
+                          access:
+                            type: string
+                  additionalProperties: true
+                - description: Blink and other command bodies
+                  type: object
+                  properties:
+                    mac:
+                      type: string
+                    when:
+                      type: integer
+                      format: int64
+                    duration:
+                      type: integer
+                      format: int64
+                    pattern:
+                      type: string
+                      enum:
+                        - on
+                        - off
+                        - blink
+                    uri:
+                      type: string
+                    keepRedirector:
+                      type: boolean
+                      default: true
+                  additionalProperties: true
 
       responses:
         200:
@@ -1338,179 +1441,28 @@ paths:
         400:
           $ref: '#/components/responses/BadRequest'
 
-  /signup:
-    get:
-      tags:
-        - Subscriber Registration
-      summary: This call allows someone to get the status of a signup.
-      operationId: getSignup
-      parameters:
-        - in: query
-          name: email
-          schema:
-            type: string
-            format: email
-          required: false
-        - in: query
-          name: macAddress
-          schema:
-            type: string
-          required: false
-        - in: query
-          name: signupUUID
-          schema:
-            type: string
-            format: uuid
-          required: false
-        - in: query
-          name: dashboard
-          schema:
-            type: boolean
-            default: false
-          required: false
-        - in: query
-          name: deviceID
-          schema:
-            type: string
-          required: false
-      responses:
-        200:
-          $ref: '#/components/schemas/SignupEntry'
-        400:
-          $ref: '#/components/responses/BadRequest'
-        403:
-          $ref: '#/components/responses/Unauthorized'
-        404:
-          $ref: '#/components/responses/NotFound'
-
-    delete:
-      tags:
-        - Subscriber Registration
-      summary: This call allows someone to get the status of a signup.
-      operationId: deleteSignup
-      parameters:
-        - in: query
-          name: email
-          schema:
-            type: string
-            format: email
-          required: false
-        - in: query
-          name: macAddress
-          schema:
-            type: string
-          required: false
-        - in: query
-          name: signupUUID
-          schema:
-            type: string
-            format: uuid
-          required: false
-        - in: query
-          name: deviceID
-          schema:
-            type: string
-          required: false
-      responses:
-        204:
-          $ref: '#/components/responses/Success'
-        400:
-          $ref: '#/components/responses/BadRequest'
-        403:
-          $ref: '#/components/responses/Unauthorized'
-        404:
-          $ref: '#/components/responses/NotFound'
-
-    post:
-      tags:
-        - Subscriber Registration
-      summary: This call allows a new subscriber to register themselves and their devices.
-      operationId: postSignup
-      parameters:
-        - in: query
-          name: email
-          schema:
-            type: string
-            format: email
-          required: true
-        - in: query
-          name: macAddress
-          schema:
-            type: string
-          required: true
-        - in: query
-          name: deviceID
-          schema:
-            type: string
-          required: false
-        - in: query
-          name: registrationId
-          schema:
-            type: string
-          required: true
-      responses:
-        200:
-          $ref: '#/components/schemas/SignupEntry'
-        400:
-          $ref: '#/components/responses/BadRequest'
-        403:
-          $ref: '#/components/responses/Unauthorized'
-        404:
-          $ref: '#/components/responses/NotFound'
-
+  /claim:
     put:
       tags:
-        - Subscriber Registration
-      summary: modify the signup command in play
-      operationId: modifySignup
+        - Inventory
+      summary: Claim a device into the subscriber inventory
+      operationId: claimDevice
       parameters:
         - in: query
-          name: signupUUID
+          name: serialNumber
           schema:
             type: string
-            format: uuid
           required: true
         - in: query
-          name: operation
+          name: id
           schema:
             type: string
-            enum:
-              - cancel
-              - success
-              - inprogress
-              - failed
-              - poll
           required: true
-        - in: query
-          name: deviceID
-          schema:
-            type: string
-          required: false
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                reason:
-                  type: string
-                time:
-                  type: integer
-                  format: int64
-                errorCode:
-                  type: integer
-                  format: int32
-                status:
-                  type: string
-        required: false
-
       responses:
         200:
-          $ref: '#/components/schemas/SignupEntry'
+          $ref: '#/components/responses/Success'
         400:
           $ref: '#/components/responses/BadRequest'
-        403:
-          $ref: '#/components/responses/Unauthorized'
         404:
           $ref: '#/components/responses/NotFound'
 
@@ -1528,7 +1480,29 @@ paths:
           required: true
       responses:
         200:
-          $ref: '#/components/schemas/StatsBlock'
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatsBlock'
+        404:
+          $ref: '#/components/responses/NotFound'
+
+  /topology:
+    get:
+      tags:
+        - Device Topology
+      summary: Retrieve the network topology for the subscriber
+      operationId: getTopology
+      responses:
+        200:
+          description: Topology graph
+          content:
+            application/json:
+              schema:
+                type: object
+        400:
+          $ref: '#/components/responses/BadRequest'
         404:
           $ref: '#/components/responses/NotFound'
 
@@ -1581,7 +1555,11 @@ paths:
           required: true
       responses:
         200:
-          $ref: '#/components/schemas/SystemCommandResults'
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemCommandResults'
         403:
           $ref: '#/components/responses/Unauthorized'
         404:
@@ -1603,16 +1581,14 @@ paths:
             example:
               - element1
               - element1,element2,element3
-          required: false
+          required: true
       responses:
         200:
           description: List of configuration elements
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/ExtraSystemConfiguration'
+                $ref: '#/components/schemas/ExtraSystemConfiguration'
         403:
           $ref: '#/components/responses/Unauthorized'
         404:
@@ -1630,8 +1606,8 @@ paths:
               $ref: '#/components/schemas/ExtraSystemConfiguration'
 
       responses:
-        200:
-          $ref: '#/components/schemas/ExtraSystemConfiguration'
+        400:
+          $ref: '#/components/responses/BadRequest'
         403:
           $ref: '#/components/responses/Unauthorized'
         404:
@@ -1644,10 +1620,9 @@ paths:
       operationId: deleteSystemConfiguration
 
       responses:
-        200:
-          $ref: '#/components/responses/Success'
+        400:
+          $ref: '#/components/responses/BadRequest'
         403:
           $ref: '#/components/responses/Unauthorized'
         404:
           $ref: '#/components/responses/NotFound'
-
