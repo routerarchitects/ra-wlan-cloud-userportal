@@ -1,4 +1,4 @@
-openapi: 1.0.0
+openapi: 3.0.1
 info:
   title: OpenWiFi User Portal
   description: API describing User Self Care interaction with OpenWifi.
@@ -644,133 +644,6 @@ components:
           type: string
           format: password
 
-    PasswordCreation:
-      type: object
-      properties:
-        newPassword:
-          type: string
-          format: password
-
-    MFAChallengeRequest:
-      type: object
-      properties:
-        uuid:
-          type: string
-          format: uuid
-        question:
-          type: string
-        created:
-          type: integer
-          format: integer64
-        method:
-          type: string
-
-    MFAChallengeResponse:
-      type: object
-      properties:
-        uuid:
-          type: string
-          format: uuid
-        answer:
-          type: string
-
-    WebTokenRefreshRequest:
-      type: object
-      properties:
-        userId:
-          type: string
-          default: support@example.com
-        refresh_token:
-          type: string
-
-    WebTokenRequest:
-      description: User Id and password.
-      type: object
-      required:
-        - userId
-        - password
-      properties:
-        userId:
-          type: string
-          default: support@example.com
-        password:
-          type: string
-          default: support
-        newPassword:
-          type: string
-          default: support
-        refreshToken:
-          type: string
-      example:
-        userId: support@example.com
-        password: support
-
-    WebTokenResult:
-      description: Login and Refresh Tokens to be used in subsequent API calls.
-      type: object
-      properties:
-        access_token:
-          type: string
-        refresh_token:
-          type: string
-        token_type:
-          type: string
-        expires_in:
-          type: integer
-          format: int32
-        idle_timeout:
-          type: integer
-          format: int32
-        username:
-          type: string
-        created:
-          type: integer
-          format: int64
-        userMustChangePassword:
-          type: boolean
-        errorCode:
-          type: integer     # 0 = no error, 1 = passwordAlreadyUsed, 2=invalidPassword
-        aclTemplate:
-          $ref: '#/components/schemas/WebTokenAclTemplate'
-
-    AclTemplate:
-      type: object
-      properties:
-        Read:
-          type: boolean
-        ReadWrite:
-          type: boolean
-        ReadWriteCreate:
-          type: boolean
-        Delete:
-          type: boolean
-        PortalLogin:
-          type: boolean
-
-    WebTokenAclTemplate:
-      type: object
-      properties:
-        aclTemplate:
-          $ref: '#/components/schemas/AclTemplate'
-
-    SubMfaConfig:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        type:
-          type: string
-          enum:
-            - disabled
-            - sms
-            - email
-        email:
-          type: string
-          format: email
-        sms:
-          type: string
-
     NoteInfo:
       type: object
       properties:
@@ -838,33 +711,118 @@ components:
           type: integer
           format: int64
 
-    StatsEntry:
+    TopologyResponse:
       type: object
       properties:
+        boardId:
+          type: string
+        edges:
+          $ref: '#/components/schemas/TopologyEdges'
+        historicalClients:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopologyHistoricalClient'
+        nodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopologyNode'
         timestamp:
-          type: integer
-          format: int64
-        tx:
-          type: integer
-          format: int64
-        rx:
-          type: integer
-          format: int64
+          type: string
+          format: date-time
+      additionalProperties: true
 
-    StatsBlock:
+    TopologyEdges:
       type: object
       properties:
-        modified:
+        mesh:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        wired:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+      additionalProperties: true
+
+    TopologyHistoricalClient:
+      type: object
+      properties:
+        blocked:
+          type: string
+        station:
+          type: string
+      additionalProperties: true
+
+    TopologyNode:
+      type: object
+      properties:
+        aps:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopologyRadio'
+        connected:
+          type: boolean
+        mesh:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopologyRadio'
+        serial:
+          type: string
+        uptime:
           type: integer
-          format: int64
-        external:
+      additionalProperties: true
+
+    TopologyRadio:
+      type: object
+      properties:
+        band:
+          type: string
+        bssid:
+          type: string
+        channel:
+          type: integer
+        clients:
           type: array
+          nullable: true
           items:
-            $ref: '#/components/schemas/StatsEntry'
-        internal:
-          type: array
-          items:
-            $ref: '#/components/schemas/StatsEntry'
+            $ref: '#/components/schemas/TopologyClient'
+        mode:
+          type: string
+        ssid:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+      additionalProperties: true
+
+    TopologyClient:
+      type: object
+      properties:
+        blocked:
+          type: string
+        connected:
+          type: integer
+        fingerprint:
+          type: string
+        inactive:
+          type: integer
+        rssi:
+          type: integer
+        rx_rate_bitrate:
+          type: integer
+        rx_rate_chwidth:
+          type: integer
+        rx_speed:
+          type: integer
+        station:
+          type: string
+        tx_rate_bitrate:
+          type: integer
+        tx_speed:
+          type: integer
+      additionalProperties: true
 
     ExtraSystemConfiguration:
       type: array
@@ -1073,139 +1031,6 @@ components:
         - $ref: '#/components/schemas/TagValuePairList'
 
 paths:
-  /oauth2:
-    get:
-      tags:
-        - Authentication
-      summary: Get access token
-      operationId: getAccessTokenGet
-      parameters:
-        - in: query
-          name: grant_type
-          schema:
-            type: string
-          required: false
-      responses:
-        200:
-          description: successful operation
-          content:
-            application/json:
-              schema:
-                oneOf:
-                  - $ref: '#/components/schemas/WebTokenResult'
-                  - $ref: '#/components/schemas/MFAChallengeRequest'
-        403:
-          $ref: '#/components/responses/Unauthorized'
-        404:
-          $ref: '#/components/responses/NotFound'
-    post:
-      tags:
-        - Authentication
-      summary: Get access token - to be used as Bearer token header for all other API requests.
-      operationId: getAccessToken
-      parameters:
-        - in: query
-          name: newPassword
-          description: used when a user is trying to change her password. This will be the new password.
-          schema:
-            type: string
-          required: false
-        - in: query
-          name: forgotPassword
-          description: A user forgot her password. She needs to present her e-mail address in the userId and set this to true
-          schema:
-            type: boolean
-          required: false
-        - in: query
-          name: requirements
-          description: A user forgot her password. This will provided the password requirements.
-          schema:
-            type: boolean
-          required: false
-        - in: query
-          name: resendMFACode
-          schema:
-            type: boolean
-          required: false
-        - in: query
-          name: completeMFAChallenge
-          schema:
-            type: boolean
-          required: false
-        - in: query
-          name: grant_type
-          schema:
-            type: string
-            example: refresh_token
-          required: false
-      requestBody:
-        description: User id and password
-        required: true
-        content:
-          application/json:
-            schema:
-              oneOf:
-                - $ref: '#/components/schemas/WebTokenRequest'
-                - $ref: '#/components/schemas/MFAChallengeResponse'
-                - $ref: '#/components/schemas/WebTokenRefreshRequest'
-      responses:
-        200:
-          description: successful operation
-          content:
-            application/json:
-              schema:
-                oneOf:
-                  - $ref: '#/components/schemas/WebTokenResult'
-                  - $ref: '#/components/schemas/MFAChallengeRequest'
-        403:
-          $ref: '#/components/responses/Unauthorized'
-        404:
-          $ref: '#/components/responses/NotFound'
-
-  /oauth2/{token}:
-    get:
-      tags:
-        - Authentication
-      summary: Retrieve token information
-      operationId: getAccessTokenWithToken
-      parameters:
-        - in: path
-          name: token
-          schema:
-            type: string
-          required: true
-      responses:
-        200:
-          description: successful operation
-          content:
-            application/json:
-              schema:
-                oneOf:
-                  - $ref: '#/components/schemas/WebTokenResult'
-                  - $ref: '#/components/schemas/MFAChallengeRequest'
-        403:
-          $ref: '#/components/responses/Unauthorized'
-        404:
-          $ref: '#/components/responses/NotFound'
-    delete:
-      tags:
-        - Authentication
-      summary: Revoke a token.
-      operationId: removeAccessToken
-      parameters:
-        - in: path
-          name: token
-          schema:
-            type: string
-          required: true
-      responses:
-        204:
-          description: successful operation
-        403:
-          $ref: '#/components/responses/Unauthorized'
-        404:
-          $ref: '#/components/responses/NotFound'
-
   /subscriber:
     post:
       tags:
@@ -1279,96 +1104,6 @@ paths:
         404:
           $ref: '#/components/responses/NotFound'
 
-  /wiredclients:
-    get:
-      tags:
-        - Clients
-      summary: Get the list of wired clients
-      operationId: getWiredClients
-      parameters:
-        - in: query
-          name: serialNumber
-          schema:
-            type: string
-          required: true
-      responses:
-        200:
-          description: Successfully retrieved client list
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ClientList'
-
-  /wificlients:
-    get:
-      tags:
-        - WiFi Clients
-      summary: Get the list of Wi-Fi clients
-      operationId: getWifiClients
-      parameters:
-        - in: query
-          name: serialNumber
-          schema:
-            type: string
-          required: true
-      responses:
-        200:
-          description: Successfully retrieved client list
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AssociationList'
-
-  /submfa:
-    get:
-      tags:
-        - MFA
-      summary: Retrieve the current setting for MFA
-      operationId: getMFS
-      responses:
-        200:
-          description: successful operation
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SubMfaConfig'
-
-    put:
-      tags:
-        - MFA
-      summary: Retrieve the current setting for MFA
-      operationId: modifyMFS
-      parameters:
-        - in: query
-          name: startValidation
-          schema:
-            type: boolean
-          required: false
-        - in: query
-          name: completeValidation
-          schema:
-            type: boolean
-          required: false
-        - in: query
-          name: challengeCode
-          schema:
-            type: string
-          required: false
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SubMfaConfig'
-      responses:
-        200:
-          description: successful operation
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SubMfaConfig'
-        400:
-          $ref: '#/components/responses/BadRequest'
-
   /action:
     post:
       tags:
@@ -1386,11 +1121,28 @@ paths:
               - blink
               - upgrade
               - factory
+            default: configure
       requestBody:
         content:
           application/json:
+            examples:
+              configure:
+                value:
+                  ssid:
+                    name: string
+                    password: string
+                  client:
+                    - mac: string
+                      access: allow
+                    - mac: string
+                      access: deny
+              blink:
+                value:
+                  mac: string
+                  when: "0"
+                  pattern: blink
             schema:
-              oneOf:
+              anyOf:
                 - description: Configure action body
                   type: object
                   properties:
@@ -1410,7 +1162,13 @@ paths:
                             type: string
                           access:
                             type: string
-                  additionalProperties: true
+                            description: allow or deny
+                  anyOf:
+                    - required:
+                        - ssid
+                    - required:
+                        - client
+                  additionalProperties: false
                 - description: Blink and other command bodies
                   type: object
                   properties:
@@ -1433,60 +1191,13 @@ paths:
                     keepRedirector:
                       type: boolean
                       default: true
-                  additionalProperties: true
+                  additionalProperties: false
 
       responses:
         200:
           $ref: '#/components/responses/Success'
         400:
           $ref: '#/components/responses/BadRequest'
-
-  /claim:
-    put:
-      tags:
-        - Inventory
-      summary: Claim a device into the subscriber inventory
-      operationId: claimDevice
-      parameters:
-        - in: query
-          name: serialNumber
-          schema:
-            type: string
-          required: true
-        - in: query
-          name: id
-          schema:
-            type: string
-          required: true
-      responses:
-        200:
-          $ref: '#/components/responses/Success'
-        400:
-          $ref: '#/components/responses/BadRequest'
-        404:
-          $ref: '#/components/responses/NotFound'
-
-  /stats/{mac}:
-    get:
-      tags:
-        - Device Statistics
-      summary: Get a list of statistics about the MAC address inout/output in terms of bytes
-      operationId: getStats
-      parameters:
-        - in: path
-          name: mac
-          schema:
-            type: string
-          required: true
-      responses:
-        200:
-          description: successful operation
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/StatsBlock'
-        404:
-          $ref: '#/components/responses/NotFound'
 
   /topology:
     get:
@@ -1500,7 +1211,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
+                $ref: '#/components/schemas/TopologyResponse'
         400:
           $ref: '#/components/responses/BadRequest'
         404:
