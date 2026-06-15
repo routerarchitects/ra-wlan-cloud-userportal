@@ -6,6 +6,7 @@
 
 #include <string>
 
+#include "Poco/JSON/Array.h"
 #include "Poco/JSON/Object.h"
 #include "Poco/Net/HTTPServerResponse.h"
 
@@ -21,6 +22,9 @@ namespace OpenWifi {
 			: Type_(Type), EndPoint_(EndPoint), QueryData_(QueryData), msTimeout_(msTimeout),
 			  LoggingStr_(LoggingStr){};
 		Poco::Net::HTTPServerResponse::HTTPStatus Do(Poco::JSON::Object::Ptr &ResponseObject,
+													 const std::string &BearerToken = "");
+		Poco::Net::HTTPServerResponse::HTTPStatus Do(Poco::JSON::Array::Ptr &ResponseArray,
+													 Poco::JSON::Object::Ptr &ResponseObject,
 													 const std::string &BearerToken = "");
 
 	  private:
@@ -80,6 +84,9 @@ namespace OpenWifi {
 			: Type_(Type), EndPoint_(EndPoint), QueryData_(QueryData), msTimeout_(msTimeout),
 			  LoggingStr_(LoggingStr){};
 		Poco::Net::HTTPServerResponse::HTTPStatus Do(Poco::JSON::Object::Ptr &ResponseObject, const std::string &BearerToken = "");
+		Poco::Net::HTTPServerResponse::HTTPStatus Do(Poco::JSON::Object::Ptr &ResponseObject,
+													 std::string &RawResponseBody,
+													 const std::string &BearerToken);
 
 	  private:
 		std::string Type_;
