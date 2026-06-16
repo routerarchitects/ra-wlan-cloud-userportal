@@ -1,0 +1,155 @@
+name: PR Tests
+
+on:
+  pull_request:
+    branches:
+      - main
+      - master
+
+jobs:
+  integration-tests:
+    name: Build & Integration Tests
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Build UserPortal Docker Image
+        run: |
+          echo "Building UserPortal using repo-native Dockerfile..."
+          docker build -t test-userportal .
+
+      - name: Start Fake Downstream Services
+        run: |
+          echo "Starting fake Parental Control, Prov, GW, and Sec services..."
+          python3 test_scripts/fakes/fake_downstream_services.py > fake_server.log 2>&1 &
+          sleep 2
+
+      - name: Prepare CI runtime directory on the runner
+        run: |
+          mkdir -p ci-runtime/certs ci-runtime/data ci-runtime/logs
+          echo '{}' > ci-runtime/data/registry.json
+          openssl req -x509 -newkey rsa:2048 \
+            -keyout ci-runtime/certs/restapi-key.pem \
+            -out ci-runtime/certs/restapi-cert.pem \
+            -days 1 \
+            -subj "/CN=localhost" \
+            -passout pass:mypassword
+          cp ci-runtime/certs/restapi-cert.pem ci-runtime/certs/restapi-ca.pem
+          chmod 644 ci-runtime/certs/restapi-key.pem ci-runtime/certs/restapi-cert.pem ci-runtime/certs/restapi-ca.pem
+
+      - name: Validate generated certs
+        run: |
+          openssl rsa -in ci-runtime/certs/restapi-key.pem -passin pass:mypassword -check -noout
+          openssl x509 -in ci-runtime/certs/restapi-cert.pem -noout -subject -issuer
+          ls -l ci-runtime/certs
+
+      - name: Render config on the runner
+        run: |
+          export RESTAPI_HOST_ROOTCA=/owsub-data/certs/restapi-ca.pem
+          export RESTAPI_HOST_PORT=16006
+          export RESTAPI_HOST_CERT=/owsub-data/certs/restapi-cert.pem
+          export RESTAPI_HOST_KEY=/owsub-data/certs/restapi-key.pem
+          export RESTAPI_HOST_KEY_PASSWORD=mypassword
+          export INTERNAL_RESTAPI_HOST_ROOTCA=/owsub-data/certs/restapi-ca.pem
+          export INTERNAL_RESTAPI_HOST_PORT=17006
+          export INTERNAL_RESTAPI_HOST_CERT=/owsub-data/certs/restapi-cert.pem
+          export INTERNAL_RESTAPI_HOST_KEY=/owsub-data/certs/restapi-key.pem
+          export INTERNAL_RESTAPI_HOST_KEY_PASSWORD=mypassword
+          export SERVICE_KEY=/owsub-data/certs/restapi-key.pem
+          export SERVICE_KEY_PASSWORD=mypassword
+          export SYSTEM_DATA=/owsub-data/data
+          export SYSTEM_URI_PRIVATE=https://localhost:17006
+          export SYSTEM_URI_PUBLIC=https://localhost:16006
+          export SYSTEM_URI_UI=http://localhost
+          export KAFKA_ENABLE=false
+          export KAFKA_BROKERLIST=localhost:9092
+          export KAFKA_SSL_CA_LOCATION=
+          export KAFKA_SSL_CERTIFICATE_LOCATION=
+          export KAFKA_SSL_KEY_LOCATION=
+          export KAFKA_SSL_KEY_PASSWORD=
+          export STORAGE_TYPE=sqlite
+          export STORAGE_TYPE_POSTGRESQL_HOST=localhost
+          export STORAGE_TYPE_POSTGRESQL_USERNAME=owsub
+          export STORAGE_TYPE_POSTGRESQL_PASSWORD=owsub
+          export STORAGE_TYPE_POSTGRESQL_DATABASE=owsub
+          export STORAGE_TYPE_POSTGRESQL_PORT=5432
+          export STORAGE_TYPE_MYSQL_HOST=localhost
+          export STORAGE_TYPE_MYSQL_USERNAME=owsub
+          export STORAGE_TYPE_MYSQL_PASSWORD=owsub
+          export STORAGE_TYPE_MYSQL_DATABASE=owsub
+          export STORAGE_TYPE_MYSQL_PORT=3306
+          export LOGGING_LEVEL=debug
+          export SECURITY_RESTAPI_DISABLE=false
+          envsubst < owsub.properties.tmpl > ci-runtime/owsub.properties
+          echo "logging.websocket = true" >> ci-runtime/owsub.properties
+
+      - name: Start UserPortal
+        run: |
+          echo "Starting UserPortal connected to fakes..."
+          docker run -d --name userportal --network host \
+            -v "$PWD/ci-runtime:/owsub-data" \
+            -e RUN_CHOWN=true \
+            -e CI_FAKE_EXTERNAL_SERVICES=1 \
+            -e FAKE_EXTERNAL_SERVICE_PARENTAL_CONTROL=http://127.0.0.1:8080 \
+            -e FAKE_EXTERNAL_SERVICE_OWPROV=http://127.0.0.1:8080 \
+            -e FAKE_EXTERNAL_SERVICE_OWGW=http://127.0.0.1:8080 \
+            -e FAKE_EXTERNAL_SERVICE_OWSEC=http://127.0.0.1:8080 \
+            test-userportal
+
+          echo "Waiting for UserPortal to be ready..."
+          READY=0
+          for i in {1..30}; do
+            if curl -ks https://localhost:16006/ > /dev/null; then
+              echo "UserPortal is up!"
+              READY=1
+              break
+            fi
+            sleep 1
+          done
+
+          if [ "$READY" -eq 0 ]; then
+            echo "UserPortal failed to start! Container logs:"
+            docker logs userportal
+            echo "Fake server logs:"
+            cat fake_server.log
+            exit 1
+          fi
+
+          sleep 2
+
+      - name: Run Groups Contract Tests
+        env:
+          USERPORTAL_URL: https://localhost:16006
+        run: |
+          echo "Running Python contract tests..."
+          if ! python3 test_scripts/integration/test_groups_contract.py; then
+            echo "Contract tests failed! Container logs:"
+            docker logs userportal
+            echo "Fake server logs:"
+            cat fake_server.log
+            exit 1
+          fi
+
+      - name: Run Groups Integration Tests
+        env:
+          USERPORTAL_URL: https://localhost:16006
+        run: |
+          echo "Running Python integration tests..."
+          if ! python3 test_scripts/integration/test_groups_api.py; then
+            echo "Integration tests failed! Container logs:"
+            docker logs userportal
+            echo "Fake server logs:"
+            cat fake_server.log
+            exit 1
+          fi
+
+      - name: Print UserPortal Logs on Failure
+        if: failure()
+        run: |
+          docker logs userportal
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker rm -f userportal >/dev/null 2>&1 || true

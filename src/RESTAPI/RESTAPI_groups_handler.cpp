@@ -5,13 +5,13 @@
  */
 
 #include "RESTAPI_groups_handler.h"
-#include "sdks/SDK_parental_control.h"
-#include "sdks/SDK_prov.h"
-#include "sdks/SDK_gw.h"
-#include "framework/utils.h"
 #include "Poco/JSON/Array.h"
 #include "Poco/JSON/Stringifier.h"
 #include "fmt/format.h"
+#include "framework/utils.h"
+#include "sdks/SDK_gw.h"
+#include "sdks/SDK_parental_control.h"
+#include "sdks/SDK_prov.h"
 
 namespace OpenWifi {
 
@@ -53,7 +53,8 @@ namespace OpenWifi {
 	// "parental_control" or "parental_control.", then appends the parental-control
 	// service's own config-raw entries (from the DELETE response).
 	// If the result is empty, removes config-raw entirely.
-	static void MergeConfigRaw(Poco::JSON::Object::Ptr &gatewayConfig, const Poco::JSON::Array::Ptr &deleteConfigRaw) {
+	static void MergeConfigRaw(Poco::JSON::Object::Ptr &gatewayConfig,
+							   const Poco::JSON::Array::Ptr &deleteConfigRaw) {
 		auto mergedRaw = Poco::makeShared<Poco::JSON::Array>();
 
 		if (gatewayConfig->has("config-raw") && gatewayConfig->isArray("config-raw")) {
@@ -107,7 +108,7 @@ namespace OpenWifi {
 		Poco::JSON::Object::Ptr callResponse;
 
 		if (SDK::ParentalControl::GetGroup(this, UserInfo_.userinfo.id, groupId, callStatus,
-		                                   callResponse)) {
+										   callResponse)) {
 			return ReturnObject(*callResponse);
 		}
 		return ForwardErrorResponse(this, callStatus, callResponse);
@@ -136,25 +137,25 @@ namespace OpenWifi {
 		for (const auto &name : names) {
 			if (name != "name" && name != "description") {
 				return BadRequest(RESTAPI::Errors::MissingOrInvalidParameters,
-				                  "Unknown field: " + name);
+								  "Unknown field: " + name);
 			}
 		}
 
 		if (!ParsedBody_->has("name") || ParsedBody_->isNull("name") ||
-		    !ParsedBody_->get("name").isString()) {
+			!ParsedBody_->get("name").isString()) {
 			return BadRequest(RESTAPI::Errors::MissingOrInvalidParameters, "name is required");
 		}
 		std::string nameVal = ParsedBody_->getValue<std::string>("name");
 		Poco::trimInPlace(nameVal);
 		if (nameVal.empty()) {
 			return BadRequest(RESTAPI::Errors::MissingOrInvalidParameters,
-			                  "name must be non-empty");
+							  "name must be non-empty");
 		}
 
 		// description is required for PUT (full replacement); may be null.
 		if (!ParsedBody_->has("description")) {
 			return BadRequest(RESTAPI::Errors::MissingOrInvalidParameters,
-			                  "description is required for PUT");
+							  "description is required for PUT");
 		}
 
 		Poco::JSON::Object body;
@@ -164,7 +165,7 @@ namespace OpenWifi {
 		} else {
 			if (!ParsedBody_->get("description").isString()) {
 				return BadRequest(RESTAPI::Errors::MissingOrInvalidParameters,
-				                  "description must be a string or null");
+								  "description must be a string or null");
 			}
 			std::string descVal = ParsedBody_->getValue<std::string>("description");
 			Poco::trimInPlace(descVal);
@@ -175,7 +176,7 @@ namespace OpenWifi {
 		Poco::JSON::Object::Ptr callResponse;
 
 		if (SDK::ParentalControl::UpdateGroup(this, UserInfo_.userinfo.id, groupId, body,
-		                                      callStatus, callResponse)) {
+											  callStatus, callResponse)) {
 			return ReturnObject(*callResponse);
 		}
 		return ForwardErrorResponse(this, callStatus, callResponse);
@@ -199,16 +200,15 @@ namespace OpenWifi {
 		std::string rawResponseBody;
 
 		if (!SDK::ParentalControl::DeleteGroup(this, UserInfo_.userinfo.id, groupId, callStatus,
-		                                       callResponse, rawResponseBody)) {
+											   callResponse, rawResponseBody)) {
 			return ForwardErrorResponse(this, callStatus, callResponse);
 		}
 
 		Poco::JSON::Array::Ptr deleteConfigRaw;
 		if (!ExtractDeleteConfigRaw(callResponse, deleteConfigRaw)) {
-			Logger().error(fmt::format(
-			    "DoDelete: invalid parental-control delete payload "
-			    "(subscriber={} group={})",
-			    UserInfo_.userinfo.id, groupId));
+			Logger().error(fmt::format("DoDelete: invalid parental-control delete payload "
+									   "(subscriber={} group={})",
+									   UserInfo_.userinfo.id, groupId));
 			return InternalError(RESTAPI::Errors::InternalError);
 		}
 
@@ -217,18 +217,17 @@ namespace OpenWifi {
 		if (deleteConfigRaw && deleteConfigRaw->size() > 0) {
 			const std::string operatorId = UserInfo_.userinfo.owner;
 			if (operatorId.empty()) {
-				Logger().error(fmt::format(
-				    "DoDelete: operator id missing for gateway apply "
-				    "(subscriber={} group={})",
-				    UserInfo_.userinfo.id, groupId));
+				Logger().error(fmt::format("DoDelete: operator id missing for gateway apply "
+										   "(subscriber={} group={})",
+										   UserInfo_.userinfo.id, groupId));
 				return UnAuthorized(RESTAPI::Errors::OperatorIdMustExist);
 			}
 
 			ProvObjects::SubscriberDeviceList devList;
 			Poco::Net::HTTPResponse::HTTPStatus provStatus;
 			Poco::JSON::Object::Ptr provResponse;
-			if (!SDK::Prov::Subscriber::GetDevices(this, UserInfo_.userinfo.id, operatorId,
-			                                       devList, provStatus, provResponse)) {
+			if (!SDK::Prov::Subscriber::GetDevices(this, UserInfo_.userinfo.id, operatorId, devList,
+												   provStatus, provResponse)) {
 				return ForwardErrorResponse(this, provStatus, provResponse);
 			}
 
@@ -243,23 +242,27 @@ namespace OpenWifi {
 			}
 
 			if (gatewaySerial.empty()) {
-				Logger().error(fmt::format(
-				    "DoDelete: gateway serial not resolved "
-				    "(subscriber={} group={})",
-				    UserInfo_.userinfo.id, groupId));
+				Logger().error(fmt::format("DoDelete: gateway serial not resolved "
+										   "(subscriber={} group={})",
+										   UserInfo_.userinfo.id, groupId));
 				return InternalError(RESTAPI::Errors::MissingSerialNumber);
 			}
 
 			Poco::JSON::Object::Ptr gwResponse;
 			Poco::Net::HTTPResponse::HTTPStatus gwStatus;
 			if (!SDK::GW::Device::GetConfig(this, gatewaySerial, gwStatus, gwResponse)) {
+				if (gwStatus == Poco::Net::HTTPResponse::HTTP_OK) {
+					Logger().error(
+						fmt::format("DoDelete: gateway config malformed (serial={})", gatewaySerial));
+					return InternalError(RESTAPI::Errors::InternalError);
+				}
 				return ForwardErrorResponse(this, gwStatus, gwResponse);
 			}
 
 			if (!gwResponse || !gwResponse->has("configuration") ||
-			    !gwResponse->isObject("configuration")) {
+				!gwResponse->isObject("configuration")) {
 				Logger().error(
-				    fmt::format("DoDelete: gateway config malformed (serial={})", gatewaySerial));
+					fmt::format("DoDelete: gateway config malformed (serial={})", gatewaySerial));
 				return InternalError(RESTAPI::Errors::InternalError);
 			}
 
@@ -268,8 +271,8 @@ namespace OpenWifi {
 
 			Poco::JSON::Object::Ptr configureResponse;
 			Poco::Net::HTTPResponse::HTTPStatus configureStatus;
-			if (!SDK::GW::Device::Configure(this, gatewaySerial, gatewayConfig,
-			                                configureStatus, configureResponse)) {
+			if (!SDK::GW::Device::Configure(this, gatewaySerial, gatewayConfig, configureStatus,
+											configureResponse)) {
 				return ForwardErrorResponse(this, configureStatus, configureResponse);
 			}
 		}
