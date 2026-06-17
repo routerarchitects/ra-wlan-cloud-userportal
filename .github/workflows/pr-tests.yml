@@ -10,6 +10,20 @@ jobs:
   integration-tests:
     name: Build & Integration Tests
     runs-on: ubuntu-22.04
+    services:
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_USER: root
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: fakeprov
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -21,6 +35,8 @@ jobs:
 
       - name: Start Fake Downstream Services
         run: |
+          echo "Installing Python Postgres driver..."
+          pip3 install psycopg2-binary
           echo "Starting fake Parental Control, Prov, GW, and Sec services..."
           python3 test_scripts/fakes/fake_downstream_services.py > fake_server.log 2>&1 &
           sleep 2

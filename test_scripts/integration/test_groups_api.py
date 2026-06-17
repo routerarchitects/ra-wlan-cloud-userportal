@@ -28,6 +28,11 @@ def set_scenario(scenario_name):
     )
     open_url(req2)
 
+def reset_db():
+    req = urllib.request.Request(f"{FAKE_URL}/reset-db", data=b"", method="POST")
+    open_url(req)
+
+
 def request(method, path, body=None, headers=None, scenario="normal"):
     set_scenario(scenario)
     if headers is None:
@@ -52,44 +57,55 @@ def request(method, path, body=None, headers=None, scenario="normal"):
         except:
             return e.code, res_body
 
-def test_get_groups():
-    print("Testing GET /groups happy path...")
-    status, body = request("GET", "/api/v1/groups")
-    assert status == 200, f"Expected 200, got {status}. Body: {body}"
-    assert isinstance(body, list), f"Expected JSON array, got {type(body)}. Body: {body}"
-    assert len(body) > 0, f"Expected non-empty array. Body: {body}"
-    assert "id" in body[0] and "name" in body[0], f"Expected id and name in group. Body: {body}"
-    print("✅ GET /groups passed")
+CREATED_GROUP_ID = None
 
 def test_post_groups():
-    print("Testing POST /groups happy path...")
-    status, body = request("POST", "/api/v1/groups", body={"name": "test", "description": "desc"})
+    global CREATED_GROUP_ID
+    print("Testing POST /groups stateful create...")
+    status, body = request("POST", "/api/v1/groups", body={"name": "test-group", "description": "desc"})
     assert status == 200, f"Expected 200, got {status}. Body: {body}"
     assert isinstance(body, dict), f"Expected JSON object, got {type(body)}. Body: {body}"
     assert "id" in body and "name" in body, f"Expected created group fields. Body: {body}"
-    print("✅ POST /groups passed")
+    assert body["name"] == "test-group"
+    CREATED_GROUP_ID = body["id"]
+    print(f"✅ POST /groups passed, created ID: {CREATED_GROUP_ID}")
+
+def test_get_groups():
+    print("Testing GET /groups stateful list...")
+    status, body = request("GET", "/api/v1/groups")
+    assert status == 200, f"Expected 200, got {status}. Body: {body}"
+    assert isinstance(body, list), f"Expected JSON array, got {type(body)}. Body: {body}"
+    assert any(g.get("id") == CREATED_GROUP_ID for g in body), f"Expected newly created group in list. Body: {body}"
+    print("✅ GET /groups passed")
 
 def test_get_group_by_id():
-    print("Testing GET /groups/{id} happy path...")
-    status, body = request("GET", f"/api/v1/groups/{VALID_GROUP_ID}")
+    print("Testing GET /groups/{id} stateful read...")
+    status, body = request("GET", f"/api/v1/groups/{CREATED_GROUP_ID}")
     assert status == 200, f"Expected 200, got {status}. Body: {body}"
     assert isinstance(body, dict), f"Expected JSON object. Body: {body}"
-    assert "id" in body and "name" in body, f"Expected group fields. Body: {body}"
+    assert body.get("id") == CREATED_GROUP_ID, f"Expected matching ID. Body: {body}"
+    assert body.get("name") == "test-group"
     print("✅ GET /groups/{id} passed")
 
 def test_put_groups():
-    print("Testing PUT /groups/{id} happy path...")
-    status, body = request("PUT", f"/api/v1/groups/{VALID_GROUP_ID}", body={"name": "test", "description": "desc"})
+    print("Testing PUT /groups/{id} stateful update...")
+    status, body = request("PUT", f"/api/v1/groups/{CREATED_GROUP_ID}", body={"name": "updated-group", "description": "new-desc"})
     assert status == 200, f"Expected 200, got {status}. Body: {body}"
-    assert isinstance(body, dict), f"Expected JSON object. Body: {body}"
-    assert "id" in body and "name" in body, f"Expected updated group fields. Body: {body}"
+    assert body.get("name") == "updated-group", f"Expected updated name. Body: {body}"
+    
+    # Verify update persisted
+    status, read_body = request("GET", f"/api/v1/groups/{CREATED_GROUP_ID}")
+    assert read_body.get("name") == "updated-group", "GET after PUT did not return updated name"
     print("✅ PUT /groups passed")
 
 def test_delete_groups_normal():
-    print("Testing DELETE /groups/{id} normal success without config-raw...")
-    status, body = request("DELETE", f"/api/v1/groups/{VALID_GROUP_ID}")
+    print("Testing DELETE /groups/{id} stateful delete...")
+    status, body = request("DELETE", f"/api/v1/groups/{CREATED_GROUP_ID}")
     assert status == 200, f"Expected 200, got {status}. Body: {body}"
-    assert body == {}, f"Expected empty body for success. Body: {body}"
+    
+    # Verify deletion persisted
+    status, _ = request("GET", f"/api/v1/groups/{CREATED_GROUP_ID}")
+    assert status == 404, f"Expected 404 after deletion, got {status}"
     print("✅ DELETE /groups normal passed")
 
 def test_forwarded_failures():
@@ -157,12 +173,12 @@ def test_delete_orchestration():
 if __name__ == "__main__":
     print("Starting integration tests...")
     try:
-        test_get_groups()
+        reset_db()
         test_post_groups()
+        test_get_groups()
         test_get_group_by_id()
         test_put_groups()
         test_delete_groups_normal()
-        
 
         test_forwarded_failures()
         test_delete_orchestration()
