@@ -17,6 +17,8 @@
 #include "RESTAPI/RESTAPI_subscriber_handler.h"
 #include "RESTAPI/RESTAPI_subscriber_devices_handler.h"
 #include "RESTAPI/RESTAPI_wifiClients_handler.h"
+#include "RESTAPI/RESTAPI_groups_list_handler.h"
+#include "RESTAPI/RESTAPI_groups_handler.h"
 
 #include "framework/RESTAPI_SystemCommand.h"
 #include "framework/RESTAPI_WebSocketServer.h"
@@ -32,7 +34,7 @@ namespace OpenWifi {
 							  RESTAPI_action_handler, RESTAPI_mfa_handler, RESTAPI_claim_handler,
 							  RESTAPI_system_command, RESTAPI_system_configuration,
                               RESTAPI_stats_handler, RESTAPI_topology_handler,
-							  RESTAPI_webSocketServer>(Path, Bindings, L, S, TransactionId);
+							  RESTAPI_webSocketServer, RESTAPI_groups_list_handler, RESTAPI_groups_handler>(Path, Bindings, L, S, TransactionId);
 	}
 
 	Poco::Net::HTTPRequestHandler *
@@ -43,7 +45,7 @@ namespace OpenWifi {
 								RESTAPI_action_handler, RESTAPI_mfa_handler, RESTAPI_claim_handler,
 								RESTAPI_system_command, RESTAPI_system_configuration,
 								RESTAPI_topology_handler,
-								RESTAPI_stats_handler>(Path, Bindings, L, S, TransactionId);
+								RESTAPI_stats_handler, RESTAPI_groups_list_handler, RESTAPI_groups_handler>(Path, Bindings, L, S, TransactionId);
 	}
 
 } // namespace OpenWifi

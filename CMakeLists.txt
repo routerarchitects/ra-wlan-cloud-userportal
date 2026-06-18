@@ -142,6 +142,9 @@ add_executable(owsub
         src/RESTAPI/RESTAPI_claim_handler.cpp src/RESTAPI/RESTAPI_claim_handler.h
         src/sdks/SDK_fms.cpp src/sdks/SDK_fms.h src/StatsSvr.cpp src/StatsSvr.h src/RESTAPI/RESTAPI_stats_handler.cpp src/RESTAPI/RESTAPI_stats_handler.h
         src/RESTAPI/RESTAPI_topology_handler.cpp src/RESTAPI/RESTAPI_topology_handler.h
+        src/RESTAPI/RESTAPI_groups_list_handler.cpp src/RESTAPI/RESTAPI_groups_list_handler.h
+        src/sdks/SDK_parental_control.cpp src/sdks/SDK_parental_control.h
+        src/RESTAPI/RESTAPI_groups_handler.cpp src/RESTAPI/RESTAPI_groups_handler.h
         )
 
 target_link_libraries(owsub PUBLIC
