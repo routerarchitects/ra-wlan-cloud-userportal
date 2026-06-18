@@ -186,6 +186,12 @@ class FakeHandler(http.server.BaseHTTPRequestHandler):
             return
 
         if "/api/v1/device/" in self.path and "configure" not in self.path and "statistics" not in self.path:
+            if current_scenario == "delete-config-raw-gw-get-502":
+                self.send_response(502)
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "bad_gateway", "message": "fake gw get failure"}).encode())
+                return
+
             if current_scenario in ["gw-get-malformed", "delete-config-raw-gw-get-malformed"]:
                 self.send_response(200)
                 self.end_headers()

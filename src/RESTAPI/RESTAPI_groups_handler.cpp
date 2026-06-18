@@ -228,7 +228,10 @@ namespace OpenWifi {
 			Poco::JSON::Object::Ptr provResponse;
 			if (!SDK::Prov::Subscriber::GetDevices(this, UserInfo_.userinfo.id, operatorId, devList,
 												   provStatus, provResponse)) {
-				return ForwardErrorResponse(this, provStatus, provResponse);
+				Logger().error(fmt::format("DoDelete: provisioning lookup failed "
+										   "(subscriber={} group={})",
+										   UserInfo_.userinfo.id, groupId));
+				return InternalError(RESTAPI::Errors::InternalError);
 			}
 
 			std::string gatewaySerial;
@@ -256,7 +259,9 @@ namespace OpenWifi {
 						fmt::format("DoDelete: gateway config malformed (serial={})", gatewaySerial));
 					return InternalError(RESTAPI::Errors::InternalError);
 				}
-				return ForwardErrorResponse(this, gwStatus, gwResponse);
+				Logger().error(
+					fmt::format("DoDelete: gateway config load failed (serial={})", gatewaySerial));
+				return InternalError(RESTAPI::Errors::InternalError);
 			}
 
 			if (!gwResponse || !gwResponse->has("configuration") ||
@@ -273,7 +278,9 @@ namespace OpenWifi {
 			Poco::Net::HTTPResponse::HTTPStatus configureStatus;
 			if (!SDK::GW::Device::Configure(this, gatewaySerial, gatewayConfig, configureStatus,
 											configureResponse)) {
-				return ForwardErrorResponse(this, configureStatus, configureResponse);
+				Logger().error(
+					fmt::format("DoDelete: gateway configure failed (serial={})", gatewaySerial));
+				return InternalError(RESTAPI::Errors::InternalError);
 			}
 		}
 

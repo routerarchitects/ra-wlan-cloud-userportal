@@ -158,15 +158,19 @@ def test_delete_orchestration():
 
     # J) DELETE item with scenario "delete-config-raw-prov-502"
     status, _ = request("DELETE", f"/api/v1/groups/{VALID_GROUP_ID}", scenario="delete-config-raw-prov-502")
-    assert status == 502, f"Expected 502 for provisioning failure, got {status}"
+    assert status == 500, f"Expected 500 for provisioning failure, got {status}"
     
     # K) DELETE item with scenario "delete-config-raw-gw-get-malformed"
     status, _ = request("DELETE", f"/api/v1/groups/{VALID_GROUP_ID}", scenario="delete-config-raw-gw-get-malformed")
     assert status == 500, f"Expected 500 for gw-get malformed failure, got {status}"
+
+    # L) DELETE item with scenario "delete-config-raw-gw-get-502"
+    status, _ = request("DELETE", f"/api/v1/groups/{VALID_GROUP_ID}", scenario="delete-config-raw-gw-get-502")
+    assert status == 500, f"Expected 500 for gw get failure, got {status}"
     
-    # L) DELETE item with scenario "delete-config-raw-gw-configure-502"
+    # M) DELETE item with scenario "delete-config-raw-gw-configure-502"
     status, _ = request("DELETE", f"/api/v1/groups/{VALID_GROUP_ID}", scenario="delete-config-raw-gw-configure-502")
-    assert status == 502, f"Expected 502 for gw configure failure, got {status}"
+    assert status == 500, f"Expected 500 for gw configure failure, got {status}"
     
     print("✅ DELETE config-raw error scenarios passed")
 
