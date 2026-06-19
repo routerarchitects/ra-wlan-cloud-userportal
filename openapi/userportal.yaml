@@ -1,4 +1,4 @@
-openapi: 3.0.1
+openapi: 3.1.0
 info:
   title: OpenWiFi User Portal
   description: API describing User Self Care interaction with OpenWifi.
@@ -27,635 +27,48 @@ components:
 
   responses:
     NotFound:
-      $ref: 'https://github.com/Telecominfraproject/wlan-cloud-ucentralsec/blob/main/openpapi/owsec.yaml#/components/responses/NotFound'
+      $ref: https://raw.githubusercontent.com/routerarchitects/ra-wlan-cloud-ucentralsec/main/openpapi/owsec.yaml#/components/responses/NotFound
     Unauthorized:
-      $ref: 'https://github.com/Telecominfraproject/wlan-cloud-ucentralsec/blob/main/openpapi/owsec.yaml#/components/responses/Unauthorized'
+      $ref: https://raw.githubusercontent.com/routerarchitects/ra-wlan-cloud-ucentralsec/main/openpapi/owsec.yaml#/components/responses/Unauthorized
     Success:
-      $ref: 'https://github.com/Telecominfraproject/wlan-cloud-ucentralsec/blob/main/openpapi/owsec.yaml#/components/responses/Success'
+      $ref: https://raw.githubusercontent.com/routerarchitects/ra-wlan-cloud-ucentralsec/main/openpapi/owsec.yaml#/components/responses/Success
     BadRequest:
-      $ref: 'https://github.com/Telecominfraproject/wlan-cloud-ucentralsec/blob/main/openpapi/owsec.yaml#/components/responses/BadRequest'
+      $ref: https://raw.githubusercontent.com/routerarchitects/ra-wlan-cloud-ucentralsec/main/openpapi/owsec.yaml#/components/responses/BadRequest
+    InternalError:
+      description: The request failed because UserPortal encountered an internal error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Conflict:
+      description: The request failed because the requested parental-control state conflicts with existing subscriber state.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
 
   schemas:
-    HomeDeviceMode:
+    ErrorResponse:
       type: object
+      description: Standard error payload returned by UserPortal handlers or forwarded from downstream services.
+      additionalProperties: true
+      required:
+        - ErrorCode
+        - ErrorDetails
+        - ErrorDescription
       properties:
-        type:
-          type: string
-          enum:
-            - bridge
-            - manual
-            - nat
-          default: automatic
-        ipV6Support:
-          type: boolean
-          default: false
-        enableLEDS:
-          type: boolean
-          default: true
-        subnet:
-          type: string
-          format: ipv4
-        subnetMask:
+        ErrorCode:
           type: integer
-          format: int32
-        startIP:
+          description: HTTP status code or service error code.
+        ErrorDetails:
           type: string
-          format: ipv4
-        endIP:
+          description: HTTP method or operation detail associated with the error.
+        ErrorDescription:
           type: string
-          format: ipv4
-        subnetV6:
-          type: string
-          format: ipv6
-        subnetMaskV6:
-          type: integer
-          format: int32
-        startIPV6:
-          type: string
-          format: ipv6
-        endIPV6:
-          type: string
-          format: ipv6
-        created:
-          type: integer
-          format: int64
-        modified:
-          type: integer
-          format: int64
-        leaseTime:
-          type: string
+          description: Formatted service error description.
 
-    IPReservation:
-      type: object
-      properties:
-        nickname:
-          type: string
-        ipAddress:
-          type: string
-          example: maybe IPv4 or IPv6
-        macAddress:
-          type: string
-          format: mac-address
 
-    IPReservationList:
-      type: object
-      properties:
-        created:
-          type: integer
-          format: int64
-        modified:
-          type: integer
-          format: int64
-        reservations:
-          type: array
-          items:
-            $ref: '#/components/schemas/IPReservation'
-
-    DnsConfiguration:
-      type: object
-      properties:
-        ISP:
-          type: boolean
-        custom:
-          type: boolean
-        primary:
-          type: string
-          format: ipv4
-        secondary:
-          type: string
-          format: ipv4
-        primaryV6:
-          type: string
-          format: ipv6
-        secondaryV6:
-          type: string
-          format: ipv6
-
-    InternetConnection:
-      type: object
-      properties:
-        type:
-          type: string
-          enum:
-            - manual
-            - pppoe
-            - automatic
-        ipV6Support:
-          type: boolean
-          default: false
-        username:
-          type: string
-        password:
-          type: string
-        ipAddress:
-          type: string
-          format: ipv4
-        subnetMask:
-          type: string
-          format: ipv4
-        defaultGateway:
-          type: string
-          format: ipv4
-        primaryDns:
-          type: string
-          format: ipv4
-        secondaryDns:
-          type: string
-          format: ipv4
-        ipAddressV6:
-          type: string
-          format: ipv6
-        subnetMaskV6:
-          type: integer
-          format: int32
-        defaultGatewayV6:
-          type: string
-          format: ipv6
-        primaryDnsV6:
-          type: string
-          format: ipv6
-        secondaryDnsV6:
-          type: string
-          format: ipv6
-        created:
-          type: integer
-          format: int64
-        modified:
-          type: integer
-          format: int64
-
-    WifiNetwork:
-      type: object
-      properties:
-        type:
-          type: string
-          enum:
-            - main
-            - guest
-        name:
-          type: string
-          maxLength: 32
-        password:
-          type: string
-          minLength: 8
-          maxLength: 32
-        encryption:
-          type: string
-          enum:
-            - wpa1-personal
-            - wpa2-personal
-            - wpa3-personal
-            - wpa1/2-personal
-            - wpa2/3-personal
-          default: wpa2-personal
-        bands:
-          type: array
-          items:
-            type: string
-            enum:
-              - all
-              - 2G
-              - 5G
-              - 5GL
-              - 5GU
-              - 6G
-
-    WifiNetworkList:
-      type: object
-      properties:
-        created:
-          type: integer
-          format: int64
-        modified:
-          type: integer
-          format: int64
-        networks:
-          type: array
-          items:
-            $ref: '#/components/schemas/WifiNetwork'
-
-    AccessTime:
-      type: object
-      properties:
-        description:
-          type: string
-        day:
-          type: string
-        rangeList:
-          type: array
-          items:
-            type: string
-
-    AccessTimes:
-      type: object
-      properties:
-        description:
-          type: string
-        created:
-          type: integer
-          format: int64
-        modified:
-          type: integer
-          format: int64
-        schedule:
-          type: array
-          items:
-            $ref: '#/components/schemas/AccessTime'
-
-    SubscriberDevice:
-      type: object
-      properties:
-        name:
-          type: string
-        description:
-          type: string
-        macAddress:
-          type: string
-        manufacturer:
-          type: string
-        firstContact:
-          type: integer
-          format: int64
-        lastContact:
-          type: integer
-          format: int64
-        group:
-          type: string
-        icon:
-          type: string
-          format: uuid
-        suspended:
-          type: boolean
-        ip:
-          type: string
-        created:
-          type: integer
-          format: int64
-        modified:
-          type: integer
-          format: int64
-        schedule:
-          $ref: '#/components/schemas/AccessTimes'
-
-    SubscriberDeviceList:
-      type: object
-      properties:
-        created:
-          type: integer
-          format: int64
-        modified:
-          type: integer
-          format: int64
-        devices:
-          type: array
-          items:
-            $ref: '#/components/schemas/SubscriberDevice'
-
-    Association:
-      type: object
-      properties:
-        name:
-          type: string
-        ssid:
-          type: string
-        macAddress:
-          type: string
-        rssi:
-          type: integer
-        power:
-          type: integer
-        ipv4:
-          type: string
-        ipv6:
-          type: integer
-        tx:
-          type: integer
-        rx:
-          type: integer
-        manufacturer:
-          type: string
-
-    AssociationList:
-      type: object
-      properties:
-        created:
-          type: integer
-          format: int64
-        modified:
-          type: integer
-          format: int64
-        associations:
-          type: array
-          items:
-            $ref: '#/components/schemas/Association'
-
-    Client:
-      type: object
-      properties:
-        macAddress:
-          type: string
-        speed:
-          type: string
-        mode:
-          type: string
-        ipv4:
-          type: string
-        ipv6:
-          type: integer
-        tx:
-          type: integer
-        rx:
-          type: integer
-        manufacturer:
-          type: string
-
-    ClientList:
-      type: object
-      properties:
-        created:
-          type: integer
-          format: int64
-          readOnly: true
-        modified:
-          type: integer
-          format: int64
-          readOnly: true
-        clients:
-          type: array
-          items:
-            $ref: '#/components/schemas/Client'
-
-    Location:
-      type: object
-      properties:
-        buildingName:
-          type: string
-        addressLines:
-          type: array
-          items:
-            type: string
-        city:
-          type: string
-        state:
-          type: string
-        postal:
-          type: string
-        country:
-          type: string
-        phones:
-          type: array
-          items:
-            type: string
-        mobiles:
-          type: array
-          items:
-            type: string
-
-    RadioRates:
-      type: object
-      properties:
-        beacon:
-          type: integer
-          default: 6000
-          enum:
-            - 0
-            - 1000
-            - 2000
-            - 5500
-            - 6000
-            - 9000
-            - 11000
-            - 12000
-            - 18000
-            - 24000
-            - 36000
-            - 48000
-            - 54000
-        multicast:
-          type: integer
-          default: 24000
-          enum:
-            - 0
-            - 1000
-            - 2000
-            - 5500
-            - 6000
-            - 9000
-            - 11000
-            - 12000
-            - 18000
-            - 24000
-            - 36000
-            - 48000
-            - 54000
-
-    RadioHE:
-      type: object
-      properties:
-        multipleBSSID:
-          type: boolean
-          default: false
-        ema:
-          type: boolean
-          default: false
-        bssColor:
-          type: integer
-          default: 64
-
-    RadioInformation:
-      type: object
-      properties:
-        band:
-          type: string
-          enum:
-            - 2G
-            - 5G
-            - 5GL
-            - 5GU
-            - 6G
-        bandwidth:
-          type: integer
-          enum:
-            - 5
-            - 10
-            - 20
-        channel:
-          oneOf:
-            - type: integer
-              minimum: 1
-              maximum: 171
-            - type: string
-              enum:
-                - auto
-        country:
-          type: string
-          minLength: 2
-          maxLength: 2
-        channelMode:
-          type: string
-          enum:
-            - HT
-            - VHT
-            - HE
-          default: HE
-        channelWidth:
-          type: integer
-          enum:
-            - 20
-            - 40
-            - 80
-            - 160
-            - 8080
-          default: 80
-        requireMode:
-          type: string
-          enum:
-            - HT
-            - VHT
-            - HE
-        txPower:
-          type: integer
-          minimum: 0
-          maximum: 30
-        legacyRates:
-          type: boolean
-          default: false
-        beaconInterval:
-          type: integer
-          minimum: 15
-          maximum: 65535
-          default: 100
-        dtimPeriod:
-          type: integer
-          default: 2
-          minimum: 1
-          maximum: 255
-        rates:
-          $ref: '#/components/schemas/RadioRates'
-        he:
-          $ref: '#/components/schemas/RadioHE'
-        rawInfo:
-          type: array
-          items:
-            type: string
-
-    AccessPoint:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        macAddress:
-          type: string
-        serialNumber:
-          type: string
-        name:
-          type: string
-        deviceType:
-          type: string
-        subscriberDevices:
-          $ref: '#/components/schemas/SubscriberDeviceList'
-        ipReservations:
-          $ref: '#/components/schemas/IPReservationList'
-        address:
-          $ref: '#/components/schemas/Location'
-        wifiNetworks:
-          $ref: '#/components/schemas/WifiNetworkList'
-        internetConnection:
-          $ref: '#/components/schemas/InternetConnection'
-        deviceMode:
-          $ref: '#/components/schemas/HomeDeviceMode'
-        dnsConfiguration:
-          $ref: '#/components/schemas/DnsConfiguration'
-        radios:
-          type: array
-          items:
-            $ref: '#/components/schemas/RadioInformation'
-        automaticUpgrade:
-          type: boolean
-          default: true
-        configurationUUID:
-          type: string
-          format: uuid
-          readOnly: true
-        currentFirmware:
-          type: string
-        currentFirmwareDate:
-          type: integer
-        latestFirmware:
-          type: string
-        latestFirmwareDate:
-          type: integer
-        newFirmwareAvailable:
-          type: boolean
-
-    AccessPointList:
-      type: object
-      properties:
-        list:
-          type: array
-          items:
-            $ref: '#/components/schemas/AccessPoint'
-
-    SubscriberInfo:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-          readOnly: true
-        userId:
-          type: string
-          format: email
-          readOnly: true
-        firstName:
-          type: string
-        initials:
-          type: string
-        lastName:
-          type: string
-        phoneNumber:
-          type: string
-        secondaryEmail:
-          type: string
-          format: email
-        accessPoints:
-          $ref: '#/components/schemas/AccessPointList'
-        serviceAddress:
-          $ref: '#/components/schemas/Location'
-        billingAddress:
-          $ref: '#/components/schemas/Location'
-        created:
-          type: integer
-          format: int64
-          readOnly: true
-        modified:
-          type: integer
-          format: int64
-          readOnly: true
-
-    PasswordChange:
-      type: object
-      properties:
-        oldPassword:
-          type: string
-          format: password
-        newPassword:
-          type: string
-          format: password
-
-    NoteInfo:
-      type: object
-      properties:
-        created:
-          type: integer
-          format: int64
-        createdBy:
-          type: string
-        note:
-          type: string
-
-    ObjectInfo:
+    SignupResponse:
       type: object
       properties:
         id:
@@ -665,54 +78,147 @@ components:
           type: string
         description:
           type: string
+        created:
+          type: integer
+          format: int64
+        modified:
+          type: integer
+          format: int64
         notes:
           type: array
           items:
-            $ref: '#/components/schemas/NoteInfo'
-        created:
-          type: integer
-          format: int64
-        modified:
-          type: integer
-          format: int64
+            type: object
+            properties:
+              created:
+                type: integer
+                format: int64
+              createdBy:
+                type: string
+              note:
+                type: string
+            additionalProperties: true
         tags:
           type: array
           items:
             type: integer
             format: int64
-
-    SignupEntry:
-      type: object
-      properties:
-        allOf:
-          $ref: '#/components/schemas/ObjectInfo'
         email:
           type: string
           format: email
         userId:
           type: string
-          format: uuid
         macAddress:
           type: string
         serialNumber:
           type: string
-        created:
+        submitted:
           type: integer
           format: int64
         completed:
           type: integer
           format: int64
+        status:
+          type: string
         error:
           type: integer
           format: int64
-        status:
-          type: string
         statusCode:
           type: integer
+        deviceID:
+          type: string
+        registrationId:
+          type: string
+        operatorId:
+          type: string
+      additionalProperties: false
+
+    ActionRequestBody:
+      type: object
+      properties:
+        mac:
+          type: string
+          pattern: '^(?:[0-9A-Fa-f]{12}|(?:[0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2})$'
+        when:
+          type: integer
           format: int64
+          default: 0
+        duration:
+          type: integer
+          format: int64
+          default: 30
+        pattern:
+          type: string
+          default: blink
+        uri:
+          type: string
+        keepRedirector:
+          type: boolean
+          default: true
+        ssid:
+          $ref: '#/components/schemas/SsidOverride'
+        client:
+          type: array
+          items:
+            $ref: '#/components/schemas/ClientAccessChange'
+      additionalProperties: true
+
+    SsidOverride:
+      type: object
+      required:
+        - name
+        - password
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 32
+          pattern: '^[A-Za-z0-9._ \-]{1,32}$'
+        password:
+          type: string
+          minLength: 8
+          maxLength: 32
+          pattern: '^\S{8,32}$'
+      additionalProperties: false
+
+    ClientAccessChange:
+      type: object
+      required:
+        - mac
+        - access
+      properties:
+        mac:
+          type: string
+          pattern: '^(?:[0-9A-Fa-f]{12}|(?:[0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2})$'
+        access:
+          type: string
+          enum:
+            - allow
+            - deny
+      additionalProperties: false
+
+    ActionSuccessResponse:
+      type: object
+      properties:
+        Operation:
+          type: string
+        Details:
+          type: string
+        Code:
+          type: integer
+      additionalProperties: true
+
+    ActionGatewayResponse:
+      type: object
+      additionalProperties: true
+
+    ActionResponse:
+      oneOf:
+        - $ref: '#/components/schemas/ActionSuccessResponse'
+        - $ref: '#/components/schemas/ActionGatewayResponse'
 
     TopologyResponse:
       type: object
+      minProperties: 1
       properties:
         boardId:
           type: string
@@ -731,26 +237,50 @@ components:
           format: date-time
       additionalProperties: true
 
+    TopologyEmptyResponse:
+      type: object
+      maxProperties: 0
+      additionalProperties: false
+
     TopologyEdges:
       type: object
       properties:
         mesh:
           type: array
           items:
-            type: object
-            additionalProperties: true
+            $ref: '#/components/schemas/TopologyEdge'
         wired:
           type: array
           items:
-            type: object
-            additionalProperties: true
+            $ref: '#/components/schemas/TopologyEdge'
+      additionalProperties: true
+
+    TopologyEdge:
+      type: object
+      properties:
+        from:
+          type: string
+        to:
+          type: string
+        ssid:
+          type: string
+        band:
+          type: string
+        channel:
+          type: integer
       additionalProperties: true
 
     TopologyHistoricalClient:
       type: object
+      required:
+        - station
+        - blocked
       properties:
         blocked:
           type: string
+          enum:
+            - "0"
+            - "1"
         station:
           type: string
       additionalProperties: true
@@ -784,8 +314,9 @@ components:
         channel:
           type: integer
         clients:
-          type: array
-          nullable: true
+          type:
+            - array
+            - 'null'
           items:
             $ref: '#/components/schemas/TopologyClient'
         mode:
@@ -802,6 +333,9 @@ components:
       properties:
         blocked:
           type: string
+          enum:
+            - "0"
+            - "1"
         connected:
           type: integer
         fingerprint:
@@ -824,191 +358,102 @@ components:
           type: integer
       additionalProperties: true
 
-    ExtraSystemConfiguration:
+    SystemConfigurationEntry:
+      type: object
+      required:
+        - parameterName
+        - parameterValue
+      properties:
+        parameterName:
+          type: string
+        parameterValue:
+          type: string
+      additionalProperties: false
+
+    SystemConfigurationResponse:
       type: array
       items:
-        type: object
-        properties:
-          parameterName:
-            type: string
-          parameterValue:
-            type: string
+        $ref: '#/components/schemas/SystemConfigurationEntry'
 
     #########################################################################################
     ##
     ## These are endpoints that all services in the OPenWiFI stack must provide
     ##
     #########################################################################################
-    AnyPayload:
-      type: object
-      properties:
-        Document:
-          type: string
 
-    StringList:
+    CertificateInfo:
       type: object
+      required:
+        - filename
+        - expiresOn
       properties:
-        list:
-          type: array
-          items:
-            type: string
-
-    TagValuePair:
-      type: object
-      properties:
-        tag:
+        filename:
           type: string
-        value:
-          type: string
-
-    TagValuePairList:
-      type: object
-      properties:
-        tagList:
-          type: array
-          items:
-            $ref: '#/components/schemas/TagValuePair'
-
-    TagIntPair:
-      type: object
-      properties:
-        tag:
-          type: string
-        value:
+        expiresOn:
           type: integer
           format: int64
+      additionalProperties: true
 
-    TagIntPairList:
-      type: object
-      properties:
-        tagList:
-          type: array
-          items:
-            $ref: '#/components/schemas/TagIntPair'
+    SystemCommandGetResponse:
+      oneOf:
+        - $ref: '#/components/schemas/SystemCommandInfoResponse'
+        - $ref: '#/components/schemas/SystemCommandExtraConfigurationResponse'
+        - $ref: '#/components/schemas/SystemCommandResourcesResponse'
 
-    SystemCommandDetails:
+    SystemCommandInfoResponse:
       type: object
-      properties:
-        command:
-          type: string
-          enum:
-            - setloglevels
-            - getloglevels
-            - getSubSystemNames
-            - getLogLevelNames
-            - stats
-        parameters:
-          oneOf:
-            - $ref: '#/components/schemas/StringList'
-            - $ref: '#/components/schemas/TagValuePairList'
-
-    SystemCommandSetLogLevel:
-      type: object
-      properties:
-        command:
-          type: string
-          enum:
-            - setloglevel
-        subsystems:
-          type: array
-          items:
-            $ref: '#/components/schemas/TagValuePair'
-
-    SystemCommandReload:
-      type: object
-      properties:
-        command:
-          type: string
-          enum:
-            - reload
-        subsystems:
-          type: array
-          items:
-            type: string
-            example: these are the SubSystems names retrieve with the GetSubSystemsNamesResult.
-
-    SystemCommandGetLogLevels:
-      type: object
-      properties:
-        command:
-          type: string
-          enum:
-            - getloglevels
-
-    SystemGetLogLevelsResult:
-      type: object
-      properties:
-        taglist:
-          type: array
-          items:
-            $ref: '#/components/schemas/TagValuePair'
-
-    SystemCommandGetLogLevelNames:
-      type: object
-      properties:
-        command:
-          type: string
-          enum:
-            - getloglevelnames
-
-    SystemCommandGetSubsystemNames:
-      type: object
-      properties:
-        command:
-          type: string
-          enum:
-            - getsubsystemnames
-
-    SystemCommandGetLogLevelNamesResult:
-      type: object
-      properties:
-        list:
-          type: array
-          items:
-            type: string
-
-    SystemGetSubSystemNamesResult:
-      type: object
-      properties:
-        taglist:
-          type: array
-          items:
-            $ref: '#/components/schemas/TagValuePair'
-
-    SystemInfoResults:
-      type: object
+      required:
+        - version
+        - uptime
+        - start
+        - os
+        - processors
+        - hostname
+        - UI
+        - certificates
       properties:
         version:
           type: string
         uptime:
           type: integer
-          format: integer64
+          format: int64
         start:
           type: integer
-          format: integer64
+          format: int64
         os:
           type: string
         processors:
           type: integer
         hostname:
           type: string
+        UI:
+          type: string
         certificates:
           type: array
           items:
-            type: object
-            properties:
-              filename:
-                type: string
-              expires:
-                type: integer
-                format: int64
+            $ref: '#/components/schemas/CertificateInfo'
+      additionalProperties: true
 
-    SystemResources:
+    SystemCommandExtraConfigurationResponse:
       type: object
+      required:
+        - additionalConfiguration
+      properties:
+        additionalConfiguration:
+          type: boolean
+      additionalProperties: true
+
+    SystemCommandResourcesResponse:
+      type: object
+      required:
+        - numberOfFileDescriptors
+        - currRealMem
+        - peakRealMem
+        - currVirtMem
+        - peakVirtMem
       properties:
         numberOfFileDescriptors:
           type: integer
-          format: int64
         currRealMem:
           type: integer
           format: int64
@@ -1021,14 +466,201 @@ components:
         peakVirtMem:
           type: integer
           format: int64
+      additionalProperties: true
 
-    SystemCommandResults:
+    SystemCommandPostResponse:
+      anyOf:
+        - type: object
+          required:
+            - Code
+            - Operation
+            - Details
+          properties:
+            Code:
+              type: integer
+            Operation:
+              type: string
+            Details:
+              type: string
+          additionalProperties: true
+        - $ref: '#/components/schemas/SystemTagListResponse'
+        - $ref: '#/components/schemas/SystemListResponse'
+
+    SystemCommandLogLevelRequestEntry:
       type: object
+      properties:
+        tag:
+          type: string
+        value:
+          type: string
+      additionalProperties: true
+
+    SystemCommandSetLogLevelRequest:
+      type: object
+      required:
+        - command
+        - subsystems
+      properties:
+        command:
+          type: string
+          pattern: '^[sS][eE][tT][lL][oO][gG][lL][eE][vV][eE][lL]$'
+          example: setloglevel
+        subsystems:
+          type: array
+          items:
+            $ref: '#/components/schemas/SystemCommandLogLevelRequestEntry'
+      additionalProperties: true
+
+    SystemCommandReloadRequest:
+      type: object
+      required:
+        - command
+      properties:
+        command:
+          type: string
+          pattern: '^[rR][eE][lL][oO][aA][dD]$'
+          example: reload
+        subsystems:
+          type: array
+          items:
+            type: string
+      additionalProperties: true
+
+    SystemCommandGetLogLevelsRequest:
+      type: object
+      required:
+        - command
+      properties:
+        command:
+          type: string
+          pattern: '^[gG][eE][tT][lL][oO][gG][lL][eE][vV][eE][lL][sS]$'
+          example: getloglevels
+      additionalProperties: true
+
+    SystemCommandGetLogLevelNamesRequest:
+      type: object
+      required:
+        - command
+      properties:
+        command:
+          type: string
+          pattern: '^[gG][eE][tT][lL][oO][gG][lL][eE][vV][eE][lL][nN][aA][mM][eE][sS]$'
+          example: getloglevelnames
+      additionalProperties: true
+
+    SystemCommandGetSubsystemNamesRequest:
+      type: object
+      required:
+        - command
+      properties:
+        command:
+          type: string
+          pattern: '^[gG][eE][tT][sS][uU][bB][sS][yY][sS][tT][eE][mM][nN][aA][mM][eE][sS]$'
+          example: getsubsystemnames
+      additionalProperties: true
+
+    SystemCommandRequest:
       oneOf:
-        - $ref: '#/components/schemas/SystemResources'
-        - $ref: '#/components/schemas/SystemInfoResults'
-        - $ref: '#/components/schemas/StringList'
-        - $ref: '#/components/schemas/TagValuePairList'
+        - $ref: '#/components/schemas/SystemCommandSetLogLevelRequest'
+        - $ref: '#/components/schemas/SystemCommandReloadRequest'
+        - $ref: '#/components/schemas/SystemCommandGetLogLevelsRequest'
+        - $ref: '#/components/schemas/SystemCommandGetLogLevelNamesRequest'
+        - $ref: '#/components/schemas/SystemCommandGetSubsystemNamesRequest'
+
+    SystemTagValue:
+      type: object
+      properties:
+        tag:
+          type: string
+        value:
+          type: string
+      additionalProperties: true
+
+    SystemTagListResponse:
+      type: object
+      required:
+        - tagList
+      properties:
+        tagList:
+          type: array
+          items:
+            $ref: '#/components/schemas/SystemTagValue'
+      additionalProperties: true
+
+    SystemListResponse:
+      type: object
+      required:
+        - list
+      properties:
+        list:
+          type: array
+          items:
+            type: string
+      additionalProperties: true
+
+    Group:
+      type: object
+      description: Subscriber-scoped parental-control group proxied by UserPortal from the Mango Parental Control Service.
+      required:
+        - id
+        - subscriber_id
+        - group_config_index
+        - name
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        subscriber_id:
+          type: string
+          format: uuid
+        group_config_index:
+          type: integer
+        name:
+          type: string
+        description:
+          oneOf:
+            - type: string
+            - type: 'null'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+
+    GroupCreateRequest:
+      type: object
+      description: Create request for one subscriber-scoped parental-control group.
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+        description:
+          oneOf:
+            - type: string
+            - type: 'null'
+      additionalProperties: false
+
+    GroupPutRequest:
+      type: object
+      description: Full replacement request for mutable group fields. PUT requests must send the complete mutable group representation.
+      required:
+        - name
+        - description
+      properties:
+        name:
+          type: string
+          minLength: 1
+        description:
+          oneOf:
+            - type: string
+            - type: 'null'
+      additionalProperties: false
 
 paths:
   /subscriber:
@@ -1037,6 +669,7 @@ paths:
         - Subscriber Information
       summary: Register a subscriber
       operationId: createSubscriber
+      security: []
       parameters:
         - in: query
           name: email
@@ -1048,10 +681,21 @@ paths:
           name: registrationId
           schema:
             type: string
+            minLength: 1
           required: true
+        - in: query
+          name: resend
+          schema:
+            type: boolean
+            default: false
+          required: false
       responses:
         200:
-          $ref: '#/components/responses/Success'
+          description: Signup request accepted or existing pending signup returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignupResponse'
         400:
           $ref: '#/components/responses/BadRequest'
     delete:
@@ -1059,12 +703,17 @@ paths:
         - Subscriber Information
       summary: Remove the subscriber from the DB
       operationId: deleteSubscriberInfo
+      security:
+        - bearerAuth: []
       responses:
         200:
           $ref: '#/components/responses/Success'
         400:
           $ref: '#/components/responses/BadRequest'
-
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        404:
+          $ref: '#/components/responses/NotFound'
 
   /subscriber/devices/{mac}:
     post:
@@ -1072,37 +721,53 @@ paths:
         - Subscriber Devices
       summary: Add a device to the subscriber account
       operationId: addSubscriberDevice
+      security:
+        - bearerAuth: []
       parameters:
         - in: path
           name: mac
           schema:
             type: string
+            pattern: '^(?:[0-9A-Fa-f]{12}|(?:[0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2})$'
           required: true
+          example: aa:bb:cc:dd:ee:ff
       responses:
         200:
           $ref: '#/components/responses/Success'
         400:
           $ref: '#/components/responses/BadRequest'
+        401:
+          $ref: '#/components/responses/Unauthorized'
         404:
           $ref: '#/components/responses/NotFound'
+        500:
+          $ref: '#/components/responses/InternalError'
     delete:
       tags:
         - Subscriber Devices
       summary: Remove a device from the subscriber account
       operationId: deleteSubscriberDevice
+      security:
+        - bearerAuth: []
       parameters:
         - in: path
           name: mac
           schema:
             type: string
+            pattern: '^(?:[0-9A-Fa-f]{12}|(?:[0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2})$'
           required: true
+          example: aa:bb:cc:dd:ee:ff
       responses:
         200:
           $ref: '#/components/responses/Success'
         400:
           $ref: '#/components/responses/BadRequest'
+        401:
+          $ref: '#/components/responses/Unauthorized'
         404:
           $ref: '#/components/responses/NotFound'
+        500:
+          $ref: '#/components/responses/InternalError'
 
   /action:
     post:
@@ -1110,9 +775,12 @@ paths:
         - Device Commands
       summary: Sending different commands to a device
       operationId: performAnAction
+      security:
+        - bearerAuth: []
       parameters:
         - in: query
           name: action
+          required: true
           schema:
             type: string
             enum:
@@ -1123,81 +791,45 @@ paths:
               - factory
             default: configure
       requestBody:
+        required: false
         content:
           application/json:
             examples:
               configure:
                 value:
                   ssid:
-                    name: string
-                    password: string
+                    name: Example-SSID
+                    password: ExamplePassword1
                   client:
-                    - mac: string
+                    - mac: f0:09:0d:2d:b4:9c
                       access: allow
-                    - mac: string
+                    - mac: f0:09:0d:2d:b4:9c
                       access: deny
               blink:
                 value:
-                  mac: string
-                  when: "0"
+                  mac: f0:09:0d:2d:b4:9c
+                  when: 0
                   pattern: blink
             schema:
-              anyOf:
-                - description: Configure action body
-                  type: object
-                  properties:
-                    ssid:
-                      type: object
-                      properties:
-                        name:
-                          type: string
-                        password:
-                          type: string
-                    client:
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          mac:
-                            type: string
-                          access:
-                            type: string
-                            description: allow or deny
-                  anyOf:
-                    - required:
-                        - ssid
-                    - required:
-                        - client
-                  additionalProperties: false
-                - description: Blink and other command bodies
-                  type: object
-                  properties:
-                    mac:
-                      type: string
-                    when:
-                      type: integer
-                      format: int64
-                    duration:
-                      type: integer
-                      format: int64
-                    pattern:
-                      type: string
-                      enum:
-                        - on
-                        - off
-                        - blink
-                    uri:
-                      type: string
-                    keepRedirector:
-                      type: boolean
-                      default: true
-                  additionalProperties: false
+              $ref: '#/components/schemas/ActionRequestBody'
 
       responses:
         200:
-          $ref: '#/components/responses/Success'
+          description: Action completed successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionResponse'
         400:
           $ref: '#/components/responses/BadRequest'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Unauthorized'
+        404:
+          $ref: '#/components/responses/NotFound'
+        500:
+          $ref: '#/components/responses/InternalError'
 
   /topology:
     get:
@@ -1205,17 +837,25 @@ paths:
         - Device Topology
       summary: Retrieve the network topology for the subscriber
       operationId: getTopology
+      security:
+        - bearerAuth: []
       responses:
         200:
           description: Topology graph
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TopologyResponse'
+                oneOf:
+                  - $ref: '#/components/schemas/TopologyResponse'
+                  - $ref: '#/components/schemas/TopologyEmptyResponse'
         400:
           $ref: '#/components/responses/BadRequest'
+        401:
+          $ref: '#/components/responses/Unauthorized'
         404:
           $ref: '#/components/responses/NotFound'
+        500:
+          $ref: '#/components/responses/InternalError'
 
   /system:
     post:
@@ -1224,30 +864,23 @@ paths:
       summary: Perform some system wide commands.
       operationId: systemCommand
       requestBody:
+        required: true
         description: Command details
         content:
           application/json:
             schema:
-              oneOf:
-                - $ref: '#/components/schemas/SystemCommandSetLogLevel'
-                - $ref: '#/components/schemas/SystemCommandReload'
-                - $ref: '#/components/schemas/SystemCommandGetLogLevels'
-                - $ref: '#/components/schemas/SystemCommandGetLogLevelNames'
-                - $ref: '#/components/schemas/SystemCommandGetSubsystemNames'
+              $ref: '#/components/schemas/SystemCommandRequest'
       responses:
         200:
           description: Successful command execution
           content:
             application/json:
               schema:
-                oneOf:
-                  - $ref: '#/components/schemas/SystemGetLogLevelsResult'
-                  - $ref: '#/components/schemas/SystemCommandGetLogLevelNamesResult'
-                  - $ref: '#/components/schemas/SystemGetSubSystemNamesResult'
+                $ref: '#/components/schemas/SystemCommandPostResponse'
+        400:
+          $ref: '#/components/responses/BadRequest'
         403:
           $ref: '#/components/responses/Unauthorized'
-        404:
-          $ref: '#/components/responses/NotFound'
     get:
       tags:
         - System Commands
@@ -1270,12 +903,11 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SystemCommandResults'
+                $ref: '#/components/schemas/SystemCommandGetResponse'
+        400:
+          $ref: '#/components/responses/BadRequest'
         403:
           $ref: '#/components/responses/Unauthorized'
-        404:
-          $ref: '#/components/responses/NotFound'
-
 
   /systemConfiguration:
     get:
@@ -1289,9 +921,8 @@ paths:
           name: entries
           schema:
             type: string
-            example:
-              - element1
-              - element1,element2,element3
+            minLength: 1
+            example: element1,element2,element3
           required: true
       responses:
         200:
@@ -1299,30 +930,23 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ExtraSystemConfiguration'
+                $ref: '#/components/schemas/SystemConfigurationResponse'
+        400:
+          $ref: '#/components/responses/BadRequest'
         403:
           $ref: '#/components/responses/Unauthorized'
-        404:
-          $ref: '#/components/responses/NotFound'
 
     put:
       tags:
         - SystemConfiguration
       summary: Set some or all system configuration
-      operationId: setSystemConfiguration
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ExtraSystemConfiguration'
+      operationId: updateSystemConfiguration
 
       responses:
         400:
           $ref: '#/components/responses/BadRequest'
         403:
           $ref: '#/components/responses/Unauthorized'
-        404:
-          $ref: '#/components/responses/NotFound'
 
     delete:
       tags:
@@ -1335,5 +959,154 @@ paths:
           $ref: '#/components/responses/BadRequest'
         403:
           $ref: '#/components/responses/Unauthorized'
-        404:
+
+  /groups:
+    get:
+      tags:
+        - Groups
+      summary: List subscriber parental-control groups
+      description: Returns all parental-control groups for the authenticated subscriber.
+      operationId: listGroups
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Subscriber parental-control groups returned successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Group'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags:
+        - Groups
+      summary: Create subscriber parental-control group
+      description: Creates one parental-control group for the authenticated subscriber.
+      operationId: createGroup
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GroupCreateRequest'
+      responses:
+        '200':
+          description: Parental-control group created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Group'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /groups/{group_id}:
+    get:
+      tags:
+        - Groups
+      summary: Get one subscriber parental-control group
+      description: Returns one parental-control group for the authenticated subscriber.
+      operationId: getGroup
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: group_id
+          required: true
+          description: Parental-control group identifier.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Parental-control group returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Group'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
           $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    put:
+      tags:
+        - Groups
+      summary: Update one subscriber parental-control group
+      description: Replaces the mutable fields of one parental-control group for the authenticated subscriber.
+      operationId: updateGroup
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: group_id
+          required: true
+          description: Parental-control group identifier.
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GroupPutRequest'
+      responses:
+        '200':
+          description: Parental-control group updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Group'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      tags:
+        - Groups
+      summary: Delete one subscriber parental-control group
+      description: Deletes one parental-control group for the authenticated subscriber.
+      operationId: deleteGroup
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: group_id
+          required: true
+          description: Parental-control group identifier.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
