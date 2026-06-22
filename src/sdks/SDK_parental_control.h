@@ -42,4 +42,28 @@ namespace OpenWifi::SDK::ParentalControl {
 	                 Poco::JSON::Object::Ptr &CallResponse,
 	                 std::string &RawResponseBody);
 
+	bool GetSchedules(RESTAPIHandler *client, const std::string &SubscriberId,
+					  Poco::Net::HTTPResponse::HTTPStatus &CallStatus,
+					  Poco::JSON::Array::Ptr &ArrayResponse,
+					  Poco::JSON::Object::Ptr &ObjectResponse);
+
+	bool CreateSchedule(RESTAPIHandler *client, const std::string &SubscriberId,
+						const Poco::JSON::Object &Body,
+						Poco::Net::HTTPResponse::HTTPStatus &CallStatus,
+						Poco::JSON::Object::Ptr &CallResponse);
+
+	bool GetSchedule(RESTAPIHandler *client, const std::string &SubscriberId,
+					 const std::string &ScheduleId, Poco::Net::HTTPResponse::HTTPStatus &CallStatus,
+					 Poco::JSON::Object::Ptr &CallResponse);
+
+	bool UpdateSchedule(RESTAPIHandler *client, const std::string &SubscriberId,
+						const std::string &ScheduleId, const Poco::JSON::Object &Body,
+						Poco::Net::HTTPResponse::HTTPStatus &CallStatus,
+						Poco::JSON::Object::Ptr &CallResponse);
+
+	bool DeleteSchedule(RESTAPIHandler *client, const std::string &SubscriberId,
+						const std::string &ScheduleId,
+						Poco::Net::HTTPResponse::HTTPStatus &CallStatus,
+						Poco::JSON::Object::Ptr &CallResponse, std::string &RawResponseBody);
+
 } // namespace OpenWifi::SDK::ParentalControl
