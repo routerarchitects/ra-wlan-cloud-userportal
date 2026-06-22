@@ -141,7 +141,7 @@ def test_delete_orchestration():
     
     with open_url(f"{FAKE_URL}/observations") as r:
         obs = json.loads(r.read())
-        assert any("inventory" in call["path"] or "subscriber" in call["path"] for call in obs["calls"]), "Provisioning lookup not called"
+        assert any("inventory" in call["path"] or "subscriberDevice" in call["path"] for call in obs["calls"]), "Provisioning lookup not called"
         assert any("device" in call["path"] and call["method"] == "GET" for call in obs["calls"]), "Gateway get-config not called"
         assert any("configure" in call["path"] and call["method"] == "POST" for call in obs["calls"]), "Gateway configure not called"
         

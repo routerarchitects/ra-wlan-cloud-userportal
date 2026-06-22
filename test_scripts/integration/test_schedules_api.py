@@ -214,7 +214,7 @@ def test_put_orchestration():
     
     with open_url(f"{FAKE_URL}/observations") as r:
         obs = json.loads(r.read())
-        assert any("inventory" in call["path"] or "subscriber" in call["path"] for call in obs["calls"]), "Provisioning lookup not called on PUT"
+        assert any("inventory" in call["path"] or "subscriberDevice" in call["path"] for call in obs["calls"]), "Provisioning lookup not called on PUT"
         assert any("device" in call["path"] and call["method"] == "GET" for call in obs["calls"]), "Gateway get-config not called on PUT"
         assert any("configure" in call["path"] and call["method"] == "POST" for call in obs["calls"]), "Gateway configure not called on PUT"
         
@@ -259,7 +259,7 @@ def test_delete_orchestration():
     
     with open_url(f"{FAKE_URL}/observations") as r:
         obs = json.loads(r.read())
-        assert any("inventory" in call["path"] or "subscriber" in call["path"] for call in obs["calls"]), "Provisioning lookup not called"
+        assert any("inventory" in call["path"] or "subscriberDevice" in call["path"] for call in obs["calls"]), "Provisioning lookup not called"
         assert any("device" in call["path"] and call["method"] == "GET" for call in obs["calls"]), "Gateway get-config not called"
         assert any("configure" in call["path"] and call["method"] == "POST" for call in obs["calls"]), "Gateway configure not called"
         
@@ -320,7 +320,7 @@ def test_config_raw_null_handling():
     
     with open_url(f"{FAKE_URL}/observations") as r:
         obs = json.loads(r.read())
-        assert not any("inventory" in call["path"] or "subscriber" in call["path"] for call in obs["calls"]), "Provisioning called unexpectedly on config-raw-null PUT"
+        assert not any("inventory" in call["path"] or "subscriberDevice" in call["path"] for call in obs["calls"]), "Provisioning called unexpectedly on config-raw-null PUT"
         assert not any("device" in call["path"] for call in obs["calls"]), "Gateway GET called unexpectedly on config-raw-null PUT"
         assert not any("configure" in call["path"] for call in obs["calls"]), "Gateway configure called unexpectedly on config-raw-null PUT"
 
@@ -330,7 +330,7 @@ def test_config_raw_null_handling():
     
     with open_url(f"{FAKE_URL}/observations") as r:
         obs = json.loads(r.read())
-        assert not any("inventory" in call["path"] or "subscriber" in call["path"] for call in obs["calls"]), "Provisioning called unexpectedly on config-raw-null DELETE"
+        assert not any("inventory" in call["path"] or "subscriberDevice" in call["path"] for call in obs["calls"]), "Provisioning called unexpectedly on config-raw-null DELETE"
         assert not any("device" in call["path"] for call in obs["calls"]), "Gateway GET called unexpectedly on config-raw-null DELETE"
         assert not any("configure" in call["path"] for call in obs["calls"]), "Gateway configure called unexpectedly on config-raw-null DELETE"
 
@@ -356,7 +356,7 @@ def test_post_config_raw_skip_apply():
     with open_url(f"{FAKE_URL}/observations") as r:
         obs = json.loads(r.read())
         assert any("schedules" in call["path"] and call["method"] == "POST" for call in obs["calls"]), "Downstream schedules POST not called"
-        assert not any("inventory" in call["path"] or "subscriber" in call["path"] for call in obs["calls"]), "Provisioning lookup unexpectedly called on POST"
+        assert not any("inventory" in call["path"] or "subscriberDevice" in call["path"] for call in obs["calls"]), "Provisioning lookup unexpectedly called on POST"
         assert not any("device" in call["path"] for call in obs["calls"]), "Gateway get-config unexpectedly called on POST"
         assert not any("configure" in call["path"] for call in obs["calls"]), "Gateway configure unexpectedly called on POST"
         
