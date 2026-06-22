@@ -179,6 +179,21 @@ def test_forwarded_failures():
 
     print("✅ Forwarded downstream failure tests passed")
 
+def create_test_schedule(name="test"):
+    payload = {
+        "name": name,
+        "description": "desc",
+        "action_type": "BLOCK",
+        "target_kind": "INTERNET",
+        "target_value": None,
+        "start_time": "08:00",
+        "stop_time": "17:00",
+        "weekdays": [1]
+    }
+    status, body = request("POST", "/api/v1/schedules", body=payload)
+    assert status == 200, f"Expected 200 on test schedule creation, got {status}"
+    return body["id"]
+
 def test_put_orchestration():
     print("Testing PUT /schedules/{id} config-raw orchestrations...")
     payload = {
@@ -193,7 +208,8 @@ def test_put_orchestration():
         "weekdays": [1]
     }
     # Happy path config-raw
-    status, body = request("PUT", f"/api/v1/schedules/{VALID_SCHEDULE_ID}", body=payload, scenario="config-raw")
+    sched_id = create_test_schedule("orch-happy-path")
+    status, body = request("PUT", f"/api/v1/schedules/{sched_id}", body=payload, scenario="config-raw")
     assert status == 200, f"Expected 200, got {status}"
     
     with open_url(f"{FAKE_URL}/observations") as r:
@@ -213,26 +229,32 @@ def test_put_orchestration():
         print("✅ PUT config-raw happy path passed")
 
     # Failure-path PUT with scenario "delete-config-raw-prov-502"
-    status, _ = request("PUT", f"/api/v1/schedules/{VALID_SCHEDULE_ID}", body=payload, scenario="delete-config-raw-prov-502")
+    sched_id = create_test_schedule("orch-prov-502")
+    status, _ = request("PUT", f"/api/v1/schedules/{sched_id}", body=payload, scenario="delete-config-raw-prov-502")
     assert status == 500, f"Expected 500 for provisioning failure on PUT, got {status}"
     
     # Failure-path PUT with scenario "delete-config-raw-gw-get-malformed"
-    status, _ = request("PUT", f"/api/v1/schedules/{VALID_SCHEDULE_ID}", body=payload, scenario="delete-config-raw-gw-get-malformed")
+    sched_id = create_test_schedule("orch-gw-malformed")
+    status, _ = request("PUT", f"/api/v1/schedules/{sched_id}", body=payload, scenario="delete-config-raw-gw-get-malformed")
     assert status == 500, f"Expected 500 for gw-get malformed failure on PUT, got {status}"
 
     # Failure-path PUT with scenario "delete-config-raw-gw-get-502"
-    status, _ = request("PUT", f"/api/v1/schedules/{VALID_SCHEDULE_ID}", body=payload, scenario="delete-config-raw-gw-get-502")
+    sched_id = create_test_schedule("orch-gw-get-502")
+    status, _ = request("PUT", f"/api/v1/schedules/{sched_id}", body=payload, scenario="delete-config-raw-gw-get-502")
     assert status == 500, f"Expected 500 for gw get failure on PUT, got {status}"
     
     # Failure-path PUT with scenario "delete-config-raw-gw-configure-502"
-    status, _ = request("PUT", f"/api/v1/schedules/{VALID_SCHEDULE_ID}", body=payload, scenario="delete-config-raw-gw-configure-502")
+    sched_id = create_test_schedule("orch-gw-conf-502")
+    status, _ = request("PUT", f"/api/v1/schedules/{sched_id}", body=payload, scenario="delete-config-raw-gw-configure-502")
     assert status == 500, f"Expected 500 for gw configure failure on PUT, got {status}"
     
     print("✅ PUT config-raw error scenarios passed")
 
 def test_delete_orchestration():
     print("Testing DELETE /schedules/{id} config-raw orchestrations...")
-    status, body = request("DELETE", f"/api/v1/schedules/{VALID_SCHEDULE_ID}", scenario="config-raw")
+    # Happy path config-raw
+    sched_id = create_test_schedule("del-happy-path")
+    status, body = request("DELETE", f"/api/v1/schedules/{sched_id}", scenario="config-raw")
     assert status == 200, f"Expected 200, got {status}"
     
     with open_url(f"{FAKE_URL}/observations") as r:
@@ -252,19 +274,23 @@ def test_delete_orchestration():
         print("✅ DELETE config-raw happy path passed")
 
     # DELETE item with scenario "delete-config-raw-prov-502"
-    status, _ = request("DELETE", f"/api/v1/schedules/{VALID_SCHEDULE_ID}", scenario="delete-config-raw-prov-502")
+    sched_id = create_test_schedule("del-prov-502")
+    status, _ = request("DELETE", f"/api/v1/schedules/{sched_id}", scenario="delete-config-raw-prov-502")
     assert status == 500, f"Expected 500 for provisioning failure, got {status}"
     
     # DELETE item with scenario "delete-config-raw-gw-get-malformed"
-    status, _ = request("DELETE", f"/api/v1/schedules/{VALID_SCHEDULE_ID}", scenario="delete-config-raw-gw-get-malformed")
+    sched_id = create_test_schedule("del-gw-malformed")
+    status, _ = request("DELETE", f"/api/v1/schedules/{sched_id}", scenario="delete-config-raw-gw-get-malformed")
     assert status == 500, f"Expected 500 for gw-get malformed failure, got {status}"
 
     # DELETE item with scenario "delete-config-raw-gw-get-502"
-    status, _ = request("DELETE", f"/api/v1/schedules/{VALID_SCHEDULE_ID}", scenario="delete-config-raw-gw-get-502")
+    sched_id = create_test_schedule("del-gw-get-502")
+    status, _ = request("DELETE", f"/api/v1/schedules/{sched_id}", scenario="delete-config-raw-gw-get-502")
     assert status == 500, f"Expected 500 for gw get failure, got {status}"
     
     # DELETE item with scenario "delete-config-raw-gw-configure-502"
-    status, _ = request("DELETE", f"/api/v1/schedules/{VALID_SCHEDULE_ID}", scenario="delete-config-raw-gw-configure-502")
+    sched_id = create_test_schedule("del-gw-conf-502")
+    status, _ = request("DELETE", f"/api/v1/schedules/{sched_id}", scenario="delete-config-raw-gw-configure-502")
     assert status == 500, f"Expected 500 for gw configure failure, got {status}"
     
     print("✅ DELETE config-raw error scenarios passed")
