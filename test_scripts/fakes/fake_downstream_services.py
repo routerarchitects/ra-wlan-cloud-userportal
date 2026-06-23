@@ -27,6 +27,21 @@ def init_db():
             description TEXT
         )
     """)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS mock_schedules (
+            id UUID PRIMARY KEY,
+            subscriber_id TEXT,
+            name TEXT,
+            description TEXT,
+            enabled BOOLEAN,
+            action_type TEXT,
+            target_kind TEXT,
+            target_value TEXT,
+            start_minute INTEGER,
+            stop_minute INTEGER,
+            weekdays INTEGER[]
+        )
+    """)
     return conn
 
 # Let this throw an exception and crash the server if Postgres is not available
@@ -139,6 +154,64 @@ class FakeHandler(http.server.BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps(groups).encode())
             return
 
+        if "/api/v1/subscribers/" in self.path and "/schedules" in self.path:
+            if current_scenario == "pc-404":
+                self.send_response(404)
+                self.end_headers()
+                self.wfile.write(json.dumps({"error":"not_found","message":"schedule not found"}).encode())
+                return
+            
+            cursor = db_conn.cursor()
+            match = re.search(r'/schedules/([a-f0-9\-]+)', self.path)
+            if match:
+                schedule_id = match.group(1)
+                cursor.execute("""
+                    SELECT id, name, description, enabled, action_type, target_kind, target_value, start_minute, stop_minute, weekdays 
+                    FROM mock_schedules WHERE id = %s
+                """, (schedule_id,))
+                row = cursor.fetchone()
+                if row:
+                    self.send_response(200)
+                    self.end_headers()
+                    self.wfile.write(json.dumps({
+                        "id": str(row[0]),
+                        "name": row[1],
+                        "description": row[2],
+                        "enabled": row[3],
+                        "action_type": row[4],
+                        "target_kind": row[5],
+                        "target_value": row[6],
+                        "start_minute": row[7],
+                        "stop_minute": row[8],
+                        "weekdays": row[9]
+                    }).encode())
+                else:
+                    self.send_response(404)
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error":"not_found","message":"schedule not found"}).encode())
+            else:
+                cursor.execute("""
+                    SELECT id, name, description, enabled, action_type, target_kind, target_value, start_minute, stop_minute, weekdays 
+                    FROM mock_schedules WHERE subscriber_id = 'sub1'
+                """)
+                rows = cursor.fetchall()
+                schedules = [{
+                    "id": str(r[0]),
+                    "name": r[1],
+                    "description": r[2],
+                    "enabled": r[3],
+                    "action_type": r[4],
+                    "target_kind": r[5],
+                    "target_value": r[6],
+                    "start_minute": r[7],
+                    "stop_minute": r[8],
+                    "weekdays": r[9]
+                } for r in rows]
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(json.dumps(schedules).encode())
+            return
+
         # Gateway/Prov fakes remain scenario-based and hardcoded
         if "/api/v1/subscriberDevice" in self.path:
             if current_scenario in ["prov-502", "delete-config-raw-prov-502"]:
@@ -205,7 +278,7 @@ class FakeHandler(http.server.BaseHTTPRequestHandler):
                 "configuration": {
                     "config-raw": [
                         ["set", "wifi.ssid", "RouterTestSSID"],
-                        ["set", "parental_control.old_rule", "enabled", "1"]
+                        ["set", "parental_control.old_rule.enabled", "1"]
                     ]
                 }
             }
@@ -241,6 +314,7 @@ class FakeHandler(http.server.BaseHTTPRequestHandler):
         if "/reset-db" in self.path:
             cursor = db_conn.cursor()
             cursor.execute("TRUNCATE TABLE mock_groups")
+            cursor.execute("TRUNCATE TABLE mock_schedules")
             self.send_response(200)
             self.end_headers()
             return
@@ -293,6 +367,42 @@ class FakeHandler(http.server.BaseHTTPRequestHandler):
             self.wfile.write(json.dumps({"id": new_id, "name": req_data.get("name"), "description": req_data.get("description", "")}).encode())
             return
 
+        if "/api/v1/subscribers/" in self.path and "/schedules" in self.path:
+            if current_scenario == "pc-409":
+                self.send_response(409)
+                self.end_headers()
+                self.wfile.write(json.dumps({"error":"conflict","message":"schedule conflict"}).encode())
+                return
+                
+            req_data = json.loads(body.decode())
+            new_id = str(uuid.uuid4())
+            cursor = db_conn.cursor()
+            cursor.execute("""
+                INSERT INTO mock_schedules (id, subscriber_id, name, description, enabled, action_type, target_kind, target_value, start_minute, stop_minute, weekdays)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """, (
+                new_id, "sub1", req_data.get("name"), req_data.get("description"),
+                req_data.get("enabled", True), req_data.get("action_type", "BLOCK"),
+                req_data.get("target_kind"), req_data.get("target_value"),
+                req_data.get("start_minute"), req_data.get("stop_minute"),
+                req_data.get("weekdays")
+            ))
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "id": new_id,
+                "name": req_data.get("name"),
+                "description": req_data.get("description"),
+                "enabled": req_data.get("enabled", True),
+                "action_type": req_data.get("action_type", "BLOCK"),
+                "target_kind": req_data.get("target_kind"),
+                "target_value": req_data.get("target_value"),
+                "start_minute": req_data.get("start_minute"),
+                "stop_minute": req_data.get("stop_minute"),
+                "weekdays": req_data.get("weekdays")
+            }).encode())
+            return
+
         self.send_response(404)
         self.end_headers()
 
@@ -336,6 +446,68 @@ class FakeHandler(http.server.BaseHTTPRequestHandler):
                 self.end_headers()
             return
 
+        if "/api/v1/subscribers/" in self.path and "/schedules" in self.path:
+            if current_scenario == "pc-404":
+                self.send_response(404)
+                self.end_headers()
+                self.wfile.write(json.dumps({"error":"not_found","message":"schedule not found"}).encode())
+                return
+            elif current_scenario == "pc-409":
+                self.send_response(409)
+                self.end_headers()
+                self.wfile.write(json.dumps({"error":"conflict","message":"schedule conflict"}).encode())
+                return
+                
+            # DB-backed PUT
+            match = re.search(r'/schedules/([a-f0-9\-]+)', self.path)
+            if match:
+                schedule_id = match.group(1)
+                req_data = json.loads(body.decode())
+                cursor = db_conn.cursor()
+                cursor.execute("""
+                    UPDATE mock_schedules 
+                    SET name = %s, description = %s, enabled = %s, action_type = %s, target_kind = %s, target_value = %s, start_minute = %s, stop_minute = %s, weekdays = %s 
+                    WHERE id = %s
+                """, (
+                    req_data.get("name"), req_data.get("description"),
+                    req_data.get("enabled"), req_data.get("action_type"),
+                    req_data.get("target_kind"), req_data.get("target_value"),
+                    req_data.get("start_minute"), req_data.get("stop_minute"),
+                    req_data.get("weekdays"), schedule_id
+                ))
+                if cursor.rowcount > 0:
+                    resp_obj = {
+                        "id": schedule_id,
+                        "name": req_data.get("name"),
+                        "description": req_data.get("description"),
+                        "enabled": req_data.get("enabled"),
+                        "action_type": req_data.get("action_type"),
+                        "target_kind": req_data.get("target_kind"),
+                        "target_value": req_data.get("target_value"),
+                        "start_minute": req_data.get("start_minute"),
+                        "stop_minute": req_data.get("stop_minute"),
+                        "weekdays": req_data.get("weekdays")
+                    }
+                    if current_scenario == "config-raw-null":
+                        resp_obj["config-raw"] = None
+                    elif current_scenario == "config-raw-malformed":
+                        resp_obj["config-raw"] = [123]
+                    elif current_scenario.startswith("config-raw") or current_scenario.startswith("delete-config-raw"):
+                        resp_obj["config-raw"] = [
+                            ["set", "parental_control.ci_rule.enabled", "1"]
+                        ]
+                    self.send_response(200)
+                    self.end_headers()
+                    self.wfile.write(json.dumps(resp_obj).encode())
+                else:
+                    self.send_response(404)
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error":"not_found","message":"schedule not found"}).encode())
+            else:
+                self.send_response(404)
+                self.end_headers()
+            return
+
         self.send_response(404)
         self.end_headers()
 
@@ -367,13 +539,63 @@ class FakeHandler(http.server.BaseHTTPRequestHandler):
                     self.wfile.write(json.dumps({"error":"not_found","message":"group not found"}).encode())
                     return
 
-            if current_scenario.startswith("config-raw") or current_scenario.startswith("delete-config-raw"):
+            if current_scenario == "config-raw-null":
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(json.dumps({"config-raw": None}).encode())
+            elif current_scenario.startswith("config-raw") or current_scenario.startswith("delete-config-raw"):
                 self.send_response(200)
                 self.end_headers()
                 res = {
                     "config-raw": [
-                        ["delete", "parental_control.ci_rule"],
-                        ["set", "parental_control.ci_rule", "enabled", "0"]
+                        ["set", "parental_control.ci_rule.enabled", "0"]
+                    ]
+                }
+                self.wfile.write(json.dumps(res).encode())
+            else:
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(b"")
+            return
+
+        if "/api/v1/subscribers/" in self.path and "/schedules" in self.path:
+            if current_scenario == "pc-404":
+                self.send_response(404)
+                self.end_headers()
+                self.wfile.write(json.dumps({"error":"not_found","message":"schedule not found"}).encode())
+                return
+            elif current_scenario == "pc-409":
+                self.send_response(409)
+                self.end_headers()
+                self.wfile.write(json.dumps({"error":"conflict","message":"schedule conflict"}).encode())
+                return
+                
+            # DB-backed DELETE
+            match = re.search(r'/schedules/([a-f0-9\-]+)', self.path)
+            if match:
+                schedule_id = match.group(1)
+                cursor = db_conn.cursor()
+                cursor.execute("DELETE FROM mock_schedules WHERE id = %s", (schedule_id,))
+                if cursor.rowcount == 0 and current_scenario == "normal":
+                    self.send_response(404)
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error":"not_found","message":"schedule not found"}).encode())
+                    return
+
+            if current_scenario == "config-raw-null":
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(json.dumps({"config-raw": None}).encode())
+            elif current_scenario == "config-raw-malformed":
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(json.dumps({"config-raw": [123]}).encode())
+            elif current_scenario.startswith("config-raw") or current_scenario.startswith("delete-config-raw"):
+                self.send_response(200)
+                self.end_headers()
+                res = {
+                    "config-raw": [
+                        ["set", "parental_control.ci_rule.enabled", "0"]
                     ]
                 }
                 self.wfile.write(json.dumps(res).encode())

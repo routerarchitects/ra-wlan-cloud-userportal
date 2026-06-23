@@ -7,89 +7,12 @@
 #include "RESTAPI_groups_handler.h"
 #include "Poco/JSON/Array.h"
 #include "Poco/JSON/Stringifier.h"
+#include "RESTAPI_parental_control_utils.h"
 #include "fmt/format.h"
 #include "framework/utils.h"
-#include "sdks/SDK_gw.h"
 #include "sdks/SDK_parental_control.h"
-#include "sdks/SDK_prov.h"
 
 namespace OpenWifi {
-
-	namespace {
-		bool IsValidConfigRawCommand(const Poco::JSON::Array::Ptr &command) {
-			return command && command->size() >= 2 && command->get(0).isString() &&
-				   command->get(1).isString();
-		}
-
-		bool ExtractDeleteConfigRaw(const Poco::JSON::Object::Ptr &callResponse,
-									Poco::JSON::Array::Ptr &deleteConfigRaw) {
-			deleteConfigRaw.reset();
-			if (!callResponse) {
-				return true;
-			}
-			if (!callResponse->has("config-raw")) {
-				return true;
-			}
-			if (!callResponse->isArray("config-raw")) {
-				return false;
-			}
-			deleteConfigRaw = callResponse->getArray("config-raw");
-			if (!deleteConfigRaw) {
-				return false;
-			}
-			for (std::size_t i = 0; i < deleteConfigRaw->size(); ++i) {
-				if (!deleteConfigRaw->isArray(i)) {
-					return false;
-				}
-				if (!IsValidConfigRawCommand(deleteConfigRaw->getArray(i))) {
-					return false;
-				}
-			}
-			return true;
-		}
-	} // namespace
-
-	// Strips all existing config-raw entries whose UCI path (index 1) starts with
-	// "parental_control" or "parental_control.", then appends the parental-control
-	// service's own config-raw entries (from the DELETE response).
-	// If the result is empty, removes config-raw entirely.
-	static void MergeConfigRaw(Poco::JSON::Object::Ptr &gatewayConfig,
-							   const Poco::JSON::Array::Ptr &deleteConfigRaw) {
-		auto mergedRaw = Poco::makeShared<Poco::JSON::Array>();
-
-		if (gatewayConfig->has("config-raw") && gatewayConfig->isArray("config-raw")) {
-			auto currentRaw = gatewayConfig->getArray("config-raw");
-			for (std::size_t i = 0; i < currentRaw->size(); ++i) {
-				if (!currentRaw->isArray(i))
-					continue;
-				auto cmd = currentRaw->getArray(i);
-				if (!cmd || cmd->size() < 2)
-					continue;
-				if (cmd->get(1).isString()) {
-					std::string path = cmd->getElement<std::string>(1);
-					if (path == "parental_control" || path.find("parental_control.") == 0)
-						continue;
-				}
-				mergedRaw->add(cmd);
-			}
-		}
-
-		if (deleteConfigRaw) {
-			for (std::size_t i = 0; i < deleteConfigRaw->size(); ++i) {
-				if (!deleteConfigRaw->isArray(i))
-					continue;
-				auto cmd = deleteConfigRaw->getArray(i);
-				if (cmd)
-					mergedRaw->add(cmd);
-			}
-		}
-
-		if (mergedRaw->size() > 0) {
-			gatewayConfig->set("config-raw", mergedRaw);
-		} else {
-			gatewayConfig->remove("config-raw");
-		}
-	}
 
 	void RESTAPI_groups_handler::DoGet() {
 		if (UserInfo_.userinfo.id.empty()) {
@@ -205,83 +128,19 @@ namespace OpenWifi {
 		}
 
 		Poco::JSON::Array::Ptr deleteConfigRaw;
-		if (!ExtractDeleteConfigRaw(callResponse, deleteConfigRaw)) {
+		if (!RESTAPI::ParentalControl::ExtractConfigRawSnapshot(callResponse, deleteConfigRaw)) {
 			Logger().error(fmt::format("DoDelete: invalid parental-control delete payload "
 									   "(subscriber={} group={})",
 									   UserInfo_.userinfo.id, groupId));
 			return InternalError(RESTAPI::Errors::InternalError);
 		}
 
-		// If the parental-control service returned a body with config-raw entries,
-		// apply the merged config to the subscriber's gateway device.
-		if (deleteConfigRaw && deleteConfigRaw->size() > 0) {
-			const std::string operatorId = UserInfo_.userinfo.owner;
-			if (operatorId.empty()) {
-				Logger().error(fmt::format("DoDelete: operator id missing for gateway apply "
-										   "(subscriber={} group={})",
-										   UserInfo_.userinfo.id, groupId));
-				return UnAuthorized(RESTAPI::Errors::OperatorIdMustExist);
-			}
-
-			ProvObjects::SubscriberDeviceList devList;
-			Poco::Net::HTTPResponse::HTTPStatus provStatus;
-			Poco::JSON::Object::Ptr provResponse;
-			if (!SDK::Prov::Subscriber::GetDevices(this, UserInfo_.userinfo.id, operatorId, devList,
-												   provStatus, provResponse)) {
-				Logger().error(fmt::format("DoDelete: provisioning lookup failed "
-										   "(subscriber={} group={})",
-										   UserInfo_.userinfo.id, groupId));
-				return InternalError(RESTAPI::Errors::InternalError);
-			}
-
-			std::string gatewaySerial;
-			for (const auto &dev : devList.subscriberDevices) {
-				std::string grp = dev.deviceGroup;
-				Poco::toLowerInPlace(grp);
-				if (grp == "olg") {
-					gatewaySerial = dev.serialNumber;
-					break;
-				}
-			}
-
-			if (gatewaySerial.empty()) {
-				Logger().error(fmt::format("DoDelete: gateway serial not resolved "
-										   "(subscriber={} group={})",
-										   UserInfo_.userinfo.id, groupId));
-				return InternalError(RESTAPI::Errors::MissingSerialNumber);
-			}
-
-			Poco::JSON::Object::Ptr gwResponse;
-			Poco::Net::HTTPResponse::HTTPStatus gwStatus;
-			if (!SDK::GW::Device::GetConfig(this, gatewaySerial, gwStatus, gwResponse)) {
-				if (gwStatus == Poco::Net::HTTPResponse::HTTP_OK) {
-					Logger().error(
-						fmt::format("DoDelete: gateway config malformed (serial={})", gatewaySerial));
-					return InternalError(RESTAPI::Errors::InternalError);
-				}
-				Logger().error(
-					fmt::format("DoDelete: gateway config load failed (serial={})", gatewaySerial));
-				return InternalError(RESTAPI::Errors::InternalError);
-			}
-
-			if (!gwResponse || !gwResponse->has("configuration") ||
-				!gwResponse->isObject("configuration")) {
-				Logger().error(
-					fmt::format("DoDelete: gateway config malformed (serial={})", gatewaySerial));
-				return InternalError(RESTAPI::Errors::InternalError);
-			}
-
-			auto gatewayConfig = gwResponse->getObject("configuration");
-			MergeConfigRaw(gatewayConfig, deleteConfigRaw);
-
-			Poco::JSON::Object::Ptr configureResponse;
-			Poco::Net::HTTPResponse::HTTPStatus configureStatus;
-			if (!SDK::GW::Device::Configure(this, gatewaySerial, gatewayConfig, configureStatus,
-											configureResponse)) {
-				Logger().error(
-					fmt::format("DoDelete: gateway configure failed (serial={})", gatewaySerial));
-				return InternalError(RESTAPI::Errors::InternalError);
-			}
+		if (!RESTAPI::ParentalControl::HandleApplyConfigRawResult(
+				*this, RESTAPI::ParentalControl::ApplyConfigRaw(*this, Logger(),
+																UserInfo_.userinfo.id,
+																UserInfo_.userinfo.owner, groupId,
+																deleteConfigRaw, "DoDelete", "group"))) {
+			return;
 		}
 
 		// YAML contract: DELETE public success returns empty HTTP 200.

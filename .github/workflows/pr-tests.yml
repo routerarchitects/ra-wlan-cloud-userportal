@@ -160,6 +160,32 @@ jobs:
             exit 1
           fi
 
+      - name: Run Schedules Contract Tests
+        env:
+          USERPORTAL_URL: https://localhost:16006
+        run: |
+          echo "Running Schedules contract tests..."
+          if ! python3 test_scripts/integration/test_schedules_contract.py; then
+            echo "Schedules contract tests failed! Container logs:"
+            docker logs userportal
+            echo "Fake server logs:"
+            cat fake_server.log
+            exit 1
+          fi
+
+      - name: Run Schedules Integration Tests
+        env:
+          USERPORTAL_URL: https://localhost:16006
+        run: |
+          echo "Running Schedules integration tests..."
+          if ! python3 test_scripts/integration/test_schedules_api.py; then
+            echo "Schedules integration tests failed! Container logs:"
+            docker logs userportal
+            echo "Fake server logs:"
+            cat fake_server.log
+            exit 1
+          fi
+
       - name: Print UserPortal Logs on Failure
         if: failure()
         run: |

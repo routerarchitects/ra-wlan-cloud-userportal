@@ -141,7 +141,7 @@ def test_delete_orchestration():
     
     with open_url(f"{FAKE_URL}/observations") as r:
         obs = json.loads(r.read())
-        assert any("inventory" in call["path"] or "subscriber" in call["path"] for call in obs["calls"]), "Provisioning lookup not called"
+        assert any("inventory" in call["path"] or "subscriberDevice" in call["path"] for call in obs["calls"]), "Provisioning lookup not called"
         assert any("device" in call["path"] and call["method"] == "GET" for call in obs["calls"]), "Gateway get-config not called"
         assert any("configure" in call["path"] and call["method"] == "POST" for call in obs["calls"]), "Gateway configure not called"
         
@@ -151,9 +151,8 @@ def test_delete_orchestration():
         assert "config-raw" in payload["configuration"], "config-raw missing from configuration"
         
         config_raw = payload["configuration"]["config-raw"]
-        assert any(len(entry) > 1 and entry[1] == "wifi.ssid" for entry in config_raw), "Missing wifi.ssid from merged config-raw"
-        assert any(len(entry) > 1 and entry[1] == "parental_control.ci_rule" for entry in config_raw), "Missing parental_control.ci_rule from merged config-raw"
-        assert not any(len(entry) > 1 and entry[1] == "parental_control.old_rule" for entry in config_raw), "parental_control.old_rule was not deleted"
+        assert any(len(entry) > 1 and entry[1] == "parental_control.ci_rule.enabled" for entry in config_raw), "Missing parental_control.ci_rule.enabled from replaced config-raw"
+        assert not any(len(entry) > 1 and entry[1] == "wifi.ssid" for entry in config_raw), "wifi.ssid was preserved but replacement-only contract requires direct replacement"
         print("✅ DELETE config-raw happy path passed")
 
     # J) DELETE item with scenario "delete-config-raw-prov-502"
