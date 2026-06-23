@@ -490,6 +490,8 @@ class FakeHandler(http.server.BaseHTTPRequestHandler):
                     }
                     if current_scenario == "config-raw-null":
                         resp_obj["config-raw"] = None
+                    elif current_scenario == "config-raw-malformed":
+                        resp_obj["config-raw"] = [123]
                     elif current_scenario.startswith("config-raw") or current_scenario.startswith("delete-config-raw"):
                         resp_obj["config-raw"] = [
                             ["set", "parental_control.ci_rule.enabled", "1"]
@@ -584,6 +586,10 @@ class FakeHandler(http.server.BaseHTTPRequestHandler):
                 self.send_response(200)
                 self.end_headers()
                 self.wfile.write(json.dumps({"config-raw": None}).encode())
+            elif current_scenario == "config-raw-malformed":
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(json.dumps({"config-raw": [123]}).encode())
             elif current_scenario.startswith("config-raw") or current_scenario.startswith("delete-config-raw"):
                 self.send_response(200)
                 self.end_headers()

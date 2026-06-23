@@ -290,6 +290,24 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 		if (!configRaw) {
 			return false;
 		}
+		for (std::size_t i = 0; i < configRaw->size(); ++i) {
+			try {
+				auto cmd = configRaw->getArray(i);
+				if (!cmd) {
+					return false;
+				}
+				if (cmd->size() != 2 && cmd->size() != 3) {
+					return false;
+				}
+				for (std::size_t j = 0; j < cmd->size(); ++j) {
+					if (!cmd->get(j).isString()) {
+						return false;
+					}
+				}
+			} catch (...) {
+				return false;
+			}
+		}
 		return true;
 	}
 
@@ -376,7 +394,7 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 		case ApplyConfigRawResult::Applied:
 			return true;
 		case ApplyConfigRawResult::MissingOperatorId:
-			handler.BadRequest(RESTAPI::Errors::OperatorIdMustExist);
+			handler.UnAuthorized(RESTAPI::Errors::OperatorIdMustExist);
 			return false;
 		case ApplyConfigRawResult::MissingGatewaySerial:
 			handler.InternalError(RESTAPI::Errors::MissingSerialNumber);

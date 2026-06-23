@@ -362,6 +362,44 @@ def test_post_config_raw_skip_apply():
         
     print("✅ POST config-raw skip-apply passed")
 
+def test_config_raw_malformed_handling():
+    print("Testing config-raw: malformed handling...")
+    
+    # 1. Test PUT with malformed config-raw
+    sched_id = create_test_schedule("malformed-put-test")
+    payload = {
+        "name": "malformed-put-test",
+        "description": "desc",
+        "enabled": True,
+        "action_type": "BLOCK",
+        "target_kind": "INTERNET",
+        "target_value": None,
+        "start_time": "08:00",
+        "stop_time": "17:00",
+        "weekdays": [1]
+    }
+    status, _ = request("PUT", f"/api/v1/schedules/{sched_id}", body=payload, scenario="config-raw-malformed")
+    assert status == 500, f"Expected 500 for malformed config-raw PUT, got {status}"
+    
+    with open_url(f"{FAKE_URL}/observations") as r:
+        obs = json.loads(r.read())
+        assert not any("inventory" in call["path"] or "subscriberDevice" in call["path"] for call in obs["calls"]), "Provisioning lookup unexpectedly called on malformed PUT"
+        assert not any("device" in call["path"] for call in obs["calls"]), "Gateway get-config unexpectedly called on malformed PUT"
+        assert not any("configure" in call["path"] for call in obs["calls"]), "Gateway configure called unexpectedly on malformed PUT"
+
+    # 2. Test DELETE with malformed config-raw
+    sched_id = create_test_schedule("malformed-del-test")
+    status, _ = request("DELETE", f"/api/v1/schedules/{sched_id}", scenario="config-raw-malformed")
+    assert status == 500, f"Expected 500 for malformed config-raw DELETE, got {status}"
+    
+    with open_url(f"{FAKE_URL}/observations") as r:
+        obs = json.loads(r.read())
+        assert not any("inventory" in call["path"] or "subscriberDevice" in call["path"] for call in obs["calls"]), "Provisioning lookup unexpectedly called on malformed DELETE"
+        assert not any("device" in call["path"] for call in obs["calls"]), "Gateway get-config unexpectedly called on malformed DELETE"
+        assert not any("configure" in call["path"] for call in obs["calls"]), "Gateway configure called unexpectedly on malformed DELETE"
+
+    print("✅ config-raw: malformed handling tests passed")
+
 if __name__ == "__main__":
     print("Starting schedules integration tests...")
     try:
@@ -377,6 +415,7 @@ if __name__ == "__main__":
         test_delete_orchestration()
         test_config_raw_null_handling()
         test_post_config_raw_skip_apply()
+        test_config_raw_malformed_handling()
         
         print("🎉 All schedules integration tests passed!")
     except AssertionError as e:
