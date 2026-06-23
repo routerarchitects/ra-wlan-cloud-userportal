@@ -225,6 +225,9 @@ def test_put_orchestration():
         
         config_raw = payload_gw["configuration"]["config-raw"]
         assert any(len(entry) > 1 and entry[1] == "parental_control.ci_rule.enabled" for entry in config_raw), "Missing parental_control.ci_rule.enabled from replaced config-raw"
+        # This test intentionally verifies full replacement of gateway config-raw with the
+        # downstream parental-control snapshot; unrelated older entries like wifi.ssid are
+        # expected to be removed under the current system design.
         assert not any(len(entry) > 1 and entry[1] == "wifi.ssid" for entry in config_raw), "wifi.ssid was preserved but replacement-only contract requires direct replacement"
         print("✅ PUT config-raw happy path passed")
 

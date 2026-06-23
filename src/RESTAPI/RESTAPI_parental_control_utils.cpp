@@ -374,6 +374,9 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 		}
 
 		auto gatewayConfig = gwResponse->getObject("configuration");
+		// Replacing the full config-raw section is intentional because parental-control is
+		// currently the only service producing config-raw, and the gateway-fetched config-raw
+		// doesn't include a reliable ownership marker to enable selective merging.
 		gatewayConfig->set("config-raw", configRaw);
 
 		Poco::JSON::Object::Ptr configureResponse;
