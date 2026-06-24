@@ -11,6 +11,11 @@ import psycopg2
 # Track the last configure payload
 last_configure_payload = None
 
+VENUE_ID = "11111111-1111-4111-8111-111111111111"
+BOARD_ID = "22222222-2222-4222-8222-222222222222"
+ENTITY_ID = "33333333-3333-4333-8333-333333333333"
+NIL_UUID = "00000000-0000-0000-0000-000000000000"
+
 current_scenario = "normal"
 observations = []
 
@@ -74,13 +79,48 @@ class FakeHandler(http.server.BaseHTTPRequestHandler):
             mac = self.path.split("/")[-1]
             self.send_response(200)
             self.end_headers()
-            self.wfile.write(json.dumps({"serialNumber": mac, "venue": "venue-id-123", "subscriber": "sub1"}).encode())
+            self.wfile.write(json.dumps({
+                "serialNumber": mac,
+                "venue": VENUE_ID,
+                "subscriber": "sub1"
+            }).encode())
             return
 
         if "/api/v1/venue/" in self.path:
             self.send_response(200)
             self.end_headers()
-            self.wfile.write(json.dumps({"boards": ["board-id-123"]}).encode())
+            res = {
+                "id": VENUE_ID,
+                "name": "Test Venue",
+                "description": "",
+                "created": 0,
+                "modified": 0,
+                "notes": [],
+                "tags": [],
+                "parent": NIL_UUID,
+                "entity": ENTITY_ID,
+                "children": [],
+                "devices": [],
+                "topology": [],
+                "design": "",
+                "managementPolicy": NIL_UUID,
+                "deviceConfiguration": [],
+                "contacts": [],
+                "location": "",
+                "deviceRules": {
+                    "rcOnly": "inherit",
+                    "rrm": "inherit",
+                    "firmwareUpgrade": "inherit"
+                },
+                "sourceIP": [],
+                "variables": [],
+                "managementPolicies": [],
+                "managementRoles": [],
+                "maps": [],
+                "configurations": [],
+                "boards": [BOARD_ID]
+            }
+            self.wfile.write(json.dumps(res).encode())
             return
 
         if "/api/v1/topology" in self.path:

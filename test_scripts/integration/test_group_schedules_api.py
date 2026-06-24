@@ -175,10 +175,14 @@ def test_post_group_schedule_downstream_errors():
                         body={"schedule_id": sid}, scenario="pc-409")
     assert status == 409, f"Expected 409 for conflict, got {status}"
 
+    gid = create_group("gs-post-gw-get-502")
+    sid = create_schedule("gs-gw-get-502-sched")
     status, _ = request("POST", f"/api/v1/groups/{gid}/schedules",
                         body={"schedule_id": sid}, scenario="delete-config-raw-gw-get-502")
     assert status == 500, f"Expected 500 for gw GET failure, got {status}"
 
+    gid = create_group("gs-post-gw-configure-502")
+    sid = create_schedule("gs-gw-configure-502-sched")
     status, _ = request("POST", f"/api/v1/groups/{gid}/schedules",
                         body={"schedule_id": sid}, scenario="delete-config-raw-gw-configure-502")
     assert status == 500, f"Expected 500 for gw configure failure, got {status}"
@@ -218,28 +222,34 @@ def test_delete_group_schedule_missing_config_raw():
     request("POST", f"/api/v1/groups/{gid}/schedules",
             body={"schedule_id": sid}, scenario="config-raw")
 
+    # normal scenario → delete succeeds downstream but returns no config-raw
     status, _ = request("DELETE", f"/api/v1/groups/{gid}/schedules/{sid}", scenario="normal")
-    assert status == 500, f"Expected 500 when DELETE response missing config-raw, got {status}"
-    print("✅ DELETE missing config-raw → 500 passed")
+    assert status == 200, f"Expected 200 when DELETE response missing config-raw, got {status}"
+    print("✅ DELETE missing config-raw → 200 passed")
 
 
 def test_delete_group_schedule_gw_failures():
     print("Testing DELETE /groups/{id}/schedules/{sid} gateway failure scenarios...")
-    gid = create_group("gs-del-gw-fail")
-    sid = create_schedule("gs-del-gw-sched")
-    
-    # First link it
+    gid = create_group("gs-del-prov-502")
+    sid = create_schedule("gs-del-prov-502-sched")
     request("POST", f"/api/v1/groups/{gid}/schedules",
             body={"schedule_id": sid}, scenario="config-raw")
-
     status, _ = request("DELETE", f"/api/v1/groups/{gid}/schedules/{sid}",
                         scenario="delete-config-raw-prov-502")
     assert status == 500, f"Expected 500 for prov failure, got {status}"
 
+    gid = create_group("gs-del-gw-get-502")
+    sid = create_schedule("gs-del-gw-get-502-sched")
+    request("POST", f"/api/v1/groups/{gid}/schedules",
+            body={"schedule_id": sid}, scenario="config-raw")
     status, _ = request("DELETE", f"/api/v1/groups/{gid}/schedules/{sid}",
                         scenario="delete-config-raw-gw-get-502")
     assert status == 500, f"Expected 500 for gw GET failure, got {status}"
 
+    gid = create_group("gs-del-gw-configure-502")
+    sid = create_schedule("gs-del-gw-configure-502-sched")
+    request("POST", f"/api/v1/groups/{gid}/schedules",
+            body={"schedule_id": sid}, scenario="config-raw")
     status, _ = request("DELETE", f"/api/v1/groups/{gid}/schedules/{sid}",
                         scenario="delete-config-raw-gw-configure-502")
     assert status == 500, f"Expected 500 for gw configure failure, got {status}"

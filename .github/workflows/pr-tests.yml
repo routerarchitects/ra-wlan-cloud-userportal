@@ -108,6 +108,7 @@ jobs:
             -e RUN_CHOWN=true \
             -e CI_FAKE_EXTERNAL_SERVICES=1 \
             -e FAKE_EXTERNAL_SERVICE_PARENTAL_CONTROL=http://127.0.0.1:8080 \
+            -e FAKE_EXTERNAL_SERVICE_NWTOPOLOGY=http://127.0.0.1:8080 \
             -e FAKE_EXTERNAL_SERVICE_OWPROV=http://127.0.0.1:8080 \
             -e FAKE_EXTERNAL_SERVICE_OWGW=http://127.0.0.1:8080 \
             -e FAKE_EXTERNAL_SERVICE_OWSEC=http://127.0.0.1:8080 \

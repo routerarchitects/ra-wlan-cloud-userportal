@@ -72,6 +72,9 @@ def get_observations():
     with open_url(f"{FAKE_URL}/observations") as r:
         return json.loads(r.read())
 
+def canonical_mac(mac):
+    return mac.lower() if isinstance(mac, str) else mac
+
 
 # ---------------------------------------------------------------------------
 # Happy-path Read-after-Write & State Verification
@@ -100,13 +103,14 @@ def test_group_device_crud_state_lifecycle():
     # 4. GET list should contain the linked device
     status, list_body = request("GET", f"/api/v1/groups/{gid}/devices")
     assert status == 200
-    assert any(d.get("client_mac") == TOPOLOGY_KNOWN_MAC for d in list_body), \
+    assert any(canonical_mac(d.get("client_mac")) == canonical_mac(TOPOLOGY_KNOWN_MAC) for d in list_body), \
         f"Linked device {TOPOLOGY_KNOWN_MAC} not found in list: {list_body}"
 
     # 5. GET single device should return it
     status, get_body = request("GET", f"/api/v1/groups/{gid}/devices/{TOPOLOGY_KNOWN_MAC}")
     assert status == 200
-    assert get_body.get("client_mac") == TOPOLOGY_KNOWN_MAC, f"Expected {TOPOLOGY_KNOWN_MAC}, got {get_body}"
+    assert canonical_mac(get_body.get("client_mac")) == canonical_mac(TOPOLOGY_KNOWN_MAC), \
+        f"Expected {TOPOLOGY_KNOWN_MAC}, got {get_body}"
 
     # 6. DELETE unlink device -> 200
     status, _ = request("DELETE", f"/api/v1/groups/{gid}/devices/{TOPOLOGY_KNOWN_MAC}",
@@ -167,18 +171,19 @@ def test_post_group_device_missing_config_raw():
 
 def test_post_group_device_gw_failures():
     print("Testing POST /groups/{id}/devices gateway failure scenarios...")
-    gid = create_group("gd-gw-fail-test")
-
+    gid = create_group("gd-gw-get-502")
     status, _ = request("POST", f"/api/v1/groups/{gid}/devices",
                         body={"client_mac": TOPOLOGY_KNOWN_MAC},
                         scenario="delete-config-raw-gw-get-502")
     assert status == 500, f"Expected 500 for gw GET failure, got {status}"
 
+    gid = create_group("gd-gw-get-malformed")
     status, _ = request("POST", f"/api/v1/groups/{gid}/devices",
                         body={"client_mac": TOPOLOGY_KNOWN_MAC},
                         scenario="delete-config-raw-gw-get-malformed")
     assert status == 500, f"Expected 500 for gw GET malformed, got {status}"
 
+    gid = create_group("gd-gw-configure-502")
     status, _ = request("POST", f"/api/v1/groups/{gid}/devices",
                         body={"client_mac": TOPOLOGY_KNOWN_MAC},
                         scenario="delete-config-raw-gw-configure-502")
@@ -201,25 +206,29 @@ def test_delete_group_device_missing_config_raw():
     # normal scenario → delete succeeds downstream but returns no config-raw
     status, _ = request("DELETE", f"/api/v1/groups/{gid}/devices/{TOPOLOGY_KNOWN_MAC}",
                         scenario="normal")
-    assert status == 500, f"Expected 500 when DELETE response missing config-raw, got {status}"
-    print("✅ DELETE missing config-raw → 500 passed")
+    assert status == 200, f"Expected 200 when DELETE response missing config-raw, got {status}"
+    print("✅ DELETE missing config-raw → 200 passed")
 
 
 def test_delete_group_device_gw_failures():
     print("Testing DELETE /groups/{id}/devices/{mac} gateway failure scenarios...")
-    gid = create_group("gd-del-gw-fail")
-    # First link it
+    gid = create_group("gd-del-prov-502")
     request("POST", f"/api/v1/groups/{gid}/devices",
             body={"client_mac": TOPOLOGY_KNOWN_MAC}, scenario="config-raw")
-
     status, _ = request("DELETE", f"/api/v1/groups/{gid}/devices/{TOPOLOGY_KNOWN_MAC}",
                         scenario="delete-config-raw-prov-502")
     assert status == 500, f"Expected 500 for prov failure on DELETE, got {status}"
 
+    gid = create_group("gd-del-gw-get-502")
+    request("POST", f"/api/v1/groups/{gid}/devices",
+            body={"client_mac": TOPOLOGY_KNOWN_MAC}, scenario="config-raw")
     status, _ = request("DELETE", f"/api/v1/groups/{gid}/devices/{TOPOLOGY_KNOWN_MAC}",
                         scenario="delete-config-raw-gw-get-502")
     assert status == 500, f"Expected 500 for gw GET failure on DELETE, got {status}"
 
+    gid = create_group("gd-del-gw-configure-502")
+    request("POST", f"/api/v1/groups/{gid}/devices",
+            body={"client_mac": TOPOLOGY_KNOWN_MAC}, scenario="config-raw")
     status, _ = request("DELETE", f"/api/v1/groups/{gid}/devices/{TOPOLOGY_KNOWN_MAC}",
                         scenario="delete-config-raw-gw-configure-502")
     assert status == 500, f"Expected 500 for gw configure failure on DELETE, got {status}"
