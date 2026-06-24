@@ -51,6 +51,11 @@ def check_no_observations(test_name):
         obs = json.loads(r.read())
         assert len(obs["calls"]) == 0, f"{test_name}: Downstream services were unexpectedly called: {obs['calls']}"
 
+def check_downstream_called(test_name):
+    with open_url(f"{FAKE_URL}/observations") as r:
+        obs = json.loads(r.read())
+        assert len(obs["calls"]) > 0, f"{test_name}: Request was not forwarded downstream (no calls observed)"
+
 def test_auth_checks():
     print("Testing Auth Rejections...")
     reset_observations()
@@ -154,7 +159,17 @@ def test_local_validation():
     assert status == 400, f"Expected 400 for missing target_kind, got {status}"
     check_no_observations("POST missing target_kind")
 
-    # POST APP target without target_value
+    # POST APP target without target_value (missing key entirely) — must reject
+    reset_observations()
+    status, _ = request("POST", "/api/v1/schedules", body={
+        "name": "test", "description": "desc", "action_type": "BLOCK",
+        "target_kind": "APP",
+        "start_time": "08:00", "stop_time": "17:00", "weekdays": [1]
+    })
+    assert status == 400, f"Expected 400 for APP schedule with missing target_value, got {status}"
+    check_no_observations("POST APP target with missing target_value")
+
+    # POST APP target with null target_value — must reject
     reset_observations()
     status, _ = request("POST", "/api/v1/schedules", body={
         "name": "test", "description": "desc", "action_type": "BLOCK",
@@ -174,7 +189,7 @@ def test_local_validation():
     assert status == 400, f"Expected 400 for APP schedule with empty target_value, got {status}"
     check_no_observations("POST APP target with empty target_value")
 
-    # POST INTERNET target with non-null target_value
+    # POST INTERNET target with non-null target_value — must reject
     reset_observations()
     status, _ = request("POST", "/api/v1/schedules", body={
         "name": "test", "description": "desc", "action_type": "BLOCK",
@@ -183,6 +198,17 @@ def test_local_validation():
     })
     assert status == 400, f"Expected 400 for INTERNET schedule with non-null target_value, got {status}"
     check_no_observations("POST INTERNET target with non-null target_value")
+
+    # POST INTERNET target with target_value omitted entirely — must be forwarded downstream, not rejected locally.
+    # The fake server creates the schedule and returns 200, proving local validation passed.
+    reset_observations()
+    status, _ = request("POST", "/api/v1/schedules", body={
+        "name": "test", "description": "desc", "action_type": "BLOCK",
+        "target_kind": "INTERNET",
+        "start_time": "08:00", "stop_time": "17:00", "weekdays": [1]
+    })
+    assert status == 200, f"Expected 200 for INTERNET schedule without target_value key, got {status}"
+    check_downstream_called("POST INTERNET without target_value (forwarded)")
 
     # POST invalid start_time format
     reset_observations()
@@ -265,15 +291,27 @@ def test_local_validation():
     assert status == 400, f"Expected 400 for malformed POST json, got {status}"
     check_no_observations("POST malformed json")
 
-    # PUT missing description
+    # PUT with description omitted — must be forwarded downstream, not rejected locally.
+    # VALID_SCHEDULE_ID does not exist in the fake DB, so downstream returns 404.
+    # A 404 from downstream is proof the request passed local validation and was forwarded.
     reset_observations()
     status, _ = request("PUT", f"/api/v1/schedules/{VALID_SCHEDULE_ID}", body={
         "name": "test", "enabled": True, "action_type": "BLOCK",
         "target_kind": "INTERNET", "target_value": None,
         "start_time": "08:00", "stop_time": "17:00", "weekdays": [1]
     })
-    assert status == 400, f"Expected 400 for missing description on PUT, got {status}"
-    check_no_observations("PUT missing description")
+    assert status == 404, f"Expected 404 (forwarded to downstream, schedule not found), got {status}"
+    check_downstream_called("PUT without description (forwarded)")
+
+    # PUT with invalid description type — must still reject
+    reset_observations()
+    status, _ = request("PUT", f"/api/v1/schedules/{VALID_SCHEDULE_ID}", body={
+        "name": "test", "description": 999, "enabled": True, "action_type": "BLOCK",
+        "target_kind": "INTERNET", "target_value": None,
+        "start_time": "08:00", "stop_time": "17:00", "weekdays": [1]
+    })
+    assert status == 400, f"Expected 400 for invalid description type on PUT, got {status}"
+    check_no_observations("PUT invalid description type")
 
     # PUT missing enabled
     reset_observations()

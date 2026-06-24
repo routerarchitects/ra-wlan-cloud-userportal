@@ -453,6 +453,9 @@ namespace OpenWifi::RESTAPI::Errors {
         7001, "There is an instance of this simulation already running.."
     };
 
+	static const struct msg MacNotPresentInTopology { 1198, "MAC address is not present in subscriber topology." };
+	static const struct msg GatewayInventoryNotFound { 1199, "Gateway inventory record not found." };
+	static const struct msg VenueMissingBoardId { 1200, "Venue record does not contain a usable Board ID." };
 
 } // namespace OpenWifi::RESTAPI::Errors
 

@@ -42,6 +42,20 @@ def init_db():
             weekdays INTEGER[]
         )
     """)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS mock_group_devices (
+            group_id UUID,
+            client_mac TEXT,
+            PRIMARY KEY (group_id, client_mac)
+        )
+    """)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS mock_group_schedules (
+            group_id UUID,
+            schedule_id UUID,
+            PRIMARY KEY (group_id, schedule_id)
+        )
+    """)
     return conn
 
 # Let this throw an exception and crash the server if Postgres is not available
@@ -56,6 +70,99 @@ class FakeHandler(http.server.BaseHTTPRequestHandler):
         self.record_call()
         global current_scenario
         
+        if "/api/v1/inventory/" in self.path:
+            mac = self.path.split("/")[-1]
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(json.dumps({"serialNumber": mac, "venue": "venue-id-123", "subscriber": "sub1"}).encode())
+            return
+
+        if "/api/v1/venue/" in self.path:
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(json.dumps({"boards": ["board-id-123"]}).encode())
+            return
+
+        if "/api/v1/topology" in self.path:
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(json.dumps({"historicalClients": [{"station": "aa:bb:cc:dd:ee:ff"}]}).encode())
+            return
+
+        if "/api/v1/subscribers/" in self.path and "/groups/" in self.path and "/devices" in self.path:
+            if current_scenario == "pc-404":
+                self.send_response(404)
+                self.end_headers()
+                self.wfile.write(json.dumps({"error":"not_found","message":"not found"}).encode())
+                return
+            parts = self.path.split("/")
+            group_id = parts[6]
+            cursor = db_conn.cursor()
+            cursor.execute("SELECT id FROM mock_groups WHERE id = %s", (group_id,))
+            if not cursor.fetchone():
+                self.send_response(404)
+                self.end_headers()
+                self.wfile.write(json.dumps({"error":"not_found","message":"group not found"}).encode())
+                return
+
+            if len(parts) > 8:
+                mac = parts[8]
+                cursor.execute("SELECT client_mac FROM mock_group_devices WHERE group_id = %s AND client_mac = %s", (group_id, mac))
+                row = cursor.fetchone()
+                if row:
+                    self.send_response(200)
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"client_mac": row[0]}).encode())
+                else:
+                    self.send_response(404)
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error":"not_found","message":"device not linked to group"}).encode())
+            else:
+                cursor.execute("SELECT client_mac FROM mock_group_devices WHERE group_id = %s", (group_id,))
+                rows = cursor.fetchall()
+                devices = [{"client_mac": r[0]} for r in rows]
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(json.dumps(devices).encode())
+            return
+
+        if "/api/v1/subscribers/" in self.path and "/groups/" in self.path and "/schedules" in self.path:
+            if current_scenario == "pc-404":
+                self.send_response(404)
+                self.end_headers()
+                self.wfile.write(json.dumps({"error":"not_found","message":"not found"}).encode())
+                return
+            parts = self.path.split("/")
+            group_id = parts[6]
+            cursor = db_conn.cursor()
+            cursor.execute("SELECT id FROM mock_groups WHERE id = %s", (group_id,))
+            if not cursor.fetchone():
+                self.send_response(404)
+                self.end_headers()
+                self.wfile.write(json.dumps({"error":"not_found","message":"group not found"}).encode())
+                return
+
+            if len(parts) > 8:
+                sid = parts[8]
+                cursor.execute("SELECT schedule_id FROM mock_group_schedules WHERE group_id = %s AND schedule_id = %s", (group_id, sid))
+                row = cursor.fetchone()
+                if row:
+                    self.send_response(200)
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"id": str(row[0])}).encode())
+                else:
+                    self.send_response(404)
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error":"not_found","message":"schedule not linked to group"}).encode())
+            else:
+                cursor.execute("SELECT schedule_id FROM mock_group_schedules WHERE group_id = %s", (group_id,))
+                rows = cursor.fetchall()
+                schedules = [{"id": str(r[0])} for r in rows]
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(json.dumps(schedules).encode())
+            return
+
         # Fake OWSEC Auth
         if "validateSubToken" in self.path or "validateToken" in self.path:
             parsed = urlparse(self.path)
@@ -315,6 +422,8 @@ class FakeHandler(http.server.BaseHTTPRequestHandler):
             cursor = db_conn.cursor()
             cursor.execute("TRUNCATE TABLE mock_groups")
             cursor.execute("TRUNCATE TABLE mock_schedules")
+            cursor.execute("TRUNCATE TABLE mock_group_devices")
+            cursor.execute("TRUNCATE TABLE mock_group_schedules")
             self.send_response(200)
             self.end_headers()
             return
@@ -345,6 +454,101 @@ class FakeHandler(http.server.BaseHTTPRequestHandler):
             self.send_response(200)
             self.end_headers()
             self.wfile.write(json.dumps({"status": "Success"}).encode())
+            return
+
+        if "/api/v1/subscribers/" in self.path and "/groups/" in self.path and "/devices" in self.path:
+            if current_scenario == "pc-404":
+                self.send_response(404)
+                self.end_headers()
+                self.wfile.write(json.dumps({"error":"not_found","message":"not found"}).encode())
+                return
+            elif current_scenario == "pc-409":
+                self.send_response(409)
+                self.end_headers()
+                self.wfile.write(json.dumps({"error":"conflict","message":"conflict"}).encode())
+                return
+            
+            parts = self.path.split("/")
+            group_id = parts[6]
+            req_data = json.loads(body.decode())
+            mac = req_data.get("client_mac")
+            
+            cursor = db_conn.cursor()
+            cursor.execute("SELECT id FROM mock_groups WHERE id = %s", (group_id,))
+            if not cursor.fetchone():
+                self.send_response(404)
+                self.end_headers()
+                self.wfile.write(json.dumps({"error":"not_found","message":"group not found"}).encode())
+                return
+                
+            cursor.execute("SELECT client_mac FROM mock_group_devices WHERE group_id = %s AND client_mac = %s", (group_id, mac))
+            if cursor.fetchone():
+                self.send_response(409)
+                self.end_headers()
+                self.wfile.write(json.dumps({"error":"conflict","message":"device already linked to group"}).encode())
+                return
+
+            cursor.execute("INSERT INTO mock_group_devices (group_id, client_mac) VALUES (%s, %s)", (group_id, mac))
+            
+            resp_obj = {"client_mac": mac}
+            if current_scenario.startswith("config-raw") or current_scenario.startswith("delete-config-raw"):
+                resp_obj["config-raw"] = [
+                    ["set", "parental_control.ci_rule.enabled", "1"]
+                ]
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(json.dumps(resp_obj).encode())
+            return
+
+        if "/api/v1/subscribers/" in self.path and "/groups/" in self.path and "/schedules" in self.path:
+            if current_scenario == "pc-404":
+                self.send_response(404)
+                self.end_headers()
+                self.wfile.write(json.dumps({"error":"not_found","message":"not found"}).encode())
+                return
+            elif current_scenario == "pc-409":
+                self.send_response(409)
+                self.end_headers()
+                self.wfile.write(json.dumps({"error":"conflict","message":"conflict"}).encode())
+                return
+            
+            parts = self.path.split("/")
+            group_id = parts[6]
+            req_data = json.loads(body.decode())
+            sid = req_data.get("schedule_id")
+            
+            cursor = db_conn.cursor()
+            cursor.execute("SELECT id FROM mock_groups WHERE id = %s", (group_id,))
+            if not cursor.fetchone():
+                self.send_response(404)
+                self.end_headers()
+                self.wfile.write(json.dumps({"error":"not_found","message":"group not found"}).encode())
+                return
+                
+            cursor.execute("SELECT id FROM mock_schedules WHERE id = %s", (sid,))
+            if not cursor.fetchone():
+                self.send_response(404)
+                self.end_headers()
+                self.wfile.write(json.dumps({"error":"not_found","message":"schedule not found"}).encode())
+                return
+                
+            cursor.execute("SELECT schedule_id FROM mock_group_schedules WHERE group_id = %s AND schedule_id = %s", (group_id, sid))
+            if cursor.fetchone():
+                self.send_response(409)
+                self.end_headers()
+                self.wfile.write(json.dumps({"error":"conflict","message":"schedule already linked to group"}).encode())
+                return
+
+            cursor.execute("INSERT INTO mock_group_schedules (group_id, schedule_id) VALUES (%s, %s)", (group_id, sid))
+            
+            resp_obj = {"schedule_id": sid}
+            if current_scenario.startswith("config-raw") or current_scenario.startswith("delete-config-raw"):
+                resp_obj["config-raw"] = [
+                    ["set", "parental_control.ci_rule.enabled", "1"]
+                ]
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(json.dumps(resp_obj).encode())
             return
 
         if "/api/v1/subscribers/" in self.path and "/groups" in self.path:
@@ -412,6 +616,53 @@ class FakeHandler(http.server.BaseHTTPRequestHandler):
         
         content_length = int(self.headers.get('Content-Length', 0))
         body = self.rfile.read(content_length) if content_length > 0 else b""
+
+        if "/api/v1/subscribers/" in self.path and "/groups/" in self.path and "/schedules" in self.path:
+            if current_scenario == "pc-404":
+                self.send_response(404)
+                self.end_headers()
+                self.wfile.write(json.dumps({"error":"not_found","message":"not found"}).encode())
+                return
+            elif current_scenario == "pc-409":
+                self.send_response(409)
+                self.end_headers()
+                self.wfile.write(json.dumps({"error":"conflict","message":"conflict"}).encode())
+                return
+            
+            parts = self.path.split("/")
+            group_id = parts[6]
+            req_data = json.loads(body.decode())
+            sids = req_data.get("schedule_ids", [])
+            
+            cursor = db_conn.cursor()
+            cursor.execute("SELECT id FROM mock_groups WHERE id = %s", (group_id,))
+            if not cursor.fetchone():
+                self.send_response(404)
+                self.end_headers()
+                self.wfile.write(json.dumps({"error":"not_found","message":"group not found"}).encode())
+                return
+                
+            for sid in sids:
+                cursor.execute("SELECT id FROM mock_schedules WHERE id = %s", (sid,))
+                if not cursor.fetchone():
+                    self.send_response(404)
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error":"not_found","message": f"schedule {sid} not found"}).encode())
+                    return
+            
+            cursor.execute("DELETE FROM mock_group_schedules WHERE group_id = %s", (group_id,))
+            for sid in sids:
+                cursor.execute("INSERT INTO mock_group_schedules (group_id, schedule_id) VALUES (%s, %s)", (group_id, sid))
+                
+            resp_obj = {"schedule_ids": sids}
+            if current_scenario.startswith("config-raw") or current_scenario.startswith("delete-config-raw"):
+                resp_obj["config-raw"] = [
+                    ["set", "parental_control.ci_rule.enabled", "1"]
+                ]
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(json.dumps(resp_obj).encode())
+            return
 
         if "/api/v1/subscribers/" in self.path and "/groups" in self.path:
             if current_scenario == "pc-404":
@@ -515,6 +766,78 @@ class FakeHandler(http.server.BaseHTTPRequestHandler):
         self.record_call()
         global current_scenario
         
+        if "/api/v1/subscribers/" in self.path and "/groups/" in self.path and "/devices" in self.path:
+            if current_scenario == "pc-404":
+                self.send_response(404)
+                self.end_headers()
+                self.wfile.write(json.dumps({"error":"not_found","message":"not found"}).encode())
+                return
+            
+            parts = self.path.split("/")
+            group_id = parts[6]
+            mac = parts[8]
+            
+            cursor = db_conn.cursor()
+            cursor.execute("SELECT id FROM mock_groups WHERE id = %s", (group_id,))
+            if not cursor.fetchone():
+                self.send_response(404)
+                self.end_headers()
+                self.wfile.write(json.dumps({"error":"not_found","message":"group not found"}).encode())
+                return
+                
+            cursor.execute("DELETE FROM mock_group_devices WHERE group_id = %s AND client_mac = %s", (group_id, mac))
+            if cursor.rowcount == 0:
+                self.send_response(404)
+                self.end_headers()
+                self.wfile.write(json.dumps({"error":"not_found","message":"device not linked to group"}).encode())
+                return
+            
+            resp_obj = {}
+            if current_scenario.startswith("config-raw") or current_scenario.startswith("delete-config-raw"):
+                resp_obj["config-raw"] = [
+                    ["set", "parental_control.ci_rule.enabled", "0"]
+                ]
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(json.dumps(resp_obj).encode())
+            return
+
+        if "/api/v1/subscribers/" in self.path and "/groups/" in self.path and "/schedules" in self.path:
+            if current_scenario == "pc-404":
+                self.send_response(404)
+                self.end_headers()
+                self.wfile.write(json.dumps({"error":"not_found","message":"not found"}).encode())
+                return
+            
+            parts = self.path.split("/")
+            group_id = parts[6]
+            sid = parts[8]
+            
+            cursor = db_conn.cursor()
+            cursor.execute("SELECT id FROM mock_groups WHERE id = %s", (group_id,))
+            if not cursor.fetchone():
+                self.send_response(404)
+                self.end_headers()
+                self.wfile.write(json.dumps({"error":"not_found","message":"group not found"}).encode())
+                return
+                
+            cursor.execute("DELETE FROM mock_group_schedules WHERE group_id = %s AND schedule_id = %s", (group_id, sid))
+            if cursor.rowcount == 0:
+                self.send_response(404)
+                self.end_headers()
+                self.wfile.write(json.dumps({"error":"not_found","message":"schedule not linked to group"}).encode())
+                return
+            
+            resp_obj = {}
+            if current_scenario.startswith("config-raw") or current_scenario.startswith("delete-config-raw"):
+                resp_obj["config-raw"] = [
+                    ["set", "parental_control.ci_rule.enabled", "0"]
+                ]
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(json.dumps(resp_obj).encode())
+            return
+
         if "/api/v1/subscribers/" in self.path and "/groups" in self.path:
             if current_scenario == "pc-404":
                 self.send_response(404)

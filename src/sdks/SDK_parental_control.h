@@ -66,4 +66,53 @@ namespace OpenWifi::SDK::ParentalControl {
 						Poco::Net::HTTPResponse::HTTPStatus &CallStatus,
 						Poco::JSON::Object::Ptr &CallResponse, std::string &RawResponseBody);
 
+	// Group Devices
+	bool GetGroupDevices(RESTAPIHandler *client, const std::string &SubscriberId,
+						 const std::string &GroupId,
+						 Poco::Net::HTTPResponse::HTTPStatus &CallStatus,
+						 Poco::JSON::Array::Ptr &ArrayResponse,
+						 Poco::JSON::Object::Ptr &ObjectResponse);
+
+	bool CreateGroupDevice(RESTAPIHandler *client, const std::string &SubscriberId,
+						   const std::string &GroupId, const Poco::JSON::Object &Body,
+						   Poco::Net::HTTPResponse::HTTPStatus &CallStatus,
+						   Poco::JSON::Object::Ptr &CallResponse);
+
+	bool GetGroupDevice(RESTAPIHandler *client, const std::string &SubscriberId,
+						const std::string &GroupId, const std::string &ClientMac,
+						Poco::Net::HTTPResponse::HTTPStatus &CallStatus,
+						Poco::JSON::Object::Ptr &CallResponse);
+
+	bool DeleteGroupDevice(RESTAPIHandler *client, const std::string &SubscriberId,
+						   const std::string &GroupId, const std::string &ClientMac,
+						   Poco::Net::HTTPResponse::HTTPStatus &CallStatus,
+						   Poco::JSON::Object::Ptr &CallResponse, std::string &RawResponseBody);
+
+	// Group Schedules
+	bool GetGroupSchedules(RESTAPIHandler *client, const std::string &SubscriberId,
+						   const std::string &GroupId,
+						   Poco::Net::HTTPResponse::HTTPStatus &CallStatus,
+						   Poco::JSON::Array::Ptr &ArrayResponse,
+						   Poco::JSON::Object::Ptr &ObjectResponse);
+
+	bool CreateGroupSchedule(RESTAPIHandler *client, const std::string &SubscriberId,
+							 const std::string &GroupId, const Poco::JSON::Object &Body,
+							 Poco::Net::HTTPResponse::HTTPStatus &CallStatus,
+							 Poco::JSON::Object::Ptr &CallResponse);
+
+	bool GetGroupSchedule(RESTAPIHandler *client, const std::string &SubscriberId,
+						  const std::string &GroupId, const std::string &ScheduleId,
+						  Poco::Net::HTTPResponse::HTTPStatus &CallStatus,
+						  Poco::JSON::Object::Ptr &CallResponse);
+
+	bool DeleteGroupSchedule(RESTAPIHandler *client, const std::string &SubscriberId,
+							 const std::string &GroupId, const std::string &ScheduleId,
+							 Poco::Net::HTTPResponse::HTTPStatus &CallStatus,
+							 Poco::JSON::Object::Ptr &CallResponse, std::string &RawResponseBody);
+
+	bool ReplaceGroupSchedules(RESTAPIHandler *client, const std::string &SubscriberId,
+							   const std::string &GroupId, const Poco::JSON::Object &Body,
+							   Poco::Net::HTTPResponse::HTTPStatus &CallStatus,
+							   Poco::JSON::Object::Ptr &CallResponse);
+
 } // namespace OpenWifi::SDK::ParentalControl

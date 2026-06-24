@@ -51,6 +51,11 @@ def check_no_observations(test_name):
         obs = json.loads(r.read())
         assert len(obs["calls"]) == 0, f"{test_name}: Downstream services were unexpectedly called: {obs['calls']}"
 
+def check_downstream_called(test_name):
+    with open_url(f"{FAKE_URL}/observations") as r:
+        obs = json.loads(r.read())
+        assert len(obs["calls"]) > 0, f"{test_name}: Request was not forwarded downstream (no calls observed)"
+
 def test_auth_checks():
     print("Testing Auth Rejections...")
     # Missing auth
@@ -110,11 +115,19 @@ def test_local_validation():
     assert status == 400, f"Expected 400 for malformed POST json, got {status}"
     check_no_observations("POST malformed json")
 
-    # G) PUT missing description
+    # G) PUT with only name (description is optional) — must be forwarded downstream, not rejected locally
+    # VALID_GROUP_ID does not exist in the fake DB, so downstream returns 404.
+    # A 404 from downstream is proof the request passed local validation and was forwarded.
     reset_observations()
     status, _ = request("PUT", f"/api/v1/groups/{VALID_GROUP_ID}", body={"name":"test"})
-    assert status == 400, f"Expected 400 for missing description on PUT, got {status}"
-    check_no_observations("PUT missing description")
+    assert status == 404, f"Expected 404 (forwarded to downstream, group not found), got {status}"
+    check_downstream_called("PUT with only name (description is optional)")
+
+    # G2) PUT with invalid description type (integer) — must still be rejected locally with 400
+    reset_observations()
+    status, _ = request("PUT", f"/api/v1/groups/{VALID_GROUP_ID}", body={"name":"test", "description": 123})
+    assert status == 400, f"Expected 400 for invalid description type on PUT, got {status}"
+    check_no_observations("PUT invalid description type")
     
     # H) PUT unknown field
     reset_observations()

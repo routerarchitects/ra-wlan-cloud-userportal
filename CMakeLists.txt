@@ -148,6 +148,10 @@ add_executable(owsub
         src/sdks/SDK_parental_control.cpp src/sdks/SDK_parental_control.h
         src/RESTAPI/RESTAPI_groups_handler.cpp src/RESTAPI/RESTAPI_groups_handler.h
         src/RESTAPI/RESTAPI_schedules_handler.cpp src/RESTAPI/RESTAPI_schedules_handler.h
+        src/RESTAPI/RESTAPI_group_devices_list_handler.cpp src/RESTAPI/RESTAPI_group_devices_list_handler.h
+        src/RESTAPI/RESTAPI_group_devices_handler.cpp src/RESTAPI/RESTAPI_group_devices_handler.h
+        src/RESTAPI/RESTAPI_group_schedules_list_handler.cpp src/RESTAPI/RESTAPI_group_schedules_list_handler.h
+        src/RESTAPI/RESTAPI_group_schedules_handler.cpp src/RESTAPI/RESTAPI_group_schedules_handler.h
         )
 
 target_link_libraries(owsub PUBLIC

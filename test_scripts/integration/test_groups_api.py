@@ -96,6 +96,11 @@ def test_put_groups():
     # Verify update persisted
     status, read_body = request("GET", f"/api/v1/groups/{CREATED_GROUP_ID}")
     assert read_body.get("name") == "updated-group", "GET after PUT did not return updated name"
+
+    # PUT with description omitted (description is optional) — must also succeed
+    status, body = request("PUT", f"/api/v1/groups/{CREATED_GROUP_ID}", body={"name": "name-only-update"})
+    assert status == 200, f"Expected 200 for PUT with name only (no description), got {status}. Body: {body}"
+    assert body.get("name") == "name-only-update", f"Expected updated name. Body: {body}"
     print("✅ PUT /groups passed")
 
 def test_delete_groups_normal():

@@ -9,6 +9,9 @@
 #include "fmt/format.h"
 #include "sdks/SDK_gw.h"
 #include "sdks/SDK_prov.h"
+#include "sdks/SDK_nw_topology.h"
+#include "framework/utils.h"
+#include "framework/ow_constants.h"
 #include <cctype>
 #include <set>
 #include <vector>
@@ -149,36 +152,28 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 			return false;
 		}
 
-		if (!body->has("target_value")) {
-			handler.BadRequest(RESTAPI::Errors::MissingOrInvalidParameters,
-							   "target_value is required");
-			return false;
-		}
-		if (body->isNull("target_value")) {
-			if (out.targetKind != "INTERNET") {
+		if (out.targetKind == "APP") {
+			if (!body->has("target_value") || body->isNull("target_value") || !body->get("target_value").isString()) {
+				handler.BadRequest(RESTAPI::Errors::MissingOrInvalidParameters,
+								   "APP schedules require a non-empty target_value");
+				return false;
+			}
+			out.targetValue = body->getValue<std::string>("target_value");
+			Poco::trimInPlace(out.targetValue);
+			if (out.targetValue.empty()) {
 				handler.BadRequest(RESTAPI::Errors::MissingOrInvalidParameters,
 								   "APP schedules require a non-empty target_value");
 				return false;
 			}
 		} else {
-			if (!body->get("target_value").isString()) {
-				handler.BadRequest(RESTAPI::Errors::MissingOrInvalidParameters,
-								   "target_value must be a string or null");
-				return false;
-			}
-			out.targetValue = body->getValue<std::string>("target_value");
-			Poco::trimInPlace(out.targetValue);
-			if (out.targetKind == "APP") {
-				if (out.targetValue.empty()) {
+			if (body->has("target_value")) {
+				if (!body->isNull("target_value")) {
 					handler.BadRequest(RESTAPI::Errors::MissingOrInvalidParameters,
-									   "APP schedules require a non-empty target_value");
+									   "INTERNET schedules require target_value to be null");
 					return false;
 				}
-			} else {
-				handler.BadRequest(RESTAPI::Errors::MissingOrInvalidParameters,
-								   "INTERNET schedules require target_value to be null");
-				return false;
 			}
+			out.targetValue = "";
 		}
 
 		if (!body->has("start_time") ||
@@ -228,23 +223,19 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 			}
 		}
 
-		if (enabledRequired && !body->has("description")) {
-			handler.BadRequest(RESTAPI::Errors::MissingOrInvalidParameters,
-							   "description is required for PUT");
-			return false;
-		}
-
-		if (body->isNull("description")) {
-			out.description = std::nullopt;
-		} else if (body->has("description")) {
-			if (!body->get("description").isString()) {
-				handler.BadRequest(RESTAPI::Errors::MissingOrInvalidParameters,
-								   "description must be a string or null");
-				return false;
+		if (body->has("description")) {
+			if (body->isNull("description")) {
+				out.description = std::nullopt;
+			} else {
+				if (!body->get("description").isString()) {
+					handler.BadRequest(RESTAPI::Errors::MissingOrInvalidParameters,
+									   "description must be a string or null");
+					return false;
+				}
+				std::string desc = body->getValue<std::string>("description");
+				Poco::trimInPlace(desc);
+				out.description = std::move(desc);
 			}
-			std::string desc = body->getValue<std::string>("description");
-			Poco::trimInPlace(desc);
-			out.description = std::move(desc);
 		} else {
 			out.description = std::nullopt;
 		}
@@ -275,12 +266,16 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 	}
 
 	bool ExtractConfigRawSnapshot(const Poco::JSON::Object::Ptr &callResponse,
-								  Poco::JSON::Array::Ptr &configRaw) {
+								  Poco::JSON::Array::Ptr &configRaw,
+								  bool required) {
 		configRaw.reset();
 		if (!callResponse) {
-			return true;
+			return !required;
 		}
-		if (!callResponse->has("config-raw") || callResponse->isNull("config-raw")) {
+		if (!callResponse->has("config-raw")) {
+			return !required;
+		}
+		if (callResponse->isNull("config-raw")) {
 			return true;
 		}
 		if (!callResponse->isArray("config-raw")) {
@@ -316,7 +311,8 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 										const std::string &operatorId, const std::string &objectId,
 										const Poco::JSON::Array::Ptr &configRaw,
 										const std::string &operationName,
-										const std::string &objectType) {
+										const std::string &objectType,
+										const std::string &gatewaySerial) {
 		if (!configRaw) {
 			return ApplyConfigRawResult::NoConfigApplyNeeded;
 		}
@@ -327,27 +323,28 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 			return ApplyConfigRawResult::MissingOperatorId;
 		}
 
-		ProvObjects::SubscriberDeviceList devList;
-		Poco::Net::HTTPResponse::HTTPStatus provStatus;
-		Poco::JSON::Object::Ptr provResponse;
-		if (!SDK::Prov::Subscriber::GetDevices(&handler, subscriberId, operatorId, devList,
-											   provStatus, provResponse)) {
-			logger.error(fmt::format("{}: provisioning lookup failed (subscriber={} {}={})",
-									 operationName, subscriberId, objectType, objectId));
-			return ApplyConfigRawResult::ProvisioningLookupFailed;
-		}
+		std::string resolvedSerial = gatewaySerial;
+		if (resolvedSerial.empty()) {
+			ProvObjects::SubscriberDeviceList devList;
+			Poco::Net::HTTPResponse::HTTPStatus provStatus;
+			Poco::JSON::Object::Ptr provResponse;
+			if (!SDK::Prov::Subscriber::GetDevices(&handler, subscriberId, operatorId, devList, provStatus, provResponse)) {
+				logger.error(fmt::format("{}: provisioning lookup failed (subscriber={} {}={})",
+										 operationName, subscriberId, objectType, objectId));
+				return ApplyConfigRawResult::ProvisioningLookupFailed;
+			}
 
-		std::string gatewaySerial;
-		for (const auto &dev : devList.subscriberDevices) {
-			std::string grp = dev.deviceGroup;
-			Poco::toLowerInPlace(grp);
-			if (grp == "olg") {
-				gatewaySerial = dev.serialNumber;
-				break;
+			for (const auto &dev : devList.subscriberDevices) {
+				std::string grp = dev.deviceGroup;
+				Poco::toLowerInPlace(grp);
+				if (grp == "olg") {
+					resolvedSerial = dev.serialNumber;
+					break;
+				}
 			}
 		}
 
-		if (gatewaySerial.empty()) {
+		if (resolvedSerial.empty()) {
 			logger.error(fmt::format("{}: gateway serial not resolved (subscriber={} {}={})",
 									 operationName, subscriberId, objectType, objectId));
 			return ApplyConfigRawResult::MissingGatewaySerial;
@@ -355,13 +352,13 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 
 		Poco::JSON::Object::Ptr gwResponse;
 		Poco::Net::HTTPResponse::HTTPStatus gwStatus;
-		if (!SDK::GW::Device::GetConfig(&handler, gatewaySerial, gwStatus, gwResponse)) {
+		if (!SDK::GW::Device::GetConfig(&handler, resolvedSerial, gwStatus, gwResponse)) {
 			if (gwStatus == Poco::Net::HTTPResponse::HTTP_OK) {
 				logger.error(fmt::format("{}: gateway config malformed (serial={})", operationName,
-										 gatewaySerial));
+										 resolvedSerial));
 			} else {
 				logger.error(fmt::format("{}: gateway config load failed (serial={})",
-										 operationName, gatewaySerial));
+										 operationName, resolvedSerial));
 			}
 			return ApplyConfigRawResult::GatewayConfigLoadFailed;
 		}
@@ -369,7 +366,7 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 		if (!gwResponse || !gwResponse->has("configuration") ||
 			!gwResponse->isObject("configuration")) {
 			logger.error(fmt::format("{}: gateway config malformed (serial={})", operationName,
-									 gatewaySerial));
+									 resolvedSerial));
 			return ApplyConfigRawResult::GatewayConfigMalformed;
 		}
 
@@ -381,10 +378,10 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 
 		Poco::JSON::Object::Ptr configureResponse;
 		Poco::Net::HTTPResponse::HTTPStatus configureStatus;
-		if (!SDK::GW::Device::Configure(&handler, gatewaySerial, gatewayConfig, configureStatus,
+		if (!SDK::GW::Device::Configure(&handler, resolvedSerial, gatewayConfig, configureStatus,
 										configureResponse)) {
 			logger.error(fmt::format("{}: gateway configure failed (serial={})", operationName,
-									 gatewaySerial));
+									 resolvedSerial));
 			return ApplyConfigRawResult::GatewayConfigureFailed;
 		}
 
@@ -406,6 +403,220 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 		case ApplyConfigRawResult::GatewayConfigLoadFailed:
 		case ApplyConfigRawResult::GatewayConfigMalformed:
 		case ApplyConfigRawResult::GatewayConfigureFailed:
+			handler.InternalError(RESTAPI::Errors::InternalError);
+			return false;
+		}
+		handler.InternalError(RESTAPI::Errors::InternalError);
+		return false;
+	}
+
+	ValidateMacResult ValidateMacInTopology(RESTAPIHandler &handler,
+											const std::string &subscriberId,
+											const std::string &operatorId,
+											const std::string &clientMac,
+											std::string &gatewaySerial) {
+		if (subscriberId.empty() || operatorId.empty()) {
+			return ValidateMacResult::MissingSubscriberOrOperator;
+		}
+
+		ProvObjects::SubscriberDeviceList devList;
+		Poco::Net::HTTPResponse::HTTPStatus provStatus = Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR;
+		Poco::JSON::Object::Ptr provResponse;
+		if (!SDK::Prov::Subscriber::GetDevices(&handler, subscriberId, operatorId, devList,
+											   provStatus, provResponse)) {
+			if (provStatus == Poco::Net::HTTPResponse::HTTP_NOT_FOUND) {
+				return ValidateMacResult::SubscriberDevicesNotFound;
+			}
+			return ValidateMacResult::ProvisioningLookupFailed;
+		}
+
+		if (devList.subscriberDevices.empty()) {
+			return ValidateMacResult::SubscriberDevicesNotFound;
+		}
+
+		for (const auto &dev : devList.subscriberDevices) {
+			std::string grp = dev.deviceGroup;
+			Poco::toLowerInPlace(grp);
+			if (grp == "olg") {
+				gatewaySerial = dev.serialNumber;
+				break;
+			}
+		}
+
+		if (gatewaySerial.empty()) {
+			return ValidateMacResult::GatewaySerialNotFound;
+		}
+
+		ProvObjects::InventoryTag inventory;
+		if (!SDK::Prov::Device::Get(&handler, gatewaySerial, inventory)) {
+			return ValidateMacResult::InventoryNotFound;
+		}
+
+		if (inventory.venue.empty()) {
+			return ValidateMacResult::VenueNotFound;
+		}
+
+		Poco::Net::HTTPServerResponse::HTTPStatus venueStatus = Poco::Net::HTTPServerResponse::HTTP_INTERNAL_SERVER_ERROR;
+		Poco::JSON::Object::Ptr venueResponse = Poco::makeShared<Poco::JSON::Object>();
+		ProvObjects::Venue venue;
+		if (!SDK::Prov::Venue::Get(&handler, inventory.venue, venue, venueStatus, venueResponse)) {
+			return ValidateMacResult::VenueNotFound;
+		}
+
+		if (venue.boards.empty() || venue.boards.front().empty()) {
+			return ValidateMacResult::BoardIdNotFound;
+		}
+
+		std::string boardId = venue.boards.front();
+
+		Poco::Net::HTTPServerResponse::HTTPStatus topoStatus = Poco::Net::HTTPServerResponse::HTTP_INTERNAL_SERVER_ERROR;
+		Poco::JSON::Object::Ptr topologyResponse = Poco::makeShared<Poco::JSON::Object>();
+		if (!SDK::Topology::Get(&handler, boardId, topoStatus, topologyResponse)) {
+			return ValidateMacResult::TopologyNotFound;
+		}
+
+		if (!topologyResponse) {
+			return ValidateMacResult::TopologyNotFound;
+		}
+
+		// Check structures
+		bool hasNodes = topologyResponse->has("nodes");
+		bool hasHistClients = topologyResponse->has("historicalClients");
+		bool hasHistDevs = topologyResponse->has("historicalDevices");
+
+		if ((hasNodes && !topologyResponse->isArray("nodes")) ||
+			(hasHistClients && !topologyResponse->isArray("historicalClients")) ||
+			(hasHistDevs && !topologyResponse->isArray("historicalDevices")) ||
+			(!hasNodes && !hasHistClients && !hasHistDevs)) {
+			return ValidateMacResult::TopologyUnusable;
+		}
+
+		// Normalize client MAC to search
+		std::string targetMac = clientMac;
+		if (!Utils::NormalizeMac(targetMac)) {
+			return ValidateMacResult::MacNotPresentInTopology;
+		}
+		std::string targetMacFormatted = Utils::SerialToMAC(targetMac);
+		Poco::toLowerInPlace(targetMacFormatted);
+
+		// Check historicalClients
+		if (hasHistClients) {
+			auto histClients = topologyResponse->getArray("historicalClients");
+			for (std::size_t i = 0; i < histClients->size(); ++i) {
+				auto item = histClients->getObject(i);
+				if (!item) {
+					return ValidateMacResult::TopologyUnusable;
+				}
+				if (item->has("station") && item->get("station").isString()) {
+					std::string station = item->getValue<std::string>("station");
+					Poco::toLowerInPlace(station);
+					if (station == targetMacFormatted) {
+						return ValidateMacResult::Success;
+					}
+				}
+			}
+		}
+
+		// Check historicalDevices (array of MAC strings)
+		if (hasHistDevs) {
+			auto histDevs = topologyResponse->getArray("historicalDevices");
+			for (std::size_t i = 0; i < histDevs->size(); ++i) {
+				try {
+					if (!histDevs->get(i).isString()) {
+						return ValidateMacResult::TopologyUnusable;
+					}
+					std::string station = histDevs->getElement<std::string>(i);
+					if (Utils::NormalizeMac(station)) {
+						std::string normStation = Utils::SerialToMAC(station);
+						Poco::toLowerInPlace(normStation);
+						if (normStation == targetMacFormatted) {
+							return ValidateMacResult::Success;
+						}
+					}
+				} catch (...) {
+					return ValidateMacResult::TopologyUnusable;
+				}
+			}
+		}
+
+		// Check active nodes / aps / clients
+		if (hasNodes) {
+			auto nodes = topologyResponse->getArray("nodes");
+			for (std::size_t i = 0; i < nodes->size(); ++i) {
+				auto node = nodes->getObject(i);
+				if (!node) {
+					return ValidateMacResult::TopologyUnusable;
+				}
+				if (node->has("aps")) {
+					if (!node->isArray("aps")) {
+						return ValidateMacResult::TopologyUnusable;
+					}
+					auto aps = node->getArray("aps");
+					for (std::size_t apIndex = 0; apIndex < aps->size(); ++apIndex) {
+						auto ap = aps->getObject(apIndex);
+						if (!ap) {
+							return ValidateMacResult::TopologyUnusable;
+						}
+						if (ap->has("clients")) {
+							if (!ap->isArray("clients")) {
+								return ValidateMacResult::TopologyUnusable;
+							}
+							auto clients = ap->getArray("clients");
+							for (std::size_t clientIndex = 0; clientIndex < clients->size(); ++clientIndex) {
+								auto client = clients->getObject(clientIndex);
+								if (!client) {
+									return ValidateMacResult::TopologyUnusable;
+								}
+								if (client->has("station")) {
+									if (!client->get("station").isString()) {
+										return ValidateMacResult::TopologyUnusable;
+									}
+									std::string station = client->getValue<std::string>("station");
+									Poco::toLowerInPlace(station);
+									if (station == targetMacFormatted) {
+										return ValidateMacResult::Success;
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
+		return ValidateMacResult::MacNotPresentInTopology;
+	}
+
+	bool HandleValidateMacResult(RESTAPIHandler &handler, ValidateMacResult result) {
+		switch (result) {
+		case ValidateMacResult::Success:
+			return true;
+		case ValidateMacResult::MissingSubscriberOrOperator:
+			handler.UnAuthorized(RESTAPI::Errors::OperatorIdMustExist);
+			return false;
+		case ValidateMacResult::SubscriberDevicesNotFound:
+		case ValidateMacResult::GatewaySerialNotFound:
+			handler.BadRequest(RESTAPI::Errors::SubNoDeviceActivated);
+			return false;
+		case ValidateMacResult::ProvisioningLookupFailed:
+			handler.InternalError(RESTAPI::Errors::InternalError);
+			return false;
+		case ValidateMacResult::InventoryNotFound:
+			handler.BadRequest(RESTAPI::Errors::GatewayInventoryNotFound);
+			return false;
+		case ValidateMacResult::VenueNotFound:
+			handler.BadRequest(RESTAPI::Errors::VenueMustExist);
+			return false;
+		case ValidateMacResult::BoardIdNotFound:
+			handler.BadRequest(RESTAPI::Errors::VenueMissingBoardId);
+			return false;
+		case ValidateMacResult::TopologyNotFound:
+			handler.InternalError(RESTAPI::Errors::InternalError);
+			return false;
+		case ValidateMacResult::MacNotPresentInTopology:
+			handler.BadRequest(RESTAPI::Errors::MacNotPresentInTopology);
+			return false;
+		case ValidateMacResult::TopologyUnusable:
 			handler.InternalError(RESTAPI::Errors::InternalError);
 			return false;
 		}

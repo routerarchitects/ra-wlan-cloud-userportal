@@ -138,4 +138,114 @@ namespace OpenWifi::SDK::ParentalControl {
 		return CallResponse != nullptr;
 	}
 
+	// Group Devices
+	bool GetGroupDevices(RESTAPIHandler *client, const std::string &SubscriberId,
+						 const std::string &GroupId,
+						 Poco::Net::HTTPResponse::HTTPStatus &CallStatus,
+						 Poco::JSON::Array::Ptr &ArrayResponse,
+						 Poco::JSON::Object::Ptr &ObjectResponse) {
+		std::string endpoint = "/api/v1/subscribers/" + SubscriberId + "/groups/" + GroupId + "/devices";
+		auto API = OpenAPIRequestGet(uSERVICE_MANGO_PARENTAL_CONTROL, endpoint, {}, 60000);
+		CallStatus = API.Do(ArrayResponse, ObjectResponse,
+							client ? client->UserInfo_.webtoken.access_token_ : "");
+		return IsParsedArraySuccess(CallStatus, ArrayResponse);
+	}
+
+	bool CreateGroupDevice(RESTAPIHandler *client, const std::string &SubscriberId,
+						   const std::string &GroupId, const Poco::JSON::Object &Body,
+						   Poco::Net::HTTPResponse::HTTPStatus &CallStatus,
+						   Poco::JSON::Object::Ptr &CallResponse) {
+		std::string endpoint = "/api/v1/subscribers/" + SubscriberId + "/groups/" + GroupId + "/devices";
+		auto API = OpenAPIRequestPost(uSERVICE_MANGO_PARENTAL_CONTROL, endpoint, {}, Body, 120000);
+		CallStatus = API.Do(CallResponse, client ? client->UserInfo_.webtoken.access_token_ : "");
+		return IsParsedObjectSuccess(CallStatus, CallResponse);
+	}
+
+	bool GetGroupDevice(RESTAPIHandler *client, const std::string &SubscriberId,
+						const std::string &GroupId, const std::string &ClientMac,
+						Poco::Net::HTTPResponse::HTTPStatus &CallStatus,
+						Poco::JSON::Object::Ptr &CallResponse) {
+		std::string endpoint = "/api/v1/subscribers/" + SubscriberId + "/groups/" + GroupId + "/devices/" + ClientMac;
+		auto API = OpenAPIRequestGet(uSERVICE_MANGO_PARENTAL_CONTROL, endpoint, {}, 60000);
+		CallStatus = API.Do(CallResponse, client ? client->UserInfo_.webtoken.access_token_ : "");
+		return IsParsedObjectSuccess(CallStatus, CallResponse);
+	}
+
+	bool DeleteGroupDevice(RESTAPIHandler *client, const std::string &SubscriberId,
+						   const std::string &GroupId, const std::string &ClientMac,
+						   Poco::Net::HTTPResponse::HTTPStatus &CallStatus,
+						   Poco::JSON::Object::Ptr &CallResponse, std::string &RawResponseBody) {
+		std::string endpoint = "/api/v1/subscribers/" + SubscriberId + "/groups/" + GroupId + "/devices/" + ClientMac;
+		auto API = OpenAPIRequestDelete(uSERVICE_MANGO_PARENTAL_CONTROL, endpoint, {}, 120000);
+		CallStatus = API.Do(CallResponse, RawResponseBody,
+							client ? client->UserInfo_.webtoken.access_token_ : "");
+		if (CallStatus != Poco::Net::HTTPResponse::HTTP_OK) {
+			return false;
+		}
+		if (RawResponseBody.empty() || !CallResponse || !CallResponse->has("config-raw")) {
+			return false;
+		}
+		return true;
+	}
+
+	// Group Schedules
+	bool GetGroupSchedules(RESTAPIHandler *client, const std::string &SubscriberId,
+						   const std::string &GroupId,
+						   Poco::Net::HTTPResponse::HTTPStatus &CallStatus,
+						   Poco::JSON::Array::Ptr &ArrayResponse,
+						   Poco::JSON::Object::Ptr &ObjectResponse) {
+		std::string endpoint = "/api/v1/subscribers/" + SubscriberId + "/groups/" + GroupId + "/schedules";
+		auto API = OpenAPIRequestGet(uSERVICE_MANGO_PARENTAL_CONTROL, endpoint, {}, 60000);
+		CallStatus = API.Do(ArrayResponse, ObjectResponse,
+							client ? client->UserInfo_.webtoken.access_token_ : "");
+		return IsParsedArraySuccess(CallStatus, ArrayResponse);
+	}
+
+	bool CreateGroupSchedule(RESTAPIHandler *client, const std::string &SubscriberId,
+							 const std::string &GroupId, const Poco::JSON::Object &Body,
+							 Poco::Net::HTTPResponse::HTTPStatus &CallStatus,
+							 Poco::JSON::Object::Ptr &CallResponse) {
+		std::string endpoint = "/api/v1/subscribers/" + SubscriberId + "/groups/" + GroupId + "/schedules";
+		auto API = OpenAPIRequestPost(uSERVICE_MANGO_PARENTAL_CONTROL, endpoint, {}, Body, 120000);
+		CallStatus = API.Do(CallResponse, client ? client->UserInfo_.webtoken.access_token_ : "");
+		return IsParsedObjectSuccess(CallStatus, CallResponse);
+	}
+
+	bool GetGroupSchedule(RESTAPIHandler *client, const std::string &SubscriberId,
+						  const std::string &GroupId, const std::string &ScheduleId,
+						  Poco::Net::HTTPResponse::HTTPStatus &CallStatus,
+						  Poco::JSON::Object::Ptr &CallResponse) {
+		std::string endpoint = "/api/v1/subscribers/" + SubscriberId + "/groups/" + GroupId + "/schedules/" + ScheduleId;
+		auto API = OpenAPIRequestGet(uSERVICE_MANGO_PARENTAL_CONTROL, endpoint, {}, 60000);
+		CallStatus = API.Do(CallResponse, client ? client->UserInfo_.webtoken.access_token_ : "");
+		return IsParsedObjectSuccess(CallStatus, CallResponse);
+	}
+
+	bool DeleteGroupSchedule(RESTAPIHandler *client, const std::string &SubscriberId,
+							 const std::string &GroupId, const std::string &ScheduleId,
+							 Poco::Net::HTTPResponse::HTTPStatus &CallStatus,
+							 Poco::JSON::Object::Ptr &CallResponse, std::string &RawResponseBody) {
+		std::string endpoint = "/api/v1/subscribers/" + SubscriberId + "/groups/" + GroupId + "/schedules/" + ScheduleId;
+		auto API = OpenAPIRequestDelete(uSERVICE_MANGO_PARENTAL_CONTROL, endpoint, {}, 120000);
+		CallStatus = API.Do(CallResponse, RawResponseBody,
+							client ? client->UserInfo_.webtoken.access_token_ : "");
+		if (CallStatus != Poco::Net::HTTPResponse::HTTP_OK) {
+			return false;
+		}
+		if (RawResponseBody.empty() || !CallResponse || !CallResponse->has("config-raw")) {
+			return false;
+		}
+		return true;
+	}
+
+	bool ReplaceGroupSchedules(RESTAPIHandler *client, const std::string &SubscriberId,
+							   const std::string &GroupId, const Poco::JSON::Object &Body,
+							   Poco::Net::HTTPResponse::HTTPStatus &CallStatus,
+							   Poco::JSON::Object::Ptr &CallResponse) {
+		std::string endpoint = "/api/v1/subscribers/" + SubscriberId + "/groups/" + GroupId + "/schedules";
+		auto API = OpenAPIRequestPut(uSERVICE_MANGO_PARENTAL_CONTROL, endpoint, {}, Body, 120000);
+		CallStatus = API.Do(CallResponse, client ? client->UserInfo_.webtoken.access_token_ : "");
+		return IsParsedObjectSuccess(CallStatus, CallResponse);
+	}
+
 } // namespace OpenWifi::SDK::ParentalControl
