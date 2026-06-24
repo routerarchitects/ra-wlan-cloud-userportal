@@ -310,11 +310,41 @@ def test_local_validation():
     print("✅ Local validation tests passed")
 
 
+def test_missing_operator():
+    print("Testing Missing Operator Rejection...")
+
+    # POST
+    reset_observations()
+    status, _ = request("POST", f"/api/v1/groups/{VALID_GROUP_ID}/schedules",
+                        body={"schedule_id": VALID_SCHEDULE_ID},
+                        headers={"Authorization": "Bearer no-owner-token"})
+    assert status == 403, f"Expected 403 for missing operator on POST schedules, got {status}"
+    check_no_observations("POST group-schedules missing operator")
+
+    # PUT
+    reset_observations()
+    status, _ = request("PUT", f"/api/v1/groups/{VALID_GROUP_ID}/schedules",
+                        body={"schedule_ids": [VALID_SCHEDULE_ID]},
+                        headers={"Authorization": "Bearer no-owner-token"})
+    assert status == 403, f"Expected 403 for missing operator on PUT schedules, got {status}"
+    check_no_observations("PUT group-schedules missing operator")
+
+    # DELETE
+    reset_observations()
+    status, _ = request("DELETE", f"/api/v1/groups/{VALID_GROUP_ID}/schedules/{VALID_SCHEDULE_ID}",
+                        headers={"Authorization": "Bearer no-owner-token"})
+    assert status == 403, f"Expected 403 for missing operator on DELETE schedule, got {status}"
+    check_no_observations("DELETE schedule missing operator")
+
+    print("✅ Missing operator tests passed")
+
+
 if __name__ == "__main__":
     print("Starting group-schedules contract tests...")
     try:
         test_auth_checks()
         test_local_validation()
+        test_missing_operator()
         print("🎉 All group-schedules contract tests passed!")
     except AssertionError as e:
         print(f"❌ TEST FAILED: {e}")

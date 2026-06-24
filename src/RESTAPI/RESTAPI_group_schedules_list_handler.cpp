@@ -49,6 +49,9 @@ namespace OpenWifi {
 		if (UserInfo_.userinfo.id.empty()) {
 			return UnAuthorized(RESTAPI::Errors::InvalidSubscriberId);
 		}
+		if (UserInfo_.userinfo.owner.empty()) {
+			return UnAuthorized(RESTAPI::Errors::OperatorIdMustExist);
+		}
 
 		const auto groupId = GetBinding("group_id", "");
 		if (groupId.empty()) {
@@ -110,6 +113,9 @@ namespace OpenWifi {
 	void RESTAPI_group_schedules_list_handler::DoPut() {
 		if (UserInfo_.userinfo.id.empty()) {
 			return UnAuthorized(RESTAPI::Errors::InvalidSubscriberId);
+		}
+		if (UserInfo_.userinfo.owner.empty()) {
+			return UnAuthorized(RESTAPI::Errors::OperatorIdMustExist);
 		}
 
 		const auto groupId = GetBinding("group_id", "");

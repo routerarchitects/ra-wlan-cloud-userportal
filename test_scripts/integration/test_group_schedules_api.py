@@ -277,6 +277,58 @@ def test_forwarded_404_scenarios():
     print("✅ Forwarded 404 scenarios passed")
 
 
+def test_missing_owner_rejection():
+    print("Testing Missing Owner Rejection on POST/PUT/DELETE...")
+    gid = create_group("gs-missing-owner")
+    sid = create_schedule("gs-missing-owner-sched")
+
+    headers = {"Authorization": "Bearer no-owner-token"}
+
+    # 1. POST link schedule -> should fail with 403
+    status, body = request("POST", f"/api/v1/groups/{gid}/schedules",
+                           body={"schedule_id": sid},
+                           headers=headers,
+                           scenario="config-raw")
+    assert status == 403, f"Expected 403 for missing owner on POST, got {status}. Body: {body}"
+
+    # Verify no downstream calls were made (since scenario reset observations, and early return avoids downstream call)
+    obs = get_observations()
+    assert len(obs["calls"]) == 0, f"Downstream called unexpectedly: {obs['calls']}"
+
+    # 2. PUT link schedule -> should fail with 403
+    status, body = request("PUT", f"/api/v1/groups/{gid}/schedules",
+                           body={"schedule_ids": [sid]},
+                           headers=headers,
+                           scenario="config-raw")
+    assert status == 403, f"Expected 403 for missing owner on PUT, got {status}. Body: {body}"
+
+    obs = get_observations()
+    assert len(obs["calls"]) == 0, f"Downstream called unexpectedly: {obs['calls']}"
+
+    # First, let's link the schedule with valid token so we can test DELETE
+    status, _ = request("POST", f"/api/v1/groups/{gid}/schedules",
+                        body={"schedule_id": sid},
+                        scenario="config-raw")
+    assert status == 200
+
+    # 3. DELETE unlink schedule -> should fail with 403
+    status, body = request("DELETE", f"/api/v1/groups/{gid}/schedules/{sid}",
+                           headers=headers,
+                           scenario="config-raw")
+    assert status == 403, f"Expected 403 for missing owner on DELETE, got {status}. Body: {body}"
+
+    # Check observations again (after linking, we reset observations when calling DELETE)
+    obs = get_observations()
+    assert len(obs["calls"]) == 0, f"Downstream called unexpectedly: {obs['calls']}"
+
+    # Verify state did not change (schedule is still linked)
+    status, list_body = request("GET", f"/api/v1/groups/{gid}/schedules")
+    assert status == 200
+    assert any(s.get("id") == sid for s in list_body), "Schedule should still be linked"
+
+    print("✅ Missing owner rejection tests passed")
+
+
 # ---------------------------------------------------------------------------
 # Runner
 # ---------------------------------------------------------------------------
@@ -292,6 +344,7 @@ if __name__ == "__main__":
         test_delete_group_schedule_missing_config_raw()
         test_delete_group_schedule_gw_failures()
         test_forwarded_404_scenarios()
+        test_missing_owner_rejection()
         print("🎉 All group-schedules integration tests passed!")
     except AssertionError as e:
         print(f"❌ TEST FAILED: {e}")

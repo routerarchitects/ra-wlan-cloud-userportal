@@ -216,13 +216,14 @@ class FakeHandler(http.server.BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps({"error": "invalid_token"}).encode())
                 return
 
-            if token == "dummy-test-token":
+            if token in ["dummy-test-token", "no-owner-token"]:
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
+                owner_val = "" if token == "no-owner-token" else "operator1"
                 res = {
                 "tokenInfo": {
-                    "access_token": "dummy-test-token",
+                    "access_token": token,
                     "token_type": "Bearer",
                     "expires_in": 3600,
                     "created": 2000000000,
@@ -248,7 +249,7 @@ class FakeHandler(http.server.BaseHTTPRequestHandler):
                     "locale": "",
                     "notes": [],
                     "location": "",
-                    "owner": "operator1",
+                    "owner": owner_val,
                     "suspended": False,
                     "blackListed": False,
                     "userRole": "subscriber",
