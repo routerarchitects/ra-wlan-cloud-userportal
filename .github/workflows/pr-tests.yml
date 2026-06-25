@@ -7,6 +7,21 @@ on:
       - master
 
 jobs:
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Build unit-test image from repo-native Dockerfile
+        run: |
+          docker build --build-arg BUILD_TESTING=ON \
+            --target owsub-build -t userportal-unit-tests .
+
+      - name: Run native C++ unit tests
+        run: docker run --rm userportal-unit-tests sh -lc "cd /owsub/cmake-build && ctest --output-on-failure"
+
   integration-tests:
     name: Build & Integration Tests
     runs-on: ubuntu-22.04
