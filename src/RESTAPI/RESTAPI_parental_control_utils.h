@@ -71,6 +71,7 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 		GatewaySerialNotFound,
 		InventoryNotFound,
 		VenueNotFound,
+		VenueLookupFailed,
 		BoardIdNotFound,
 		TopologyNotFound,
 		MacNotPresentInTopology,

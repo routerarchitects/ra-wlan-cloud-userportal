@@ -460,7 +460,10 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 		Poco::JSON::Object::Ptr venueResponse = Poco::makeShared<Poco::JSON::Object>();
 		ProvObjects::Venue venue;
 		if (!SDK::Prov::Venue::Get(&handler, inventory.venue, venue, venueStatus, venueResponse)) {
-			return ValidateMacResult::VenueNotFound;
+			if (venueStatus == Poco::Net::HTTPResponse::HTTP_NOT_FOUND) {
+				return ValidateMacResult::VenueNotFound;
+			}
+			return ValidateMacResult::VenueLookupFailed;
 		}
 
 		if (venue.boards.empty() || venue.boards.front().empty()) {
@@ -606,6 +609,9 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 			return false;
 		case ValidateMacResult::VenueNotFound:
 			handler.BadRequest(RESTAPI::Errors::VenueMustExist);
+			return false;
+		case ValidateMacResult::VenueLookupFailed:
+			handler.InternalError(RESTAPI::Errors::InternalError);
 			return false;
 		case ValidateMacResult::BoardIdNotFound:
 			handler.BadRequest(RESTAPI::Errors::VenueMissingBoardId);
