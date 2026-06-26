@@ -46,9 +46,11 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 	struct ParsedScheduleRequest {
 		std::string name;
 		std::optional<std::string> description;
+		bool has_description = false;
 		bool enabled = true;
 		std::string targetKind;
 		std::string targetValue;
+		bool has_target_value = false;
 		int startMinute = 0;
 		int stopMinute = 0;
 		Poco::JSON::Array::Ptr weekdays;

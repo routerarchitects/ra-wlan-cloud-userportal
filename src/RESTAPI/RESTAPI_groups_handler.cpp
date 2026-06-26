@@ -89,8 +89,6 @@ namespace OpenWifi {
 				Poco::trimInPlace(descVal);
 				body.set("description", descVal);
 			}
-		} else {
-			body.set("description", Poco::Dynamic::Var());
 		}
 
 		Poco::Net::HTTPResponse::HTTPStatus callStatus;

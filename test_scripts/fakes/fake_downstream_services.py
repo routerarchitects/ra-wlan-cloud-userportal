@@ -67,26 +67,47 @@ def init_db():
 db_conn = init_db()
 
 class FakeHandler(http.server.BaseHTTPRequestHandler):
-    def record_call(self):
+    def record_call(self, body=None):
         if not self.path.startswith("/observations") and not self.path.startswith("/reset-observations") and not self.path.startswith("/reset-db") and not self.path.startswith("/set-scenario") and "validate" not in self.path:
-            observations.append({"method": self.command, "path": self.path})
+            call_info = {"method": self.command, "path": self.path}
+            if body is not None:
+                try:
+                    call_info["body"] = json.loads(body.decode())
+                except Exception:
+                    call_info["body"] = body.decode()
+            observations.append(call_info)
 
     def do_GET(self):
         self.record_call()
         global current_scenario
         
         if "/api/v1/inventory/" in self.path:
+            if current_scenario == "inventory-missing":
+                self.send_response(404)
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "not_found", "message": "inventory not found"}).encode())
+                return
             mac = self.path.split("/")[-1]
             self.send_response(200)
             self.end_headers()
             self.wfile.write(json.dumps({
                 "serialNumber": mac,
-                "venue": VENUE_ID,
+                "venue": "" if current_scenario == "inventory-venue-empty" else VENUE_ID,
                 "subscriber": "sub1"
             }).encode())
             return
 
         if "/api/v1/venue/" in self.path:
+            if current_scenario == "venue-missing":
+                self.send_response(404)
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "not_found", "message": "venue not found"}).encode())
+                return
+            if current_scenario == "venue-fail":
+                self.send_response(500)
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "internal_error", "message": "venue lookup failed"}).encode())
+                return
             self.send_response(200)
             self.end_headers()
             res = {
@@ -118,12 +139,28 @@ class FakeHandler(http.server.BaseHTTPRequestHandler):
                 "managementRoles": [],
                 "maps": [],
                 "configurations": [],
-                "boards": [BOARD_ID]
+                "boards": [] if current_scenario == "board-missing" else [BOARD_ID]
             }
             self.wfile.write(json.dumps(res).encode())
             return
 
         if "/api/v1/topology" in self.path:
+            if current_scenario == "topology-fail":
+                self.send_response(500)
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "internal_error", "message": "topology fetch failure"}).encode())
+                return
+            if current_scenario == "topology-malformed":
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(json.dumps({"historicalClients": "not-an-array"}).encode())
+                return
+            if current_scenario == "mac-not-present":
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(json.dumps({"historicalClients": [{"station": "11:22:33:44:55:66"}]}).encode())
+                return
+
             self.send_response(200)
             self.end_headers()
             self.wfile.write(json.dumps({"historicalClients": [{"station": "aa:bb:cc:dd:ee:ff"}]}).encode())
@@ -444,13 +481,14 @@ class FakeHandler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_POST(self):
-        self.record_call()
         global last_configure_payload
         global current_scenario
         global observations
         
         content_length = int(self.headers.get('Content-Length', 0))
         body = self.rfile.read(content_length) if content_length > 0 else b""
+        
+        self.record_call(body)
         
         if "/reset-observations" in self.path:
             observations.clear()
@@ -652,11 +690,12 @@ class FakeHandler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_PUT(self):
-        self.record_call()
         global current_scenario
         
         content_length = int(self.headers.get('Content-Length', 0))
         body = self.rfile.read(content_length) if content_length > 0 else b""
+
+        self.record_call(body)
 
         if "/api/v1/subscribers/" in self.path and "/groups/" in self.path and "/schedules" in self.path:
             if current_scenario == "pc-404":

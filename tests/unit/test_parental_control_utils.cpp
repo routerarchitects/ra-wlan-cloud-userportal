@@ -477,31 +477,73 @@ void TestBuildScheduleRequestBodyForAppTarget() {
     ExpectEq(body.getValue<std::string>("target_value"), std::string("youtube"), "APP target value");
 }
 
-void TestBuildScheduleRequestBodyForInternetTargetSetsNullTargetValue() {
-    OpenWifi::RESTAPI::ParentalControl::ParsedScheduleRequest request;
-    request.name = "Internet";
-    request.description = std::string("General block");
-    request.enabled = false;
-    request.targetKind = "INTERNET";
-    request.startMinute = 0;
-    request.stopMinute = 60;
-    request.weekdays = MakeIntArray({0});
+void TestBuildScheduleRequestBodyForInternetTargetOmittedAndExplicitNull() {
+    // 1. Omitted case
+    {
+        OpenWifi::RESTAPI::ParentalControl::ParsedScheduleRequest request;
+        request.name = "Internet";
+        request.description = std::string("General block");
+        request.has_description = true;
+        request.enabled = false;
+        request.targetKind = "INTERNET";
+        request.has_target_value = false;
+        request.startMinute = 0;
+        request.stopMinute = 60;
+        request.weekdays = MakeIntArray({0});
 
-    auto body = OpenWifi::RESTAPI::ParentalControl::BuildScheduleRequestBody(request);
-    Expect(body.isNull("target_value"), "INTERNET target value should be null");
+        auto body = OpenWifi::RESTAPI::ParentalControl::BuildScheduleRequestBody(request);
+        Expect(!body.has("target_value"), "omitted INTERNET target value should not be present in payload");
+    }
+
+    // 2. Explicit null case
+    {
+        OpenWifi::RESTAPI::ParentalControl::ParsedScheduleRequest request;
+        request.name = "Internet";
+        request.description = std::string("General block");
+        request.has_description = true;
+        request.enabled = false;
+        request.targetKind = "INTERNET";
+        request.has_target_value = true;
+        request.startMinute = 0;
+        request.stopMinute = 60;
+        request.weekdays = MakeIntArray({0});
+
+        auto body = OpenWifi::RESTAPI::ParentalControl::BuildScheduleRequestBody(request);
+        Expect(body.has("target_value") && body.isNull("target_value"), "explicitly null INTERNET target value should be null in payload");
+    }
 }
 
-void TestBuildScheduleRequestBodyUsesNullDescriptionWhenOmitted() {
-    OpenWifi::RESTAPI::ParentalControl::ParsedScheduleRequest request;
-    request.name = "No description";
-    request.enabled = true;
-    request.targetKind = "INTERNET";
-    request.startMinute = 10;
-    request.stopMinute = 20;
-    request.weekdays = MakeIntArray({0, 1});
+void TestBuildScheduleRequestBodyDescriptionOmittedAndExplicitNull() {
+    // 1. Omitted case
+    {
+        OpenWifi::RESTAPI::ParentalControl::ParsedScheduleRequest request;
+        request.name = "No description";
+        request.has_description = false;
+        request.enabled = true;
+        request.targetKind = "INTERNET";
+        request.startMinute = 10;
+        request.stopMinute = 20;
+        request.weekdays = MakeIntArray({0, 1});
 
-    auto body = OpenWifi::RESTAPI::ParentalControl::BuildScheduleRequestBody(request);
-    Expect(body.isNull("description"), "omitted description should serialize as null");
+        auto body = OpenWifi::RESTAPI::ParentalControl::BuildScheduleRequestBody(request);
+        Expect(!body.has("description"), "omitted description should not be present in payload");
+    }
+
+    // 2. Explicit null case
+    {
+        OpenWifi::RESTAPI::ParentalControl::ParsedScheduleRequest request;
+        request.name = "Null description";
+        request.has_description = true;
+        request.description = std::nullopt;
+        request.enabled = true;
+        request.targetKind = "INTERNET";
+        request.startMinute = 10;
+        request.stopMinute = 20;
+        request.weekdays = MakeIntArray({0, 1});
+
+        auto body = OpenWifi::RESTAPI::ParentalControl::BuildScheduleRequestBody(request);
+        Expect(body.has("description") && body.isNull("description"), "explicitly null description should be null in payload");
+    }
 }
 
 void TestExtractConfigRawSnapshotAllowsMissingResponseWhenOptional() {
@@ -1017,8 +1059,8 @@ const std::vector<std::pair<std::string, std::function<void()>>> kTests = {
     {"NormalizeScheduleResponseRejectsOutOfRangeMinute", TestNormalizeScheduleResponseRejectsOutOfRangeMinute},
     {"NormalizeScheduleResponseRejectsNonIntegerField", TestNormalizeScheduleResponseRejectsNonIntegerField},
     {"BuildScheduleRequestBodyForAppTarget", TestBuildScheduleRequestBodyForAppTarget},
-    {"BuildScheduleRequestBodyForInternetTargetSetsNullTargetValue", TestBuildScheduleRequestBodyForInternetTargetSetsNullTargetValue},
-    {"BuildScheduleRequestBodyUsesNullDescriptionWhenOmitted", TestBuildScheduleRequestBodyUsesNullDescriptionWhenOmitted},
+    {"BuildScheduleRequestBodyForInternetTargetOmittedAndExplicitNull", TestBuildScheduleRequestBodyForInternetTargetOmittedAndExplicitNull},
+    {"BuildScheduleRequestBodyDescriptionOmittedAndExplicitNull", TestBuildScheduleRequestBodyDescriptionOmittedAndExplicitNull},
     {"ExtractConfigRawSnapshotAllowsMissingResponseWhenOptional", TestExtractConfigRawSnapshotAllowsMissingResponseWhenOptional},
     {"ExtractConfigRawSnapshotRejectsMissingResponseWhenRequired", TestExtractConfigRawSnapshotRejectsMissingResponseWhenRequired},
     {"ExtractConfigRawSnapshotAcceptsNullConfigRaw", TestExtractConfigRawSnapshotAcceptsNullConfigRaw},

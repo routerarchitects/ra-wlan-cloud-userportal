@@ -24,6 +24,14 @@ def reset_observations():
     req = urllib.request.Request(f"{FAKE_URL}/reset-observations", data=b"", method="POST")
     open_url(req)
 
+def set_scenario(scenario_name):
+    req = urllib.request.Request(
+        f"{FAKE_URL}/set-scenario",
+        data=json.dumps({"scenario": scenario_name}).encode(),
+        method="POST"
+    )
+    open_url(req)
+
 def request(method, path, body=None, headers=None):
     if headers is None:
         headers = {"Authorization": "Bearer dummy-test-token"}
@@ -51,7 +59,8 @@ def request(method, path, body=None, headers=None):
 def check_no_observations(test_name):
     with open_url(f"{FAKE_URL}/observations") as r:
         obs = json.loads(r.read())
-        assert len(obs["calls"]) == 0, f"{test_name}: Downstream unexpectedly called: {obs['calls']}"
+        downstream_calls = [c for c in obs["calls"] if "/subscribers/" in c["path"] or "configure" in c["path"]]
+        assert len(downstream_calls) == 0, f"{test_name}: Downstream unexpectedly called: {downstream_calls}"
 
 def check_downstream_called(test_name):
     with open_url(f"{FAKE_URL}/observations") as r:
@@ -229,12 +238,54 @@ def test_local_validation():
 
     print("✅ Local validation tests passed")
 
+def test_dependency_validation_failures():
+    print("Testing local topology/provisioning dependency validation failures on POST...")
+
+    # helper to set scenario, reset observations, call POST, assert status, check no observations
+    def run_dep_fail_case(scenario_name, expected_status, test_name):
+        set_scenario(scenario_name)
+        reset_observations()
+        status, body = request("POST", f"/api/v1/groups/{VALID_GROUP_ID}/devices", body={"client_mac": VALID_CLIENT_MAC})
+        assert status == expected_status, f"{test_name}: Expected status {expected_status}, got {status}. Response: {body}"
+        check_no_observations(test_name)
+
+    # 1. provisioning lookup failure
+    run_dep_fail_case("prov-502", 500, "provisioning lookup failure")
+
+    # 2a. inventory missing
+    run_dep_fail_case("inventory-missing", 400, "inventory missing")
+
+    # 2b. inventory lookup failure (inventory venue is empty)
+    run_dep_fail_case("inventory-venue-empty", 400, "inventory venue empty")
+
+    # 3a. venue missing
+    run_dep_fail_case("venue-missing", 400, "venue missing")
+
+    # 3b. venue lookup failure
+    run_dep_fail_case("venue-fail", 500, "venue lookup failure")
+
+    # 4. board missing or empty
+    run_dep_fail_case("board-missing", 400, "board missing or empty")
+
+    # 5. topology fetch failure
+    run_dep_fail_case("topology-fail", 500, "topology fetch failure")
+
+    # 6. MAC not present in topology
+    run_dep_fail_case("mac-not-present", 400, "MAC not present in topology")
+
+    # 7. malformed topology payload shape
+    run_dep_fail_case("topology-malformed", 500, "malformed topology payload")
+
+    # Clean up by resetting to normal
+    set_scenario("normal")
+    print("✅ Dependency validation failure tests passed")
 
 if __name__ == "__main__":
     print("Starting group-devices contract tests...")
     try:
         test_auth_checks()
         test_local_validation()
+        test_dependency_validation_failures()
         print("🎉 All group-devices contract tests passed!")
     except AssertionError as e:
         print(f"❌ TEST FAILED: {e}")

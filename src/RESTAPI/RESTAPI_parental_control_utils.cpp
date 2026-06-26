@@ -153,6 +153,7 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 		}
 
 		if (out.targetKind == "APP") {
+			out.has_target_value = true;
 			if (!body->has("target_value") || body->isNull("target_value") || !body->get("target_value").isString()) {
 				handler.BadRequest(RESTAPI::Errors::MissingOrInvalidParameters,
 								   "APP schedules require a non-empty target_value");
@@ -167,11 +168,14 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 			}
 		} else {
 			if (body->has("target_value")) {
+				out.has_target_value = true;
 				if (!body->isNull("target_value")) {
 					handler.BadRequest(RESTAPI::Errors::MissingOrInvalidParameters,
 									   "INTERNET schedules require target_value to be null");
 					return false;
 				}
+			} else {
+				out.has_target_value = false;
 			}
 			out.targetValue = "";
 		}
@@ -224,6 +228,7 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 		}
 
 		if (body->has("description")) {
+			out.has_description = true;
 			if (body->isNull("description")) {
 				out.description = std::nullopt;
 			} else {
@@ -237,6 +242,7 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 				out.description = std::move(desc);
 			}
 		} else {
+			out.has_description = false;
 			out.description = std::nullopt;
 		}
 
@@ -246,10 +252,12 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 	Poco::JSON::Object BuildScheduleRequestBody(const ParsedScheduleRequest &req) {
 		Poco::JSON::Object body;
 		body.set("name", req.name);
-		if (req.description.has_value()) {
-			body.set("description", *req.description);
-		} else {
-			body.set("description", Poco::Dynamic::Var());
+		if (req.has_description) {
+			if (req.description.has_value()) {
+				body.set("description", *req.description);
+			} else {
+				body.set("description", Poco::Dynamic::Var());
+			}
 		}
 		body.set("enabled", req.enabled);
 		body.set("action_type", "BLOCK");
@@ -257,7 +265,9 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 		if (req.targetKind == "APP") {
 			body.set("target_value", req.targetValue);
 		} else {
-			body.set("target_value", Poco::Dynamic::Var());
+			if (req.has_target_value) {
+				body.set("target_value", Poco::Dynamic::Var());
+			}
 		}
 		body.set("start_minute", req.startMinute);
 		body.set("stop_minute", req.stopMinute);
