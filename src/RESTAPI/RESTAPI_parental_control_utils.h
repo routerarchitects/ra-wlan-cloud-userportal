@@ -14,34 +14,9 @@
 
 namespace OpenWifi::RESTAPI::ParentalControl {
 
-	enum class ApplyConfigRawResult {
-		NoConfigApplyNeeded,
-		Applied,
-		MissingOperatorId,
-		ProvisioningLookupFailed,
-		MissingGatewaySerial,
-		GatewayConfigLoadFailed,
-		GatewayConfigMalformed,
-		GatewayConfigureFailed
-	};
-
-	bool NormalizeScheduleResponse(Poco::JSON::Object::Ptr schedule);
-
-	bool ParseTimeString(const Poco::Dynamic::Var &value, int &minuteOfDay);
-
-	bool ValidateWeekdays(const Poco::JSON::Array::Ptr &weekdays);
-
-	bool ExtractConfigRawSnapshot(const Poco::JSON::Object::Ptr &callResponse,
-								  Poco::JSON::Array::Ptr &configRaw,
-								  bool required = false);
-
-	ApplyConfigRawResult ApplyConfigRaw(RESTAPIHandler &handler, Poco::Logger &logger,
-										const std::string &subscriberId,
-										const std::string &operatorId, const std::string &objectId,
-										const Poco::JSON::Array::Ptr &configRaw,
-										const std::string &operationName,
-										const std::string &objectType,
-										const std::string &gatewaySerial = "");
+	// =========================================================================
+	// Schedule Helpers
+	// =========================================================================
 
 	struct ParsedScheduleRequest {
 		std::string name;
@@ -56,6 +31,12 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 		Poco::JSON::Array::Ptr weekdays;
 	};
 
+	bool NormalizeScheduleResponse(Poco::JSON::Object::Ptr schedule);
+
+	bool ParseTimeString(const Poco::Dynamic::Var &value, int &minuteOfDay);
+
+	bool ValidateWeekdays(const Poco::JSON::Array::Ptr &weekdays);
+
 	bool ParseAndValidateScheduleRequest(RESTAPIHandler &handler,
 										  const Poco::JSON::Object::Ptr &body,
 										  bool enabledRequired,
@@ -63,7 +44,10 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 
 	Poco::JSON::Object BuildScheduleRequestBody(const ParsedScheduleRequest &req);
 
-	bool HandleApplyConfigRawResult(RESTAPIHandler &handler, ApplyConfigRawResult result);
+
+	// =========================================================================
+	// Topology/Device Validation Helpers
+	// =========================================================================
 
 	enum class ValidateMacResult {
 		Success,
@@ -85,6 +69,41 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 											const std::string &operatorId,
 											const std::string &clientMac,
 											std::string &gatewaySerial);
+
+
+	// =========================================================================
+	// Config-Raw Extraction/Apply Helpers
+	// =========================================================================
+
+	enum class ApplyConfigRawResult {
+		NoConfigApplyNeeded,
+		Applied,
+		MissingOperatorId,
+		ProvisioningLookupFailed,
+		MissingGatewaySerial,
+		GatewayConfigLoadFailed,
+		GatewayConfigMalformed,
+		GatewayConfigureFailed
+	};
+
+	bool ExtractConfigRawSnapshot(const Poco::JSON::Object::Ptr &callResponse,
+								  Poco::JSON::Array::Ptr &configRaw,
+								  bool required = false);
+
+	ApplyConfigRawResult ApplyConfigRaw(RESTAPIHandler &handler, Poco::Logger &logger,
+										const std::string &subscriberId,
+										const std::string &operatorId, const std::string &objectId,
+										const Poco::JSON::Array::Ptr &configRaw,
+										const std::string &operationName,
+										const std::string &objectType,
+										const std::string &gatewaySerial = "");
+
+
+	// =========================================================================
+	// HTTP/Result Mapping Helpers
+	// =========================================================================
+
+	bool HandleApplyConfigRawResult(RESTAPIHandler &handler, ApplyConfigRawResult result);
 
 	bool HandleValidateMacResult(RESTAPIHandler &handler, ValidateMacResult result);
 

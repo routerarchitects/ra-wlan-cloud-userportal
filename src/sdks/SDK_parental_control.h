@@ -13,6 +13,10 @@
 
 namespace OpenWifi::SDK::ParentalControl {
 
+	// =========================================================================
+	// Groups
+	// =========================================================================
+
 	// Success body is a JSON array of Group objects.
 	// On HTTP 200: ArrayResponse is populated.
 	// On non-200: ObjectResponse is populated (for ForwardErrorResponse passthrough).
@@ -42,6 +46,10 @@ namespace OpenWifi::SDK::ParentalControl {
 	                 Poco::JSON::Object::Ptr &CallResponse,
 	                 std::string &RawResponseBody);
 
+	// =========================================================================
+	// Schedules
+	// =========================================================================
+
 	bool GetSchedules(RESTAPIHandler *client, const std::string &SubscriberId,
 					  Poco::Net::HTTPResponse::HTTPStatus &CallStatus,
 					  Poco::JSON::Array::Ptr &ArrayResponse,
@@ -66,7 +74,10 @@ namespace OpenWifi::SDK::ParentalControl {
 						Poco::Net::HTTPResponse::HTTPStatus &CallStatus,
 						Poco::JSON::Object::Ptr &CallResponse, std::string &RawResponseBody);
 
+	// =========================================================================
 	// Group Devices
+	// =========================================================================
+
 	bool GetGroupDevices(RESTAPIHandler *client, const std::string &SubscriberId,
 						 const std::string &GroupId,
 						 Poco::Net::HTTPResponse::HTTPStatus &CallStatus,
@@ -88,7 +99,10 @@ namespace OpenWifi::SDK::ParentalControl {
 						   Poco::Net::HTTPResponse::HTTPStatus &CallStatus,
 						   Poco::JSON::Object::Ptr &CallResponse, std::string &RawResponseBody);
 
+	// =========================================================================
 	// Group Schedules
+	// =========================================================================
+
 	bool GetGroupSchedules(RESTAPIHandler *client, const std::string &SubscriberId,
 						   const std::string &GroupId,
 						   Poco::Net::HTTPResponse::HTTPStatus &CallStatus,

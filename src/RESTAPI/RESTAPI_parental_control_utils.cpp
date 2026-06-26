@@ -29,7 +29,210 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 			timeValue = Poco::format("%02d:%02d", hour, minute);
 			return true;
 		}
+
+		ValidateMacResult ResolveGatewaySerial(RESTAPIHandler &handler,
+											   const std::string &subscriberId,
+											   const std::string &operatorId,
+											   std::string &gatewaySerial) {
+			if (subscriberId.empty() || operatorId.empty()) {
+				return ValidateMacResult::MissingSubscriberOrOperator;
+			}
+
+			ProvObjects::SubscriberDeviceList devList;
+			Poco::Net::HTTPResponse::HTTPStatus provStatus = Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR;
+			Poco::JSON::Object::Ptr provResponse;
+			if (!SDK::Prov::Subscriber::GetDevices(&handler, subscriberId, operatorId, devList,
+												   provStatus, provResponse)) {
+				if (provStatus == Poco::Net::HTTPResponse::HTTP_NOT_FOUND) {
+					return ValidateMacResult::SubscriberDevicesNotFound;
+				}
+				return ValidateMacResult::ProvisioningLookupFailed;
+			}
+
+			if (devList.subscriberDevices.empty()) {
+				return ValidateMacResult::SubscriberDevicesNotFound;
+			}
+
+			for (const auto &dev : devList.subscriberDevices) {
+				std::string grp = dev.deviceGroup;
+				Poco::toLowerInPlace(grp);
+				if (grp == "olg") {
+					gatewaySerial = dev.serialNumber;
+					break;
+				}
+			}
+
+			if (gatewaySerial.empty()) {
+				return ValidateMacResult::GatewaySerialNotFound;
+			}
+
+			return ValidateMacResult::Success;
+		}
+
+		ValidateMacResult ResolveVenueBoards(RESTAPIHandler &handler,
+											 const std::string &gatewaySerial,
+											 std::string &boardId) {
+			ProvObjects::InventoryTag inventory;
+			if (!SDK::Prov::Device::Get(&handler, gatewaySerial, inventory)) {
+				return ValidateMacResult::InventoryNotFound;
+			}
+
+			if (inventory.venue.empty()) {
+				return ValidateMacResult::VenueNotFound;
+			}
+
+			Poco::Net::HTTPServerResponse::HTTPStatus venueStatus = Poco::Net::HTTPServerResponse::HTTP_INTERNAL_SERVER_ERROR;
+			Poco::JSON::Object::Ptr venueResponse = Poco::makeShared<Poco::JSON::Object>();
+			ProvObjects::Venue venue;
+			if (!SDK::Prov::Venue::Get(&handler, inventory.venue, venue, venueStatus, venueResponse)) {
+				if (venueStatus == Poco::Net::HTTPResponse::HTTP_NOT_FOUND) {
+					return ValidateMacResult::VenueNotFound;
+				}
+				return ValidateMacResult::VenueLookupFailed;
+			}
+
+			if (venue.boards.empty() || venue.boards.front().empty()) {
+				return ValidateMacResult::BoardIdNotFound;
+			}
+
+			boardId = venue.boards.front();
+			return ValidateMacResult::Success;
+		}
+
+		ValidateMacResult FetchBoardTopology(RESTAPIHandler &handler,
+											 const std::string &boardId,
+											 Poco::JSON::Object::Ptr &topologyResponse) {
+			Poco::Net::HTTPServerResponse::HTTPStatus topoStatus = Poco::Net::HTTPServerResponse::HTTP_INTERNAL_SERVER_ERROR;
+			topologyResponse = Poco::makeShared<Poco::JSON::Object>();
+			if (!SDK::Topology::Get(&handler, boardId, topoStatus, topologyResponse)) {
+				return ValidateMacResult::TopologyNotFound;
+			}
+
+			if (!topologyResponse) {
+				return ValidateMacResult::TopologyNotFound;
+			}
+
+			return ValidateMacResult::Success;
+		}
+
+		ValidateMacResult MacPresentInTopologyPayload(const Poco::JSON::Object::Ptr &topologyResponse,
+													  const std::string &clientMac) {
+			if (!topologyResponse) {
+				return ValidateMacResult::TopologyNotFound;
+			}
+
+			// Check structures
+			bool hasNodes = topologyResponse->has("nodes");
+			bool hasHistClients = topologyResponse->has("historicalClients");
+			bool hasHistDevs = topologyResponse->has("historicalDevices");
+
+			if ((hasNodes && !topologyResponse->isArray("nodes")) ||
+				(hasHistClients && !topologyResponse->isArray("historicalClients")) ||
+				(hasHistDevs && !topologyResponse->isArray("historicalDevices")) ||
+				(!hasNodes && !hasHistClients && !hasHistDevs)) {
+				return ValidateMacResult::TopologyUnusable;
+			}
+
+			// Normalize client MAC to search
+			std::string targetMac = clientMac;
+			if (!Utils::NormalizeMac(targetMac)) {
+				return ValidateMacResult::MacNotPresentInTopology;
+			}
+			std::string targetMacFormatted = Utils::SerialToMAC(targetMac);
+			Poco::toLowerInPlace(targetMacFormatted);
+
+			// Check historicalClients
+			if (hasHistClients) {
+				auto histClients = topologyResponse->getArray("historicalClients");
+				for (std::size_t i = 0; i < histClients->size(); ++i) {
+					auto item = histClients->getObject(i);
+					if (!item) {
+						return ValidateMacResult::TopologyUnusable;
+					}
+					if (item->has("station") && item->get("station").isString()) {
+						std::string station = item->getValue<std::string>("station");
+						Poco::toLowerInPlace(station);
+						if (station == targetMacFormatted) {
+							return ValidateMacResult::Success;
+						}
+					}
+				}
+			}
+
+			// Check historicalDevices (array of MAC strings)
+			if (hasHistDevs) {
+				auto histDevs = topologyResponse->getArray("historicalDevices");
+				for (std::size_t i = 0; i < histDevs->size(); ++i) {
+					try {
+						if (!histDevs->get(i).isString()) {
+							return ValidateMacResult::TopologyUnusable;
+						}
+						std::string station = histDevs->getElement<std::string>(i);
+						if (Utils::NormalizeMac(station)) {
+							std::string normStation = Utils::SerialToMAC(station);
+							Poco::toLowerInPlace(normStation);
+							if (normStation == targetMacFormatted) {
+								return ValidateMacResult::Success;
+							}
+						}
+					} catch (...) {
+						return ValidateMacResult::TopologyUnusable;
+					}
+				}
+			}
+
+			// Check active nodes / aps / clients
+			if (hasNodes) {
+				auto nodes = topologyResponse->getArray("nodes");
+				for (std::size_t i = 0; i < nodes->size(); ++i) {
+					auto node = nodes->getObject(i);
+					if (!node) {
+						return ValidateMacResult::TopologyUnusable;
+					}
+					if (node->has("aps")) {
+						if (!node->isArray("aps")) {
+							return ValidateMacResult::TopologyUnusable;
+						}
+						auto aps = node->getArray("aps");
+						for (std::size_t apIndex = 0; apIndex < aps->size(); ++apIndex) {
+							auto ap = aps->getObject(apIndex);
+							if (!ap) {
+								return ValidateMacResult::TopologyUnusable;
+							}
+							if (ap->has("clients")) {
+								if (!ap->isArray("clients")) {
+									return ValidateMacResult::TopologyUnusable;
+								}
+								auto clients = ap->getArray("clients");
+								for (std::size_t clientIndex = 0; clientIndex < clients->size(); ++clientIndex) {
+									auto client = clients->getObject(clientIndex);
+									if (!client) {
+										return ValidateMacResult::TopologyUnusable;
+									}
+									if (client->has("station")) {
+										if (!client->get("station").isString()) {
+											return ValidateMacResult::TopologyUnusable;
+										}
+										std::string station = client->getValue<std::string>("station");
+										Poco::toLowerInPlace(station);
+										if (station == targetMacFormatted) {
+											return ValidateMacResult::Success;
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+
+			return ValidateMacResult::MacNotPresentInTopology;
+		}
 	} // namespace
+
+	// =========================================================================
+	// Schedule Helpers
+	// =========================================================================
 
 	bool NormalizeScheduleResponse(Poco::JSON::Object::Ptr schedule) {
 		if (!schedule || !schedule->has("start_minute") || !schedule->has("stop_minute")) {
@@ -275,6 +478,39 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 		return body;
 	}
 
+	// =========================================================================
+	// Topology/Device Validation Helpers
+	// =========================================================================
+
+	ValidateMacResult ValidateMacInTopology(RESTAPIHandler &handler,
+											const std::string &subscriberId,
+											const std::string &operatorId,
+											const std::string &clientMac,
+											std::string &gatewaySerial) {
+		ValidateMacResult result = ResolveGatewaySerial(handler, subscriberId, operatorId, gatewaySerial);
+		if (result != ValidateMacResult::Success) {
+			return result;
+		}
+
+		std::string boardId;
+		result = ResolveVenueBoards(handler, gatewaySerial, boardId);
+		if (result != ValidateMacResult::Success) {
+			return result;
+		}
+
+		Poco::JSON::Object::Ptr topologyResponse;
+		result = FetchBoardTopology(handler, boardId, topologyResponse);
+		if (result != ValidateMacResult::Success) {
+			return result;
+		}
+
+		return MacPresentInTopologyPayload(topologyResponse, clientMac);
+	}
+
+	// =========================================================================
+	// Config-Raw Extraction/Apply Helpers
+	// =========================================================================
+
 	bool ExtractConfigRawSnapshot(const Poco::JSON::Object::Ptr &callResponse,
 								  Poco::JSON::Array::Ptr &configRaw,
 								  bool required) {
@@ -398,6 +634,10 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 		return ApplyConfigRawResult::Applied;
 	}
 
+	// =========================================================================
+	// HTTP/Result Mapping Helpers
+	// =========================================================================
+
 	bool HandleApplyConfigRawResult(RESTAPIHandler &handler, ApplyConfigRawResult result) {
 		switch (result) {
 		case ApplyConfigRawResult::NoConfigApplyNeeded:
@@ -418,186 +658,6 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 		}
 		handler.InternalError(RESTAPI::Errors::InternalError);
 		return false;
-	}
-
-	ValidateMacResult ValidateMacInTopology(RESTAPIHandler &handler,
-											const std::string &subscriberId,
-											const std::string &operatorId,
-											const std::string &clientMac,
-											std::string &gatewaySerial) {
-		if (subscriberId.empty() || operatorId.empty()) {
-			return ValidateMacResult::MissingSubscriberOrOperator;
-		}
-
-		ProvObjects::SubscriberDeviceList devList;
-		Poco::Net::HTTPResponse::HTTPStatus provStatus = Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR;
-		Poco::JSON::Object::Ptr provResponse;
-		if (!SDK::Prov::Subscriber::GetDevices(&handler, subscriberId, operatorId, devList,
-											   provStatus, provResponse)) {
-			if (provStatus == Poco::Net::HTTPResponse::HTTP_NOT_FOUND) {
-				return ValidateMacResult::SubscriberDevicesNotFound;
-			}
-			return ValidateMacResult::ProvisioningLookupFailed;
-		}
-
-		if (devList.subscriberDevices.empty()) {
-			return ValidateMacResult::SubscriberDevicesNotFound;
-		}
-
-		for (const auto &dev : devList.subscriberDevices) {
-			std::string grp = dev.deviceGroup;
-			Poco::toLowerInPlace(grp);
-			if (grp == "olg") {
-				gatewaySerial = dev.serialNumber;
-				break;
-			}
-		}
-
-		if (gatewaySerial.empty()) {
-			return ValidateMacResult::GatewaySerialNotFound;
-		}
-
-		ProvObjects::InventoryTag inventory;
-		if (!SDK::Prov::Device::Get(&handler, gatewaySerial, inventory)) {
-			return ValidateMacResult::InventoryNotFound;
-		}
-
-		if (inventory.venue.empty()) {
-			return ValidateMacResult::VenueNotFound;
-		}
-
-		Poco::Net::HTTPServerResponse::HTTPStatus venueStatus = Poco::Net::HTTPServerResponse::HTTP_INTERNAL_SERVER_ERROR;
-		Poco::JSON::Object::Ptr venueResponse = Poco::makeShared<Poco::JSON::Object>();
-		ProvObjects::Venue venue;
-		if (!SDK::Prov::Venue::Get(&handler, inventory.venue, venue, venueStatus, venueResponse)) {
-			if (venueStatus == Poco::Net::HTTPResponse::HTTP_NOT_FOUND) {
-				return ValidateMacResult::VenueNotFound;
-			}
-			return ValidateMacResult::VenueLookupFailed;
-		}
-
-		if (venue.boards.empty() || venue.boards.front().empty()) {
-			return ValidateMacResult::BoardIdNotFound;
-		}
-
-		std::string boardId = venue.boards.front();
-
-		Poco::Net::HTTPServerResponse::HTTPStatus topoStatus = Poco::Net::HTTPServerResponse::HTTP_INTERNAL_SERVER_ERROR;
-		Poco::JSON::Object::Ptr topologyResponse = Poco::makeShared<Poco::JSON::Object>();
-		if (!SDK::Topology::Get(&handler, boardId, topoStatus, topologyResponse)) {
-			return ValidateMacResult::TopologyNotFound;
-		}
-
-		if (!topologyResponse) {
-			return ValidateMacResult::TopologyNotFound;
-		}
-
-		// Check structures
-		bool hasNodes = topologyResponse->has("nodes");
-		bool hasHistClients = topologyResponse->has("historicalClients");
-		bool hasHistDevs = topologyResponse->has("historicalDevices");
-
-		if ((hasNodes && !topologyResponse->isArray("nodes")) ||
-			(hasHistClients && !topologyResponse->isArray("historicalClients")) ||
-			(hasHistDevs && !topologyResponse->isArray("historicalDevices")) ||
-			(!hasNodes && !hasHistClients && !hasHistDevs)) {
-			return ValidateMacResult::TopologyUnusable;
-		}
-
-		// Normalize client MAC to search
-		std::string targetMac = clientMac;
-		if (!Utils::NormalizeMac(targetMac)) {
-			return ValidateMacResult::MacNotPresentInTopology;
-		}
-		std::string targetMacFormatted = Utils::SerialToMAC(targetMac);
-		Poco::toLowerInPlace(targetMacFormatted);
-
-		// Check historicalClients
-		if (hasHistClients) {
-			auto histClients = topologyResponse->getArray("historicalClients");
-			for (std::size_t i = 0; i < histClients->size(); ++i) {
-				auto item = histClients->getObject(i);
-				if (!item) {
-					return ValidateMacResult::TopologyUnusable;
-				}
-				if (item->has("station") && item->get("station").isString()) {
-					std::string station = item->getValue<std::string>("station");
-					Poco::toLowerInPlace(station);
-					if (station == targetMacFormatted) {
-						return ValidateMacResult::Success;
-					}
-				}
-			}
-		}
-
-		// Check historicalDevices (array of MAC strings)
-		if (hasHistDevs) {
-			auto histDevs = topologyResponse->getArray("historicalDevices");
-			for (std::size_t i = 0; i < histDevs->size(); ++i) {
-				try {
-					if (!histDevs->get(i).isString()) {
-						return ValidateMacResult::TopologyUnusable;
-					}
-					std::string station = histDevs->getElement<std::string>(i);
-					if (Utils::NormalizeMac(station)) {
-						std::string normStation = Utils::SerialToMAC(station);
-						Poco::toLowerInPlace(normStation);
-						if (normStation == targetMacFormatted) {
-							return ValidateMacResult::Success;
-						}
-					}
-				} catch (...) {
-					return ValidateMacResult::TopologyUnusable;
-				}
-			}
-		}
-
-		// Check active nodes / aps / clients
-		if (hasNodes) {
-			auto nodes = topologyResponse->getArray("nodes");
-			for (std::size_t i = 0; i < nodes->size(); ++i) {
-				auto node = nodes->getObject(i);
-				if (!node) {
-					return ValidateMacResult::TopologyUnusable;
-				}
-				if (node->has("aps")) {
-					if (!node->isArray("aps")) {
-						return ValidateMacResult::TopologyUnusable;
-					}
-					auto aps = node->getArray("aps");
-					for (std::size_t apIndex = 0; apIndex < aps->size(); ++apIndex) {
-						auto ap = aps->getObject(apIndex);
-						if (!ap) {
-							return ValidateMacResult::TopologyUnusable;
-						}
-						if (ap->has("clients")) {
-							if (!ap->isArray("clients")) {
-								return ValidateMacResult::TopologyUnusable;
-							}
-							auto clients = ap->getArray("clients");
-							for (std::size_t clientIndex = 0; clientIndex < clients->size(); ++clientIndex) {
-								auto client = clients->getObject(clientIndex);
-								if (!client) {
-									return ValidateMacResult::TopologyUnusable;
-								}
-								if (client->has("station")) {
-									if (!client->get("station").isString()) {
-										return ValidateMacResult::TopologyUnusable;
-									}
-									std::string station = client->getValue<std::string>("station");
-									Poco::toLowerInPlace(station);
-									if (station == targetMacFormatted) {
-										return ValidateMacResult::Success;
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-
-		return ValidateMacResult::MacNotPresentInTopology;
 	}
 
 	bool HandleValidateMacResult(RESTAPIHandler &handler, ValidateMacResult result) {
