@@ -148,6 +148,10 @@ add_executable(owsub
         src/sdks/SDK_parental_control.cpp src/sdks/SDK_parental_control.h
         src/RESTAPI/RESTAPI_groups_handler.cpp src/RESTAPI/RESTAPI_groups_handler.h
         src/RESTAPI/RESTAPI_schedules_handler.cpp src/RESTAPI/RESTAPI_schedules_handler.h
+        src/RESTAPI/RESTAPI_group_devices_list_handler.cpp src/RESTAPI/RESTAPI_group_devices_list_handler.h
+        src/RESTAPI/RESTAPI_group_devices_handler.cpp src/RESTAPI/RESTAPI_group_devices_handler.h
+        src/RESTAPI/RESTAPI_group_schedules_list_handler.cpp src/RESTAPI/RESTAPI_group_schedules_list_handler.h
+        src/RESTAPI/RESTAPI_group_schedules_handler.cpp src/RESTAPI/RESTAPI_group_schedules_handler.h
         )
 
 target_link_libraries(owsub PUBLIC
@@ -157,3 +161,65 @@ target_link_libraries(owsub PUBLIC
         CppKafka::cppkafka
         resolv
         fmt::fmt)
+
+include(CTest)
+
+if(BUILD_TESTING)
+    execute_process(COMMAND ldconfig)
+
+    # test_parental_control_utils
+    add_executable(test_parental_control_utils tests/unit/test_parental_control_utils.cpp)
+    target_include_directories(test_parental_control_utils PRIVATE src)
+    target_link_libraries(test_parental_control_utils PRIVATE
+        ${Poco_LIBRARIES}
+        ${MySQL_LIBRARIES}
+        ${ZLIB_LIBRARIES}
+        CppKafka::cppkafka
+        resolv
+        fmt::fmt
+    )
+    target_link_options(test_parental_control_utils PRIVATE "-Wl,-rpath,/usr/local/lib")
+    add_test(NAME test_parental_control_utils COMMAND test_parental_control_utils)
+
+    # test_sdk_parental_control
+    add_executable(test_sdk_parental_control tests/unit/test_sdk_parental_control.cpp)
+    target_include_directories(test_sdk_parental_control PRIVATE src)
+    target_link_libraries(test_sdk_parental_control PRIVATE
+        ${Poco_LIBRARIES}
+        ${MySQL_LIBRARIES}
+        ${ZLIB_LIBRARIES}
+        CppKafka::cppkafka
+        resolv
+        fmt::fmt
+    )
+    target_link_options(test_sdk_parental_control PRIVATE "-Wl,-rpath,/usr/local/lib")
+    add_test(NAME test_sdk_parental_control COMMAND test_sdk_parental_control)
+
+    # test_group_devices_handlers
+    add_executable(test_group_devices_handlers tests/unit/test_group_devices_handlers.cpp)
+    target_include_directories(test_group_devices_handlers PRIVATE src)
+    target_link_libraries(test_group_devices_handlers PRIVATE
+        ${Poco_LIBRARIES}
+        ${MySQL_LIBRARIES}
+        ${ZLIB_LIBRARIES}
+        CppKafka::cppkafka
+        resolv
+        fmt::fmt
+    )
+    target_link_options(test_group_devices_handlers PRIVATE "-Wl,-rpath,/usr/local/lib")
+    add_test(NAME test_group_devices_handlers COMMAND test_group_devices_handlers)
+
+    # test_group_schedules_handlers
+    add_executable(test_group_schedules_handlers tests/unit/test_group_schedules_handlers.cpp)
+    target_include_directories(test_group_schedules_handlers PRIVATE src)
+    target_link_libraries(test_group_schedules_handlers PRIVATE
+        ${Poco_LIBRARIES}
+        ${MySQL_LIBRARIES}
+        ${ZLIB_LIBRARIES}
+        CppKafka::cppkafka
+        resolv
+        fmt::fmt
+    )
+    target_link_options(test_group_schedules_handlers PRIVATE "-Wl,-rpath,/usr/local/lib")
+    add_test(NAME test_group_schedules_handlers COMMAND test_group_schedules_handlers)
+endif()

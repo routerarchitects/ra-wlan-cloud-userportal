@@ -81,7 +81,26 @@ def test_post_schedules():
     assert "start_minute" not in body
     assert "stop_minute" not in body
     CREATED_SCHEDULE_ID = body["id"]
-    print(f"✅ POST /schedules passed, created ID: {CREATED_SCHEDULE_ID}")
+    print(f"\u2705 POST /schedules passed, created ID: {CREATED_SCHEDULE_ID}")
+
+def test_post_schedules_internet_no_target_value():
+    """INTERNET schedules with target_value omitted entirely must be accepted."""
+    print("Testing POST /schedules INTERNET without target_value key...")
+    payload = {
+        "name": "internet-no-tv",
+        "action_type": "BLOCK",
+        "target_kind": "INTERNET",
+        "start_time": "10:00",
+        "stop_time": "20:00",
+        "weekdays": [0]
+    }
+    status, body = request("POST", "/api/v1/schedules", body=payload)
+    assert status == 200, f"Expected 200 for INTERNET schedule without target_value, got {status}. Body: {body}"
+    assert "id" in body, f"Expected id in response. Body: {body}"
+    # Clean up immediately so this extra record does not affect subsequent stateful assertions.
+    del_status, _ = request("DELETE", f"/api/v1/schedules/{body['id']}")
+    assert del_status == 200, f"Expected 200 on cleanup delete, got {del_status}"
+    print("\u2705 POST INTERNET without target_value passed")
 
 def test_get_schedules():
     print("Testing GET /schedules stateful list...")
@@ -137,6 +156,21 @@ def test_put_schedules():
     # Verify update persisted
     status, read_body = request("GET", f"/api/v1/schedules/{CREATED_SCHEDULE_ID}")
     assert read_body.get("name") == "updated-schedule", "GET after PUT did not return updated name"
+
+    # PUT with description omitted (description is optional on PUT) — must also succeed
+    payload_no_desc = {
+        "name": "no-desc-update",
+        "enabled": True,
+        "action_type": "BLOCK",
+        "target_kind": "INTERNET",
+        "target_value": None,
+        "start_time": "09:00",
+        "stop_time": "18:00",
+        "weekdays": [1]
+    }
+    status, body = request("PUT", f"/api/v1/schedules/{CREATED_SCHEDULE_ID}", body=payload_no_desc)
+    assert status == 200, f"Expected 200 for PUT without description, got {status}. Body: {body}"
+    assert body.get("name") == "no-desc-update", f"Expected updated name. Body: {body}"
     print("✅ PUT /schedules passed")
 
 def test_delete_schedules_normal():
@@ -408,6 +442,7 @@ if __name__ == "__main__":
     try:
         reset_db()
         test_post_schedules()
+        test_post_schedules_internet_no_target_value()
         test_get_schedules()
         test_get_schedule_by_id()
         test_put_schedules()

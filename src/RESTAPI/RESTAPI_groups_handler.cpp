@@ -75,24 +75,20 @@ namespace OpenWifi {
 							  "name must be non-empty");
 		}
 
-		// description is required for PUT (full replacement); may be null.
-		if (!ParsedBody_->has("description")) {
-			return BadRequest(RESTAPI::Errors::MissingOrInvalidParameters,
-							  "description is required for PUT");
-		}
-
 		Poco::JSON::Object body;
 		body.set("name", nameVal);
-		if (ParsedBody_->isNull("description")) {
-			body.set("description", Poco::Dynamic::Var());
-		} else {
-			if (!ParsedBody_->get("description").isString()) {
-				return BadRequest(RESTAPI::Errors::MissingOrInvalidParameters,
-								  "description must be a string or null");
+		if (ParsedBody_->has("description")) {
+			if (ParsedBody_->isNull("description")) {
+				body.set("description", Poco::Dynamic::Var());
+			} else {
+				if (!ParsedBody_->get("description").isString()) {
+					return BadRequest(RESTAPI::Errors::MissingOrInvalidParameters,
+									  "description must be a string or null");
+				}
+				std::string descVal = ParsedBody_->getValue<std::string>("description");
+				Poco::trimInPlace(descVal);
+				body.set("description", descVal);
 			}
-			std::string descVal = ParsedBody_->getValue<std::string>("description");
-			Poco::trimInPlace(descVal);
-			body.set("description", descVal);
 		}
 
 		Poco::Net::HTTPResponse::HTTPStatus callStatus;

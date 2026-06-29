@@ -19,6 +19,6 @@ namespace OpenWifi {
 	static const std::string uSERVICE_ANALYTICS{"owanalytics"};
 	static const std::string uSERVICE_OWRRM{"owrrm"};
 	static const std::string uSERVICE_NETWORK_TOPOLOGY{"nwtopology"};
-	static const std::string uSERVICE_MANGO_PARENTAL_CONTROL{"parental-control"};
+	static const std::string uSERVICE_MANGO_PARENTAL_CONTROL{"mango-parental-control"};
 
 } // namespace OpenWifi

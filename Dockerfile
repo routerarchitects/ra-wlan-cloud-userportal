@@ -2,6 +2,7 @@ ARG DEBIAN_VERSION=11.5-slim
 ARG POCO_VERSION=poco-tip-v2
 ARG CPPKAFKA_VERSION=tip-v1
 ARG VALIJASON_VERSION=tip-v1
+ARG BUILD_TESTING=OFF
 
 FROM debian:$DEBIAN_VERSION AS build-base
 
@@ -55,9 +56,12 @@ RUN cmake --build . --target install
 
 FROM build-base AS owsub-build
 
+ARG BUILD_TESTING
+
 ADD CMakeLists.txt build /owsub/
 ADD cmake /owsub/cmake
 ADD src /owsub/src
+ADD tests /owsub/tests
 ADD .git /owsub/.git
 
 COPY --from=poco-build /usr/local/include /usr/local/include
@@ -69,7 +73,7 @@ COPY --from=valijson-build /usr/local/include /usr/local/include
 WORKDIR /owsub
 RUN mkdir cmake-build
 WORKDIR /owsub/cmake-build
-RUN cmake ..
+RUN cmake -DBUILD_TESTING=${BUILD_TESTING} ..
 RUN cmake --build . --config Release -j8
 
 FROM debian:$DEBIAN_VERSION

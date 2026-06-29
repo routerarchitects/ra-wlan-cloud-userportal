@@ -20,6 +20,12 @@ def open_url(req_or_url):
 def reset_observations():
     req = urllib.request.Request(f"{FAKE_URL}/reset-observations", data=b"", method="POST")
     open_url(req)
+    req2 = urllib.request.Request(
+        f"{FAKE_URL}/set-scenario",
+        data=json.dumps({"scenario": "normal"}).encode(),
+        method="POST"
+    )
+    open_url(req2)
 
 def request(method, path, body=None, headers=None):
     if headers is None:
@@ -50,6 +56,16 @@ def check_no_observations(test_name):
     with open_url(f"{FAKE_URL}/observations") as r:
         obs = json.loads(r.read())
         assert len(obs["calls"]) == 0, f"{test_name}: Downstream services were unexpectedly called: {obs['calls']}"
+
+def check_downstream_called(test_name):
+    with open_url(f"{FAKE_URL}/observations") as r:
+        obs = json.loads(r.read())
+        assert len(obs["calls"]) > 0, f"{test_name}: Request was not forwarded downstream (no calls observed)"
+
+def get_observations():
+    with open_url(f"{FAKE_URL}/observations") as r:
+        obs = json.loads(r.read())
+        return obs["calls"]
 
 def test_auth_checks():
     print("Testing Auth Rejections...")
@@ -110,11 +126,19 @@ def test_local_validation():
     assert status == 400, f"Expected 400 for malformed POST json, got {status}"
     check_no_observations("POST malformed json")
 
-    # G) PUT missing description
+    # G) PUT with only name (description is optional) — must be forwarded downstream, not rejected locally
+    # VALID_GROUP_ID does not exist in the fake DB, so downstream returns 404.
+    # A 404 from downstream is proof the request passed local validation and was forwarded.
     reset_observations()
     status, _ = request("PUT", f"/api/v1/groups/{VALID_GROUP_ID}", body={"name":"test"})
-    assert status == 400, f"Expected 400 for missing description on PUT, got {status}"
-    check_no_observations("PUT missing description")
+    assert status == 404, f"Expected 404 (forwarded to downstream, group not found), got {status}"
+    check_downstream_called("PUT with only name (description is optional)")
+
+    # G2) PUT with invalid description type (integer) — must still be rejected locally with 400
+    reset_observations()
+    status, _ = request("PUT", f"/api/v1/groups/{VALID_GROUP_ID}", body={"name":"test", "description": 123})
+    assert status == 400, f"Expected 400 for invalid description type on PUT, got {status}"
+    check_no_observations("PUT invalid description type")
     
     # H) PUT unknown field
     reset_observations()
@@ -157,11 +181,79 @@ def test_local_validation():
 
     print("✅ Local validation tests passed")
 
+def test_forwarded_payloads():
+    print("Testing Group Forwarded Downstream Payloads...")
+
+    # Case 1: POST /api/v1/groups with description omitted
+    reset_observations()
+    status, res = request("POST", "/api/v1/groups", body={"name": "Omitted desc group"})
+    assert status == 200, f"Expected 200, got {status}"
+    group_id = res.get("id")
+    assert group_id is not None
+    calls = get_observations()
+    post_calls = [c for c in calls if c["method"] == "POST" and "/groups" in c["path"]]
+    assert len(post_calls) > 0
+    body = post_calls[0].get("body", {})
+    assert "description" not in body, f"description should be omitted in downstream payload: {body}"
+
+    # Case 2: POST /api/v1/groups with description: null
+    reset_observations()
+    status, _ = request("POST", "/api/v1/groups", body={"name": "Null desc group", "description": None})
+    assert status == 200, f"Expected 200, got {status}"
+    calls = get_observations()
+    post_calls = [c for c in calls if c["method"] == "POST" and "/groups" in c["path"]]
+    assert len(post_calls) > 0
+    body = post_calls[0].get("body", {})
+    assert "description" in body and body["description"] is None, f"description should be explicitly null in downstream payload: {body}"
+
+    # Case 3: POST /api/v1/groups with description string
+    reset_observations()
+    status, _ = request("POST", "/api/v1/groups", body={"name": "String desc group", "description": "some description"})
+    assert status == 200, f"Expected 200, got {status}"
+    calls = get_observations()
+    post_calls = [c for c in calls if c["method"] == "POST" and "/groups" in c["path"]]
+    assert len(post_calls) > 0
+    body = post_calls[0].get("body", {})
+    assert body.get("description") == "some description", f"description should match: {body}"
+
+    # Case 4: PUT /api/v1/groups/{id} with description omitted
+    reset_observations()
+    status, _ = request("PUT", f"/api/v1/groups/{group_id}", body={"name": "Updated name"})
+    assert status == 200, f"Expected 200, got {status}"
+    calls = get_observations()
+    put_calls = [c for c in calls if c["method"] == "PUT" and f"/groups/{group_id}" in c["path"]]
+    assert len(put_calls) > 0
+    body = put_calls[0].get("body", {})
+    assert "description" not in body, f"description should be omitted in downstream PUT payload: {body}"
+
+    # Case 5: PUT /api/v1/groups/{id} with description: null
+    reset_observations()
+    status, _ = request("PUT", f"/api/v1/groups/{group_id}", body={"name": "Updated name", "description": None})
+    assert status == 200, f"Expected 200, got {status}"
+    calls = get_observations()
+    put_calls = [c for c in calls if c["method"] == "PUT" and f"/groups/{group_id}" in c["path"]]
+    assert len(put_calls) > 0
+    body = put_calls[0].get("body", {})
+    assert "description" in body and body["description"] is None, f"description should be null in downstream PUT payload: {body}"
+
+    # Case 6: PUT /api/v1/groups/{id} with description string
+    reset_observations()
+    status, _ = request("PUT", f"/api/v1/groups/{group_id}", body={"name": "Updated name", "description": "new description"})
+    assert status == 200, f"Expected 200, got {status}"
+    calls = get_observations()
+    put_calls = [c for c in calls if c["method"] == "PUT" and f"/groups/{group_id}" in c["path"]]
+    assert len(put_calls) > 0
+    body = put_calls[0].get("body", {})
+    assert body.get("description") == "new description", f"description should match: {body}"
+
+    print("✅ Group forwarded payload tests passed")
+
 if __name__ == "__main__":
     print("Starting contract tests...")
     try:
         test_auth_checks()
         test_local_validation()
+        test_forwarded_payloads()
         print("🎉 All contract tests passed!")
     except AssertionError as e:
         print(f"❌ TEST FAILED: {e}")

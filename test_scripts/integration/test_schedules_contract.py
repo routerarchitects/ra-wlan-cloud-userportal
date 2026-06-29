@@ -20,6 +20,12 @@ def open_url(req_or_url):
 def reset_observations():
     req = urllib.request.Request(f"{FAKE_URL}/reset-observations", data=b"", method="POST")
     open_url(req)
+    req2 = urllib.request.Request(
+        f"{FAKE_URL}/set-scenario",
+        data=json.dumps({"scenario": "normal"}).encode(),
+        method="POST"
+    )
+    open_url(req2)
 
 def request(method, path, body=None, headers=None):
     if headers is None:
@@ -50,6 +56,16 @@ def check_no_observations(test_name):
     with open_url(f"{FAKE_URL}/observations") as r:
         obs = json.loads(r.read())
         assert len(obs["calls"]) == 0, f"{test_name}: Downstream services were unexpectedly called: {obs['calls']}"
+
+def check_downstream_called(test_name):
+    with open_url(f"{FAKE_URL}/observations") as r:
+        obs = json.loads(r.read())
+        assert len(obs["calls"]) > 0, f"{test_name}: Request was not forwarded downstream (no calls observed)"
+
+def get_observations():
+    with open_url(f"{FAKE_URL}/observations") as r:
+        obs = json.loads(r.read())
+        return obs["calls"]
 
 def test_auth_checks():
     print("Testing Auth Rejections...")
@@ -154,7 +170,17 @@ def test_local_validation():
     assert status == 400, f"Expected 400 for missing target_kind, got {status}"
     check_no_observations("POST missing target_kind")
 
-    # POST APP target without target_value
+    # POST APP target without target_value (missing key entirely) — must reject
+    reset_observations()
+    status, _ = request("POST", "/api/v1/schedules", body={
+        "name": "test", "description": "desc", "action_type": "BLOCK",
+        "target_kind": "APP",
+        "start_time": "08:00", "stop_time": "17:00", "weekdays": [1]
+    })
+    assert status == 400, f"Expected 400 for APP schedule with missing target_value, got {status}"
+    check_no_observations("POST APP target with missing target_value")
+
+    # POST APP target with null target_value — must reject
     reset_observations()
     status, _ = request("POST", "/api/v1/schedules", body={
         "name": "test", "description": "desc", "action_type": "BLOCK",
@@ -174,7 +200,7 @@ def test_local_validation():
     assert status == 400, f"Expected 400 for APP schedule with empty target_value, got {status}"
     check_no_observations("POST APP target with empty target_value")
 
-    # POST INTERNET target with non-null target_value
+    # POST INTERNET target with non-null target_value — must reject
     reset_observations()
     status, _ = request("POST", "/api/v1/schedules", body={
         "name": "test", "description": "desc", "action_type": "BLOCK",
@@ -183,6 +209,17 @@ def test_local_validation():
     })
     assert status == 400, f"Expected 400 for INTERNET schedule with non-null target_value, got {status}"
     check_no_observations("POST INTERNET target with non-null target_value")
+
+    # POST INTERNET target with target_value omitted entirely — must be forwarded downstream, not rejected locally.
+    # The fake server creates the schedule and returns 200, proving local validation passed.
+    reset_observations()
+    status, _ = request("POST", "/api/v1/schedules", body={
+        "name": "test", "description": "desc", "action_type": "BLOCK",
+        "target_kind": "INTERNET",
+        "start_time": "08:00", "stop_time": "17:00", "weekdays": [1]
+    })
+    assert status == 200, f"Expected 200 for INTERNET schedule without target_value key, got {status}"
+    check_downstream_called("POST INTERNET without target_value (forwarded)")
 
     # POST invalid start_time format
     reset_observations()
@@ -265,15 +302,27 @@ def test_local_validation():
     assert status == 400, f"Expected 400 for malformed POST json, got {status}"
     check_no_observations("POST malformed json")
 
-    # PUT missing description
+    # PUT with description omitted — must be forwarded downstream, not rejected locally.
+    # VALID_SCHEDULE_ID does not exist in the fake DB, so downstream returns 404.
+    # A 404 from downstream is proof the request passed local validation and was forwarded.
     reset_observations()
     status, _ = request("PUT", f"/api/v1/schedules/{VALID_SCHEDULE_ID}", body={
         "name": "test", "enabled": True, "action_type": "BLOCK",
         "target_kind": "INTERNET", "target_value": None,
         "start_time": "08:00", "stop_time": "17:00", "weekdays": [1]
     })
-    assert status == 400, f"Expected 400 for missing description on PUT, got {status}"
-    check_no_observations("PUT missing description")
+    assert status == 404, f"Expected 404 (forwarded to downstream, schedule not found), got {status}"
+    check_downstream_called("PUT without description (forwarded)")
+
+    # PUT with invalid description type — must still reject
+    reset_observations()
+    status, _ = request("PUT", f"/api/v1/schedules/{VALID_SCHEDULE_ID}", body={
+        "name": "test", "description": 999, "enabled": True, "action_type": "BLOCK",
+        "target_kind": "INTERNET", "target_value": None,
+        "start_time": "08:00", "stop_time": "17:00", "weekdays": [1]
+    })
+    assert status == 400, f"Expected 400 for invalid description type on PUT, got {status}"
+    check_no_observations("PUT invalid description type")
 
     # PUT missing enabled
     reset_observations()
@@ -331,11 +380,149 @@ def test_local_validation():
 
     print("✅ Local validation tests passed")
 
+def test_forwarded_payloads():
+    print("Testing Schedule Forwarded Downstream Payloads...")
+
+    # Case 1: POST /api/v1/schedules with description and target_value omitted
+    reset_observations()
+    status, _ = request("POST", "/api/v1/schedules", body={
+        "name": "Omitted fields test",
+        "action_type": "BLOCK",
+        "target_kind": "INTERNET",
+        "start_time": "08:00",
+        "stop_time": "17:00",
+        "weekdays": [1]
+    })
+    assert status == 200, f"Expected 200, got {status}"
+    calls = get_observations()
+    assert len(calls) > 0, "No calls recorded downstream"
+    schedule_calls = [c for c in calls if c["method"] == "POST" and "/schedules" in c["path"]]
+    assert len(schedule_calls) > 0, f"No schedule creation call found in: {calls}"
+    body = schedule_calls[0].get("body", {})
+    assert "description" not in body, f"description should be omitted from downstream payload, but was: {body}"
+    assert "target_value" not in body, f"target_value should be omitted from downstream payload, but was: {body}"
+
+    # Case 2: POST /api/v1/schedules with description: null and target_value: null explicitly
+    reset_observations()
+    status, _ = request("POST", "/api/v1/schedules", body={
+        "name": "Explicit null fields test",
+        "description": None,
+        "action_type": "BLOCK",
+        "target_kind": "INTERNET",
+        "target_value": None,
+        "start_time": "08:00",
+        "stop_time": "17:00",
+        "weekdays": [1]
+    })
+    assert status == 200, f"Expected 200, got {status}"
+    calls = get_observations()
+    schedule_calls = [c for c in calls if c["method"] == "POST" and "/schedules" in c["path"]]
+    assert len(schedule_calls) > 0
+    body = schedule_calls[0].get("body", {})
+    assert "description" in body and body["description"] is None, f"description should be explicitly null in downstream payload, but was: {body}"
+    assert "target_value" in body and body["target_value"] is None, f"target_value should be explicitly null in downstream payload, but was: {body}"
+
+    # Case 3: POST /api/v1/schedules with description as string
+    reset_observations()
+    status, _ = request("POST", "/api/v1/schedules", body={
+        "name": "String desc test",
+        "description": "My test schedule",
+        "action_type": "BLOCK",
+        "target_kind": "INTERNET",
+        "start_time": "08:00",
+        "stop_time": "17:00",
+        "weekdays": [1]
+    })
+    assert status == 200, f"Expected 200, got {status}"
+    calls = get_observations()
+    schedule_calls = [c for c in calls if c["method"] == "POST" and "/schedules" in c["path"]]
+    assert len(schedule_calls) > 0
+    body = schedule_calls[0].get("body", {})
+    assert body.get("description") == "My test schedule", f"description should be 'My test schedule', but was: {body}"
+    assert "target_value" not in body, f"target_value should be omitted, but was: {body}"
+
+    # Case 4: PUT /api/v1/schedules/{id} with description and target_value omitted
+    reset_observations()
+    status, res = request("POST", "/api/v1/schedules", body={
+        "name": "For PUT test",
+        "description": "desc",
+        "action_type": "BLOCK",
+        "target_kind": "INTERNET",
+        "start_time": "08:00",
+        "stop_time": "17:00",
+        "weekdays": [1]
+    })
+    assert status == 200, f"Expected 200, got {status}"
+    sched_id = res.get("id")
+    assert sched_id is not None, f"POST response should contain id: {res}"
+
+    reset_observations()
+    status, _ = request("PUT", f"/api/v1/schedules/{sched_id}", body={
+        "name": "Updated name",
+        "enabled": True,
+        "action_type": "BLOCK",
+        "target_kind": "INTERNET",
+        "start_time": "09:00",
+        "stop_time": "18:00",
+        "weekdays": [2]
+    })
+    assert status == 200, f"Expected 200 for PUT, got {status}"
+    calls = get_observations()
+    put_calls = [c for c in calls if c["method"] == "PUT" and f"/schedules/{sched_id}" in c["path"]]
+    assert len(put_calls) > 0, f"No PUT call found: {calls}"
+    body = put_calls[0].get("body", {})
+    assert "description" not in body, f"description should be omitted from downstream PUT payload, but was: {body}"
+    assert "target_value" not in body, f"target_value should be omitted from downstream PUT payload, but was: {body}"
+
+    # Case 5: PUT /api/v1/schedules/{id} with description: null and target_value: null explicitly
+    reset_observations()
+    status, _ = request("PUT", f"/api/v1/schedules/{sched_id}", body={
+        "name": "Updated name",
+        "description": None,
+        "enabled": True,
+        "action_type": "BLOCK",
+        "target_kind": "INTERNET",
+        "target_value": None,
+        "start_time": "09:00",
+        "stop_time": "18:00",
+        "weekdays": [2]
+    })
+    assert status == 200, f"Expected 200 for PUT, got {status}"
+    calls = get_observations()
+    put_calls = [c for c in calls if c["method"] == "PUT" and f"/schedules/{sched_id}" in c["path"]]
+    assert len(put_calls) > 0
+    body = put_calls[0].get("body", {})
+    assert "description" in body and body["description"] is None, f"description should be null in downstream PUT payload, but was: {body}"
+    assert "target_value" in body and body["target_value"] is None, f"target_value should be null in downstream PUT payload, but was: {body}"
+
+    # Case 6: PUT /api/v1/schedules/{id} with description string and target_value omitted
+    reset_observations()
+    status, _ = request("PUT", f"/api/v1/schedules/{sched_id}", body={
+        "name": "Updated name",
+        "description": "Updated string description",
+        "enabled": True,
+        "action_type": "BLOCK",
+        "target_kind": "INTERNET",
+        "start_time": "09:00",
+        "stop_time": "18:00",
+        "weekdays": [2]
+    })
+    assert status == 200, f"Expected 200 for PUT, got {status}"
+    calls = get_observations()
+    put_calls = [c for c in calls if c["method"] == "PUT" and f"/schedules/{sched_id}" in c["path"]]
+    assert len(put_calls) > 0
+    body = put_calls[0].get("body", {})
+    assert body.get("description") == "Updated string description", f"description should be updated description, but was: {body}"
+    assert "target_value" not in body, f"target_value should be omitted in downstream PUT payload, but was: {body}"
+
+    print("✅ Schedule forwarded payload tests passed")
+
 if __name__ == "__main__":
     print("Starting schedules contract tests...")
     try:
         test_auth_checks()
         test_local_validation()
+        test_forwarded_payloads()
         print("🎉 All contract tests passed!")
     except AssertionError as e:
         print(f"❌ TEST FAILED: {e}")

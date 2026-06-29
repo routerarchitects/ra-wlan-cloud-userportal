@@ -7,6 +7,21 @@ on:
       - master
 
 jobs:
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Build unit-test image from repo-native Dockerfile
+        run: |
+          docker build --build-arg BUILD_TESTING=ON \
+            --target owsub-build -t userportal-unit-tests .
+
+      - name: Run native C++ unit tests
+        run: docker run --rm userportal-unit-tests sh -lc "cd /owsub/cmake-build && ctest --output-on-failure"
+
   integration-tests:
     name: Build & Integration Tests
     runs-on: ubuntu-22.04
@@ -107,7 +122,8 @@ jobs:
             -v "$PWD/ci-runtime:/owsub-data" \
             -e RUN_CHOWN=true \
             -e CI_FAKE_EXTERNAL_SERVICES=1 \
-            -e FAKE_EXTERNAL_SERVICE_PARENTAL_CONTROL=http://127.0.0.1:8080 \
+            -e FAKE_EXTERNAL_SERVICE_MANGO_PARENTAL_CONTROL=http://127.0.0.1:8080 \
+            -e FAKE_EXTERNAL_SERVICE_NWTOPOLOGY=http://127.0.0.1:8080 \
             -e FAKE_EXTERNAL_SERVICE_OWPROV=http://127.0.0.1:8080 \
             -e FAKE_EXTERNAL_SERVICE_OWGW=http://127.0.0.1:8080 \
             -e FAKE_EXTERNAL_SERVICE_OWSEC=http://127.0.0.1:8080 \
@@ -180,6 +196,58 @@ jobs:
           echo "Running Schedules integration tests..."
           if ! python3 test_scripts/integration/test_schedules_api.py; then
             echo "Schedules integration tests failed! Container logs:"
+            docker logs userportal
+            echo "Fake server logs:"
+            cat fake_server.log
+            exit 1
+          fi
+
+      - name: Run Group-Devices Contract Tests
+        env:
+          USERPORTAL_URL: https://localhost:16006
+        run: |
+          echo "Running Group-Devices contract tests..."
+          if ! python3 test_scripts/integration/test_group_devices_contract.py; then
+            echo "Group-Devices contract tests failed! Container logs:"
+            docker logs userportal
+            echo "Fake server logs:"
+            cat fake_server.log
+            exit 1
+          fi
+
+      - name: Run Group-Devices Integration Tests
+        env:
+          USERPORTAL_URL: https://localhost:16006
+        run: |
+          echo "Running Group-Devices integration tests..."
+          if ! python3 test_scripts/integration/test_group_devices_api.py; then
+            echo "Group-Devices integration tests failed! Container logs:"
+            docker logs userportal
+            echo "Fake server logs:"
+            cat fake_server.log
+            exit 1
+          fi
+
+      - name: Run Group-Schedules Contract Tests
+        env:
+          USERPORTAL_URL: https://localhost:16006
+        run: |
+          echo "Running Group-Schedules contract tests..."
+          if ! python3 test_scripts/integration/test_group_schedules_contract.py; then
+            echo "Group-Schedules contract tests failed! Container logs:"
+            docker logs userportal
+            echo "Fake server logs:"
+            cat fake_server.log
+            exit 1
+          fi
+
+      - name: Run Group-Schedules Integration Tests
+        env:
+          USERPORTAL_URL: https://localhost:16006
+        run: |
+          echo "Running Group-Schedules integration tests..."
+          if ! python3 test_scripts/integration/test_group_schedules_api.py; then
+            echo "Group-Schedules integration tests failed! Container logs:"
             docker logs userportal
             echo "Fake server logs:"
             cat fake_server.log
