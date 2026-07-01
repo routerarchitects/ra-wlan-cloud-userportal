@@ -18,7 +18,7 @@ namespace OpenWifi {
 							 std::vector<std::string>{Poco::Net::HTTPRequest::HTTP_GET,
 													  Poco::Net::HTTPRequest::HTTP_DELETE,
 													  Poco::Net::HTTPRequest::HTTP_OPTIONS},
-							 Server, TransactionId, Internal) {}
+							 Server, TransactionId, Internal, true, false, RESTAPIHandler::RateLimit{.Interval = 1000, .MaxCalls = 100}, true) {}
 
 		static auto PathName() { return std::list<std::string>{"/api/v1/groups/{group_id}/schedules/{schedule_id}"}; }
 
