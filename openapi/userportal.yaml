@@ -662,6 +662,492 @@ components:
             - type: 'null'
       additionalProperties: false
 
+    GroupDevice:
+      type: object
+      description: Subscriber-scoped client-MAC assignment to a parental-control group. Stored and returned client_mac uses colon-separated MAC representation.
+      required:
+        - subscriber_id
+        - group_id
+        - client_mac
+        - created_at
+        - updated_at
+      properties:
+        subscriber_id:
+          type: string
+          format: uuid
+        group_id:
+          type: string
+          format: uuid
+        client_mac:
+          type: string
+          pattern: '^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$'
+          description: Stored and returned MAC representation uses colon-separated form. UserPortal forwards canonical lowercase colon-separated MAC downstream. Rendered gateway config uses uppercase colon-separated MAC before ordering and rendering.
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+
+    GroupDeviceCreateRequest:
+      type: object
+      description: Create request for assigning one client MAC to one subscriber-scoped parental-control group.
+      required:
+        - client_mac
+      properties:
+        client_mac:
+          type: string
+          pattern: '^(?:[0-9A-Fa-f]{12}|(?:[0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2})$'
+          description: Accepted public input formats are 12 hex digits without separators, hyphen-separated MAC, or colon-separated MAC. UserPortal normalizes accepted input to canonical lowercase colon-separated MAC before downstream forwarding.
+      additionalProperties: false
+
+    ScheduleInternet:
+      type: object
+      description: Subscriber-scoped INTERNET schedule returned by UserPortal. target_value is always null.
+      required:
+        - id
+        - subscriber_id
+        - schedule_config_index
+        - name
+        - enabled
+        - action_type
+        - target_kind
+        - target_value
+        - start_time
+        - stop_time
+        - weekdays
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        subscriber_id:
+          type: string
+          format: uuid
+        schedule_config_index:
+          type: integer
+        name:
+          type: string
+        description:
+          oneOf:
+            - type: string
+            - type: 'null'
+        enabled:
+          type: boolean
+        action_type:
+          type: string
+          enum:
+            - BLOCK
+        target_kind:
+          type: string
+          enum:
+            - INTERNET
+        target_value:
+          type: 'null'
+          description: Must be null when target_kind = INTERNET.
+        start_time:
+          type: string
+          pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+          description: Start time in HH:MM 24-hour router local time. If start_time is later than stop_time, the schedule is an overnight window that continues past midnight into the next day.
+        stop_time:
+          type: string
+          pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+          description: Stop time in HH:MM 24-hour router local time. An earlier stop_time is valid and means the schedule continues overnight past midnight.
+        weekdays:
+          type: array
+          description: Distinct weekday numbers using 0 = Sunday, 1 = Monday, 2 = Tuesday, 3 = Wednesday, 4 = Thursday, 5 = Friday, and 6 = Saturday.
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: integer
+            minimum: 0
+            maximum: 6
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+
+    ScheduleApp:
+      type: object
+      description: Subscriber-scoped APP schedule returned by UserPortal. target_value is always a non-empty application identifier.
+      required:
+        - id
+        - subscriber_id
+        - schedule_config_index
+        - name
+        - enabled
+        - action_type
+        - target_kind
+        - target_value
+        - start_time
+        - stop_time
+        - weekdays
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        subscriber_id:
+          type: string
+          format: uuid
+        schedule_config_index:
+          type: integer
+        name:
+          type: string
+        description:
+          oneOf:
+            - type: string
+            - type: 'null'
+        enabled:
+          type: boolean
+        action_type:
+          type: string
+          enum:
+            - BLOCK
+        target_kind:
+          type: string
+          enum:
+            - APP
+        target_value:
+          type: string
+          minLength: 1
+          description: Required non-empty application identifier when target_kind = APP.
+        start_time:
+          type: string
+          pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+          description: Start time in HH:MM 24-hour router local time. If start_time is later than stop_time, the schedule is an overnight window that continues past midnight into the next day.
+        stop_time:
+          type: string
+          pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+          description: Stop time in HH:MM 24-hour router local time. An earlier stop_time is valid and means the schedule continues overnight past midnight.
+        weekdays:
+          type: array
+          description: Distinct weekday numbers using 0 = Sunday, 1 = Monday, 2 = Tuesday, 3 = Wednesday, 4 = Thursday, 5 = Friday, and 6 = Saturday.
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: integer
+            minimum: 0
+            maximum: 6
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+
+    Schedule:
+      description: Subscriber-scoped schedule returned by UserPortal. INTERNET schedules always return target_value = null. APP schedules always return a non-empty target_value.
+      oneOf:
+        - $ref: '#/components/schemas/ScheduleInternet'
+        - $ref: '#/components/schemas/ScheduleApp'
+      discriminator:
+        propertyName: target_kind
+        mapping:
+          INTERNET: '#/components/schemas/ScheduleInternet'
+          APP: '#/components/schemas/ScheduleApp'
+
+    ScheduleCreateInternetRequest:
+      type: object
+      description: Create request for one subscriber-scoped INTERNET parental-control schedule.
+      required:
+        - name
+        - action_type
+        - target_kind
+        - target_value
+        - start_time
+        - stop_time
+        - weekdays
+      properties:
+        name:
+          type: string
+          minLength: 1
+        description:
+          oneOf:
+            - type: string
+            - type: 'null'
+        enabled:
+          type: boolean
+          default: true
+        action_type:
+          type: string
+          enum:
+            - BLOCK
+        target_kind:
+          type: string
+          enum:
+            - INTERNET
+        target_value:
+          type: 'null'
+          description: Must be null when target_kind = INTERNET.
+        start_time:
+          type: string
+          pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+          description: Start time in HH:MM 24-hour router local time. If start_time is later than stop_time, the schedule is an overnight window that continues past midnight into the next day.
+        stop_time:
+          type: string
+          pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+          description: Stop time in HH:MM 24-hour router local time. An earlier stop_time is valid and means the schedule continues overnight past midnight.
+        weekdays:
+          type: array
+          description: Distinct weekday numbers using 0 = Sunday, 1 = Monday, 2 = Tuesday, 3 = Wednesday, 4 = Thursday, 5 = Friday, and 6 = Saturday.
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: integer
+            minimum: 0
+            maximum: 6
+      additionalProperties: false
+
+    ScheduleCreateAppRequest:
+      type: object
+      description: Create request for one subscriber-scoped APP parental-control schedule.
+      required:
+        - name
+        - action_type
+        - target_kind
+        - target_value
+        - start_time
+        - stop_time
+        - weekdays
+      properties:
+        name:
+          type: string
+          minLength: 1
+        description:
+          oneOf:
+            - type: string
+            - type: 'null'
+        enabled:
+          type: boolean
+          default: true
+        action_type:
+          type: string
+          enum:
+            - BLOCK
+        target_kind:
+          type: string
+          enum:
+            - APP
+        target_value:
+          type: string
+          minLength: 1
+          description: Required non-empty application identifier when target_kind = APP.
+        start_time:
+          type: string
+          pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+          description: Start time in HH:MM 24-hour router local time. If start_time is later than stop_time, the schedule is an overnight window that continues past midnight into the next day.
+        stop_time:
+          type: string
+          pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+          description: Stop time in HH:MM 24-hour router local time. An earlier stop_time is valid and means the schedule continues overnight past midnight.
+        weekdays:
+          type: array
+          description: Distinct weekday numbers using 0 = Sunday, 1 = Monday, 2 = Tuesday, 3 = Wednesday, 4 = Thursday, 5 = Friday, and 6 = Saturday.
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: integer
+            minimum: 0
+            maximum: 6
+      additionalProperties: false
+
+    ScheduleCreateRequest:
+      description: Create request. INTERNET schedules must send target_value = null. APP schedules must send a non-empty target_value. start_time and stop_time use HH:MM 24-hour router local time. If start_time is later than stop_time, the schedule is an overnight window that continues past midnight into the next day. start_time and stop_time must not represent the same minute. weekdays values must be distinct and use 0 = Sunday through 6 = Saturday.
+      oneOf:
+        - $ref: '#/components/schemas/ScheduleCreateInternetRequest'
+        - $ref: '#/components/schemas/ScheduleCreateAppRequest'
+      discriminator:
+        propertyName: target_kind
+        mapping:
+          INTERNET: '#/components/schemas/ScheduleCreateInternetRequest'
+          APP: '#/components/schemas/ScheduleCreateAppRequest'
+
+    SchedulePutInternetRequest:
+      type: object
+      description: Full replacement request for mutable INTERNET schedule fields. PUT requests must send the complete mutable schedule representation.
+      required:
+        - name
+        - description
+        - enabled
+        - action_type
+        - target_kind
+        - target_value
+        - start_time
+        - stop_time
+        - weekdays
+      properties:
+        name:
+          type: string
+          minLength: 1
+        description:
+          oneOf:
+            - type: string
+            - type: 'null'
+        enabled:
+          type: boolean
+        action_type:
+          type: string
+          enum:
+            - BLOCK
+        target_kind:
+          type: string
+          enum:
+            - INTERNET
+        target_value:
+          type: 'null'
+          description: Must be null when target_kind = INTERNET.
+        start_time:
+          type: string
+          pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+          description: Start time in HH:MM 24-hour router local time. If start_time is later than stop_time, the schedule is an overnight window that continues past midnight into the next day.
+        stop_time:
+          type: string
+          pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+          description: Stop time in HH:MM 24-hour router local time. An earlier stop_time is valid and means the schedule continues overnight past midnight.
+        weekdays:
+          type: array
+          description: Distinct weekday numbers using 0 = Sunday, 1 = Monday, 2 = Tuesday, 3 = Wednesday, 4 = Thursday, 5 = Friday, and 6 = Saturday.
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: integer
+            minimum: 0
+            maximum: 6
+      additionalProperties: false
+
+    SchedulePutAppRequest:
+      type: object
+      description: Full replacement request for mutable APP schedule fields. PUT requests must send the complete mutable schedule representation.
+      required:
+        - name
+        - description
+        - enabled
+        - action_type
+        - target_kind
+        - target_value
+        - start_time
+        - stop_time
+        - weekdays
+      properties:
+        name:
+          type: string
+          minLength: 1
+        description:
+          oneOf:
+            - type: string
+            - type: 'null'
+        enabled:
+          type: boolean
+        action_type:
+          type: string
+          enum:
+            - BLOCK
+        target_kind:
+          type: string
+          enum:
+            - APP
+        target_value:
+          type: string
+          minLength: 1
+          description: Required non-empty application identifier when target_kind = APP.
+        start_time:
+          type: string
+          pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+          description: Start time in HH:MM 24-hour router local time. If start_time is later than stop_time, the schedule is an overnight window that continues past midnight into the next day.
+        stop_time:
+          type: string
+          pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+          description: Stop time in HH:MM 24-hour router local time. An earlier stop_time is valid and means the schedule continues overnight past midnight.
+        weekdays:
+          type: array
+          description: Distinct weekday numbers using 0 = Sunday, 1 = Monday, 2 = Tuesday, 3 = Wednesday, 4 = Thursday, 5 = Friday, and 6 = Saturday.
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: integer
+            minimum: 0
+            maximum: 6
+      additionalProperties: false
+
+    SchedulePutRequest:
+      description: Full replacement request. PUT requests must send the complete mutable schedule representation. start_time and stop_time use HH:MM 24-hour router local time. If start_time is later than stop_time, the schedule is an overnight window that continues past midnight into the next day. start_time and stop_time must not represent the same minute. weekdays values must be distinct and use 0 = Sunday through 6 = Saturday.
+      oneOf:
+        - $ref: '#/components/schemas/SchedulePutInternetRequest'
+        - $ref: '#/components/schemas/SchedulePutAppRequest'
+      discriminator:
+        propertyName: target_kind
+        mapping:
+          INTERNET: '#/components/schemas/SchedulePutInternetRequest'
+          APP: '#/components/schemas/SchedulePutAppRequest'
+
+    GroupScheduleLink:
+      type: object
+      description: Subscriber-scoped link between one parental-control group and one schedule.
+      required:
+        - subscriber_id
+        - group_id
+        - schedule_id
+        - created_at
+      properties:
+        subscriber_id:
+          type: string
+          format: uuid
+        group_id:
+          type: string
+          format: uuid
+        schedule_id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+
+    GroupScheduleLinkRequest:
+      type: object
+      description: Create request for linking one subscriber-scoped schedule to one subscriber-scoped parental-control group.
+      required:
+        - schedule_id
+      properties:
+        schedule_id:
+          type: string
+          format: uuid
+      additionalProperties: false
+
+    GroupScheduleReplaceRequest:
+      type: object
+      description: Full replacement request for the set of schedules linked to one subscriber-scoped parental-control group.
+      required:
+        - schedule_ids
+      properties:
+        schedule_ids:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            format: uuid
+      additionalProperties: false
+
+    GroupScheduleReplaceResponse:
+      type: object
+      description: Response containing the current subscriber-scoped group-schedule links after a full replacement operation.
+      required:
+        - links
+      properties:
+        links:
+          type: array
+          items:
+            $ref: '#/components/schemas/GroupScheduleLink'
+      additionalProperties: false
+
 paths:
   /subscriber:
     post:
@@ -1096,6 +1582,548 @@ paths:
           name: group_id
           required: true
           description: Parental-control group identifier.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /groups/{group_id}/devices:
+    get:
+      tags:
+        - Group Devices
+      summary: List client-MAC assignments for a group
+      description: Returns all stored client-MAC assignments for one parental-control group under the authenticated subscriber.
+      operationId: listGroupDevices
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: group_id
+          required: true
+          description: Parental-control group identifier.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Group device assignments returned successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GroupDevice'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      tags:
+        - Group Devices
+      summary: Add a client MAC to a group
+      description: Adds one client MAC to one parental-control group for the authenticated subscriber.
+      operationId: createGroupDevice
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: group_id
+          required: true
+          description: Parental-control group identifier.
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GroupDeviceCreateRequest'
+            examples:
+              add:
+                value:
+                  client_mac: aa:bb:cc:dd:ee:ff
+      responses:
+        '200':
+          description: Client MAC assigned to group successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupDevice'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /groups/{group_id}/devices/{client_mac}:
+    get:
+      tags:
+        - Group Devices
+      summary: Get one stored client-MAC group assignment
+      description: Returns one stored group-device assignment for the authenticated subscriber.
+      operationId: getGroupDevice
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: group_id
+          required: true
+          description: Parental-control group identifier.
+          schema:
+            type: string
+            format: uuid
+        - in: path
+          name: client_mac
+          required: true
+          description: Client MAC address. Accepted public input formats are 12 hex digits without separators, hyphen-separated MAC, or colon-separated MAC.
+          schema:
+            type: string
+            pattern: '^(?:[0-9A-Fa-f]{12}|(?:[0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2})$'
+      responses:
+        '200':
+          description: Group-device assignment returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupDevice'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      tags:
+        - Group Devices
+      summary: Remove one client MAC from a group
+      description: Removes one stored client-MAC assignment from one parental-control group for the authenticated subscriber.
+      operationId: deleteGroupDevice
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: group_id
+          required: true
+          description: Parental-control group identifier.
+          schema:
+            type: string
+            format: uuid
+        - in: path
+          name: client_mac
+          required: true
+          description: Client MAC address. Accepted public input formats are 12 hex digits without separators, hyphen-separated MAC, or colon-separated MAC.
+          schema:
+            type: string
+            pattern: '^(?:[0-9A-Fa-f]{12}|(?:[0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2})$'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /schedules:
+    get:
+      tags:
+        - Schedules
+      summary: List subscriber parental-control schedules
+      description: Returns all stored parental-control schedules for the authenticated subscriber.
+      operationId: listSchedules
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Subscriber schedules returned successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Schedule'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      tags:
+        - Schedules
+      summary: Create subscriber parental-control schedule
+      description: Creates one parental-control schedule for the authenticated subscriber.
+      operationId: createSchedule
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScheduleCreateRequest'
+            examples:
+              internet:
+                value:
+                  name: Weekday Night
+                  description: Block internet on school nights
+                  enabled: true
+                  action_type: BLOCK
+                  target_kind: INTERNET
+                  target_value: null
+                  start_time: "21:00"
+                  stop_time: "07:00"
+                  weekdays: [1, 2, 3, 4, 5]
+              app:
+                value:
+                  name: Block YouTube
+                  description: Evening YouTube block
+                  enabled: true
+                  action_type: BLOCK
+                  target_kind: APP
+                  target_value: YOUTUBE
+                  start_time: "18:00"
+                  stop_time: "21:00"
+                  weekdays: [0, 1, 2, 3, 4, 5, 6]
+      responses:
+        '200':
+          description: Parental-control schedule created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Schedule'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /schedules/{schedule_id}:
+    get:
+      tags:
+        - Schedules
+      summary: Get one subscriber parental-control schedule
+      description: Returns one stored parental-control schedule for the authenticated subscriber.
+      operationId: getSchedule
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: schedule_id
+          required: true
+          description: Parental-control schedule identifier.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Parental-control schedule returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Schedule'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      tags:
+        - Schedules
+      summary: Update one subscriber parental-control schedule
+      description: Replaces the mutable fields of one parental-control schedule for the authenticated subscriber.
+      operationId: updateSchedule
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: schedule_id
+          required: true
+          description: Parental-control schedule identifier.
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SchedulePutRequest'
+            examples:
+              internet:
+                value:
+                  name: Weekday Night
+                  description: Block internet on school nights
+                  enabled: true
+                  action_type: BLOCK
+                  target_kind: INTERNET
+                  target_value: null
+                  start_time: "21:00"
+                  stop_time: "07:00"
+                  weekdays: [1, 2, 3, 4, 5]
+              app:
+                value:
+                  name: Block YouTube
+                  description: Evening YouTube block
+                  enabled: true
+                  action_type: BLOCK
+                  target_kind: APP
+                  target_value: YOUTUBE
+                  start_time: "18:00"
+                  stop_time: "21:00"
+                  weekdays: [0, 1, 2, 3, 4, 5, 6]
+      responses:
+        '200':
+          description: Parental-control schedule updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Schedule'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      tags:
+        - Schedules
+      summary: Delete one subscriber parental-control schedule
+      description: Deletes one parental-control schedule for the authenticated subscriber.
+      operationId: deleteSchedule
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: schedule_id
+          required: true
+          description: Parental-control schedule identifier.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /groups/{group_id}/schedules:
+    get:
+      tags:
+        - Group Schedules
+      summary: List schedules linked to a group
+      description: Returns all stored group-schedule links for one parental-control group under the authenticated subscriber.
+      operationId: listGroupSchedules
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: group_id
+          required: true
+          description: Parental-control group identifier.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Group-schedule links returned successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GroupScheduleLink'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      tags:
+        - Group Schedules
+      summary: Link one schedule to one group
+      description: Creates one group-schedule link for the authenticated subscriber.
+      operationId: createGroupSchedule
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: group_id
+          required: true
+          description: Parental-control group identifier.
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GroupScheduleLinkRequest'
+      responses:
+        '200':
+          description: Group-schedule link created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupScheduleLink'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      tags:
+        - Group Schedules
+      summary: Replace schedules linked to one group
+      description: Replaces the full schedule-id set linked to one parental-control group for the authenticated subscriber.
+      operationId: replaceGroupSchedules
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: group_id
+          required: true
+          description: Parental-control group identifier.
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GroupScheduleReplaceRequest'
+      responses:
+        '200':
+          description: Group-schedule links replaced successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GroupScheduleReplaceResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /groups/{group_id}/schedules/{schedule_id}:
+    get:
+      tags:
+        - Group Schedules
+      summary: Get one group-schedule link
+      description: Returns one stored group-schedule link for the authenticated subscriber.
+      operationId: getGroupSchedule
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: group_id
+          required: true
+          description: Parental-control group identifier.
+          schema:
+            type: string
+            format: uuid
+        - in: path
+          name: schedule_id
+          required: true
+          description: Parental-control schedule identifier.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Group-schedule link returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupScheduleLink'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      tags:
+        - Group Schedules
+      summary: Remove one schedule from one group
+      description: Deletes one group-schedule link for the authenticated subscriber.
+      operationId: deleteGroupSchedule
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: group_id
+          required: true
+          description: Parental-control group identifier.
+          schema:
+            type: string
+            format: uuid
+        - in: path
+          name: schedule_id
+          required: true
+          description: Parental-control schedule identifier.
           schema:
             type: string
             format: uuid
