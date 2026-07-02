@@ -60,10 +60,9 @@ namespace OpenWifi {
 						Context->addChainCertificate(rc);
 						Context->addCertificateAuthority(rc);
 					}
-				} catch (...) {
-					Poco::Crypto::X509Certificate Root(root_ca_);
-					Context->addChainCertificate(Root);
-					Context->addCertificateAuthority(Root);
+				} catch (const Poco::Exception &E) {
+					L.fatal(fmt::format("Failed to load CA certificate chain from {}: {}", root_ca_, E.displayText()));
+					throw;
 				}
 			}
 
