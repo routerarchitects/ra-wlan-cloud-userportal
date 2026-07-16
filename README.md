@@ -17,7 +17,7 @@ This service is part of [Mango Cloud](https://www.mangowifi.cloud/), Router Arch
 Within Mango Cloud, **OWSUB** serves as the **Subscriber Portal Service** (backend node `owsub`).
 
 Key integrations include:
-* **Subscriber Self-Care API**: Exposes the REST API (defaulting to port `16006`) used by the Subscriber Mobile App and Web Portal to authenticate users, manage personal passwords, and monitor active subscriptions.
+* **Subscriber Self-Care API**: Exposes the REST API on port `16006` used by the Subscriber Mobile App and Web Portal to manage subscriber profiles, password-change workflows and associated devices. Authentication and token issuance are handled through the Security Service (`owsec`).
 * **Device Control Options**: Connects with the Provisioning Service (`owprov`) to associate subscriber accounts with specific hardware (gateways and mesh nodes) and automatically provision subscriber-specific SSIDs.
 * **Signup Flow**: Manages the verification templates and database records for subscriber signups, credentials, and verification updates.
 
