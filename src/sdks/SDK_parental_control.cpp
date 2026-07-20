@@ -26,8 +26,7 @@ namespace OpenWifi::SDK::ParentalControl {
 							 Poco::JSON::Array::Ptr &ArrayResponse,
 							 Poco::JSON::Object::Ptr &ObjectResponse) {
 			auto API = OpenAPIRequestGet(uSERVICE_MANGO_PARENTAL_CONTROL, endpoint, {}, 60000);
-			CallStatus = API.Do(ArrayResponse, ObjectResponse,
-								client ? client->UserInfo_.webtoken.access_token_ : "");
+			CallStatus = API.Do(ArrayResponse, ObjectResponse, "");
 			return IsParsedArraySuccess(CallStatus, ArrayResponse);
 		}
 
@@ -35,7 +34,7 @@ namespace OpenWifi::SDK::ParentalControl {
 							  Poco::Net::HTTPResponse::HTTPStatus &CallStatus,
 							  Poco::JSON::Object::Ptr &CallResponse) {
 			auto API = OpenAPIRequestGet(uSERVICE_MANGO_PARENTAL_CONTROL, endpoint, {}, 60000);
-			CallStatus = API.Do(CallResponse, client ? client->UserInfo_.webtoken.access_token_ : "");
+			CallStatus = API.Do(CallResponse, "");
 			return IsParsedObjectSuccess(CallStatus, CallResponse);
 		}
 
@@ -44,7 +43,7 @@ namespace OpenWifi::SDK::ParentalControl {
 							   Poco::Net::HTTPResponse::HTTPStatus &CallStatus,
 							   Poco::JSON::Object::Ptr &CallResponse) {
 			auto API = OpenAPIRequestPost(uSERVICE_MANGO_PARENTAL_CONTROL, endpoint, {}, Body, TimeoutMs);
-			CallStatus = API.Do(CallResponse, client ? client->UserInfo_.webtoken.access_token_ : "");
+			CallStatus = API.Do(CallResponse, "");
 			return IsParsedObjectSuccess(CallStatus, CallResponse);
 		}
 
@@ -53,7 +52,7 @@ namespace OpenWifi::SDK::ParentalControl {
 							  Poco::Net::HTTPResponse::HTTPStatus &CallStatus,
 							  Poco::JSON::Object::Ptr &CallResponse) {
 			auto API = OpenAPIRequestPut(uSERVICE_MANGO_PARENTAL_CONTROL, endpoint, {}, Body, TimeoutMs);
-			CallStatus = API.Do(CallResponse, client ? client->UserInfo_.webtoken.access_token_ : "");
+			CallStatus = API.Do(CallResponse, "");
 			return IsParsedObjectSuccess(CallStatus, CallResponse);
 		}
 
@@ -61,8 +60,7 @@ namespace OpenWifi::SDK::ParentalControl {
 						   Poco::Net::HTTPResponse::HTTPStatus &CallStatus,
 						   Poco::JSON::Object::Ptr &CallResponse, std::string &RawResponseBody) {
 			auto API = OpenAPIRequestDelete(uSERVICE_MANGO_PARENTAL_CONTROL, endpoint, {}, TimeoutMs);
-			CallStatus = API.Do(CallResponse, RawResponseBody,
-								client ? client->UserInfo_.webtoken.access_token_ : "");
+			CallStatus = API.Do(CallResponse, RawResponseBody, "");
 			return CallStatus == Poco::Net::HTTPResponse::HTTP_OK;
 		}
 	} // namespace

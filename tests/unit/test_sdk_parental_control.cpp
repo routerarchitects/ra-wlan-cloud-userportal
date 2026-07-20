@@ -322,7 +322,7 @@ void TestNon200StatusFailsWrapper() {
            "non-200 object response should fail wrapper");
 }
 
-void TestBearerTokenIsForwardedFromClient() {
+void TestBearerTokenIsNotForwardedFromClient() {
     static OpenWifi::RESTAPI_GenericServerAccounting server;
     auto &logger = Poco::Logger::get("test_sdk_parental_control");
     DummyClient client(logger, server);
@@ -336,7 +336,7 @@ void TestBearerTokenIsForwardedFromClient() {
     Poco::JSON::Object::Ptr actualResponse;
     Expect(OpenWifi::SDK::ParentalControl::GetGroupDevice(&client, "sub-1", "group-1", "AA", callStatus, actualResponse),
            "GetGroupDevice should still succeed");
-    ExpectEq(g_state.lastBearerToken, std::string("token-123"), "bearer token should be forwarded");
+    ExpectEq(g_state.lastBearerToken, std::string(""), "bearer token should not be forwarded");
 }
 
 const std::vector<std::pair<std::string, std::function<void()>>> kTests = {
@@ -352,7 +352,7 @@ const std::vector<std::pair<std::string, std::function<void()>>> kTests = {
     {"DeleteGroupScheduleFailsWhenConfigRawIsMissing", TestDeleteGroupScheduleFailsWhenConfigRawIsMissing},
     {"ReplaceGroupSchedulesSuccess", TestReplaceGroupSchedulesSuccess},
     {"Non200StatusFailsWrapper", TestNon200StatusFailsWrapper},
-    {"BearerTokenIsForwardedFromClient", TestBearerTokenIsForwardedFromClient},
+    {"BearerTokenIsNotForwardedFromClient", TestBearerTokenIsNotForwardedFromClient},
 };
 
 

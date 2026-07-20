@@ -122,9 +122,9 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 			}
 
 			// Check structures
-			bool hasNodes = topologyResponse->has("nodes");
-			bool hasHistClients = topologyResponse->has("historicalClients");
-			bool hasHistDevs = topologyResponse->has("historicalDevices");
+			bool hasNodes = topologyResponse->has("nodes") && !topologyResponse->isNull("nodes");
+			bool hasHistClients = topologyResponse->has("historicalClients") && !topologyResponse->isNull("historicalClients");
+			bool hasHistDevs = topologyResponse->has("historicalDevices") && !topologyResponse->isNull("historicalDevices");
 
 			if ((hasNodes && !topologyResponse->isArray("nodes")) ||
 				(hasHistClients && !topologyResponse->isArray("historicalClients")) ||
@@ -189,7 +189,7 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 					if (!node) {
 						return ValidateMacResult::TopologyUnusable;
 					}
-					if (node->has("aps")) {
+					if (node->has("aps") && !node->isNull("aps")) {
 						if (!node->isArray("aps")) {
 							return ValidateMacResult::TopologyUnusable;
 						}
@@ -199,7 +199,7 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 							if (!ap) {
 								return ValidateMacResult::TopologyUnusable;
 							}
-							if (ap->has("clients")) {
+							if (ap->has("clients") && !ap->isNull("clients")) {
 								if (!ap->isArray("clients")) {
 									return ValidateMacResult::TopologyUnusable;
 								}
