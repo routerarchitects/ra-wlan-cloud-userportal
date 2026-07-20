@@ -969,6 +969,248 @@ void TestValidateMacInTopologyMalformedNodesApsClientsNotArray() {
     );
 }
 
+void TestValidateMacInTopologyNullArrays() {
+    g_state.subscriberDevices = {{"olg", "112233445566"}};
+
+    // 1. All three arrays are null
+    {
+        auto topo = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+        topo->set("nodes", Poco::Dynamic::Var());
+        topo->set("historicalClients", Poco::Dynamic::Var());
+        topo->set("historicalDevices", Poco::Dynamic::Var());
+        g_state.topologyResponse = topo;
+
+        std::string gatewaySerial;
+        FakeResponse response;
+        FakeRequest request("GET", "/test", "", response);
+        FakeRESTAPIHandler handler(Poco::Logger::get("test"), &request, &response);
+
+        ExpectEq(
+            (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacInTopology(handler, "sub-1", "op-1", "112233445566", gatewaySerial),
+            (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacResult::TopologyUnusable,
+            "all null arrays should return TopologyUnusable"
+        );
+    }
+
+    // 2. Nodes is empty array, historicalClients/historicalDevices are null
+    {
+        auto topo = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+        topo->set("nodes", Poco::JSON::Array::Ptr(new Poco::JSON::Array()));
+        topo->set("historicalClients", Poco::Dynamic::Var());
+        topo->set("historicalDevices", Poco::Dynamic::Var());
+        g_state.topologyResponse = topo;
+
+        std::string gatewaySerial;
+        FakeResponse response;
+        FakeRequest request("GET", "/test", "", response);
+        FakeRESTAPIHandler handler(Poco::Logger::get("test"), &request, &response);
+
+        ExpectEq(
+            (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacInTopology(handler, "sub-1", "op-1", "112233445566", gatewaySerial),
+            (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacResult::MacNotPresentInTopology,
+            "empty nodes array with other nulls should return MacNotPresentInTopology"
+        );
+    }
+
+    // 3. historicalClients is empty array, nodes/historicalDevices are null
+    {
+        auto topo = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+        topo->set("nodes", Poco::Dynamic::Var());
+        topo->set("historicalClients", Poco::JSON::Array::Ptr(new Poco::JSON::Array()));
+        topo->set("historicalDevices", Poco::Dynamic::Var());
+        g_state.topologyResponse = topo;
+
+        std::string gatewaySerial;
+        FakeResponse response;
+        FakeRequest request("GET", "/test", "", response);
+        FakeRESTAPIHandler handler(Poco::Logger::get("test"), &request, &response);
+
+        ExpectEq(
+            (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacInTopology(handler, "sub-1", "op-1", "112233445566", gatewaySerial),
+            (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacResult::MacNotPresentInTopology,
+            "empty historicalClients array with other nulls should return MacNotPresentInTopology"
+        );
+    }
+
+    // 4. historicalDevices is empty array, nodes/historicalClients are null
+    {
+        auto topo = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+        topo->set("nodes", Poco::Dynamic::Var());
+        topo->set("historicalClients", Poco::Dynamic::Var());
+        topo->set("historicalDevices", Poco::JSON::Array::Ptr(new Poco::JSON::Array()));
+        g_state.topologyResponse = topo;
+
+        std::string gatewaySerial;
+        FakeResponse response;
+        FakeRequest request("GET", "/test", "", response);
+        FakeRESTAPIHandler handler(Poco::Logger::get("test"), &request, &response);
+
+        ExpectEq(
+            (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacInTopology(handler, "sub-1", "op-1", "112233445566", gatewaySerial),
+            (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacResult::MacNotPresentInTopology,
+            "empty historicalDevices array with other nulls should return MacNotPresentInTopology"
+        );
+    }
+}
+
+void TestValidateMacInTopologyNestedNullApsAndClients() {
+    g_state.subscriberDevices = {{"olg", "112233445566"}};
+
+    // 1. aps is explicitly null inside a node
+    {
+        auto topo = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+        auto nodes = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
+        auto node = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+        node->set("aps", Poco::Dynamic::Var()); // explicitly null
+        nodes->add(node);
+        topo->set("nodes", nodes);
+        g_state.topologyResponse = topo;
+
+        std::string gatewaySerial;
+        FakeResponse response;
+        FakeRequest request("GET", "/test", "", response);
+        FakeRESTAPIHandler handler(Poco::Logger::get("test"), &request, &response);
+
+        ExpectEq(
+            (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacInTopology(handler, "sub-1", "op-1", "112233445566", gatewaySerial),
+            (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacResult::MacNotPresentInTopology,
+            "explicitly null nested aps should be tolerated and return MacNotPresentInTopology"
+        );
+    }
+
+    // 2. clients is explicitly null inside an ap
+    {
+        auto topo = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+        auto nodes = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
+        auto node = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+        auto aps = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
+        auto ap = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+        ap->set("clients", Poco::Dynamic::Var()); // explicitly null
+        aps->add(ap);
+        node->set("aps", aps);
+        nodes->add(node);
+        topo->set("nodes", nodes);
+        g_state.topologyResponse = topo;
+
+        std::string gatewaySerial;
+        FakeResponse response;
+        FakeRequest request("GET", "/test", "", response);
+        FakeRESTAPIHandler handler(Poco::Logger::get("test"), &request, &response);
+
+        ExpectEq(
+            (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacInTopology(handler, "sub-1", "op-1", "112233445566", gatewaySerial),
+            (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacResult::MacNotPresentInTopology,
+            "explicitly null nested clients should be tolerated and return MacNotPresentInTopology"
+        );
+    }
+}
+
+void TestValidateMacInTopologyNegativeNonNullNonArray() {
+    g_state.subscriberDevices = {{"olg", "112233445566"}};
+
+    // 1. nodes is boolean
+    {
+        auto topo = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+        topo->set("nodes", true);
+        g_state.topologyResponse = topo;
+
+        std::string gatewaySerial;
+        FakeResponse response;
+        FakeRequest request("GET", "/test", "", response);
+        FakeRESTAPIHandler handler(Poco::Logger::get("test"), &request, &response);
+
+        ExpectEq(
+            (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacInTopology(handler, "sub-1", "op-1", "112233445566", gatewaySerial),
+            (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacResult::TopologyUnusable,
+            "non-array nodes should return TopologyUnusable"
+        );
+    }
+
+    // 2. historicalClients is string
+    {
+        auto topo = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+        topo->set("historicalClients", "not-an-array");
+        g_state.topologyResponse = topo;
+
+        std::string gatewaySerial;
+        FakeResponse response;
+        FakeRequest request("GET", "/test", "", response);
+        FakeRESTAPIHandler handler(Poco::Logger::get("test"), &request, &response);
+
+        ExpectEq(
+            (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacInTopology(handler, "sub-1", "op-1", "112233445566", gatewaySerial),
+            (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacResult::TopologyUnusable,
+            "non-array historicalClients should return TopologyUnusable"
+        );
+    }
+
+    // 3. historicalDevices is object
+    {
+        auto topo = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+        topo->set("historicalDevices", Poco::JSON::Object::Ptr(new Poco::JSON::Object()));
+        g_state.topologyResponse = topo;
+
+        std::string gatewaySerial;
+        FakeResponse response;
+        FakeRequest request("GET", "/test", "", response);
+        FakeRESTAPIHandler handler(Poco::Logger::get("test"), &request, &response);
+
+        ExpectEq(
+            (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacInTopology(handler, "sub-1", "op-1", "112233445566", gatewaySerial),
+            (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacResult::TopologyUnusable,
+            "non-array historicalDevices should return TopologyUnusable"
+        );
+    }
+
+    // 4. Nested aps is number
+    {
+        auto topo = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+        auto nodes = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
+        auto node = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+        node->set("aps", 42); // not an array
+        nodes->add(node);
+        topo->set("nodes", nodes);
+        g_state.topologyResponse = topo;
+
+        std::string gatewaySerial;
+        FakeResponse response;
+        FakeRequest request("GET", "/test", "", response);
+        FakeRESTAPIHandler handler(Poco::Logger::get("test"), &request, &response);
+
+        ExpectEq(
+            (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacInTopology(handler, "sub-1", "op-1", "112233445566", gatewaySerial),
+            (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacResult::TopologyUnusable,
+            "non-array nested aps should return TopologyUnusable"
+        );
+    }
+
+    // 5. Nested clients is object
+    {
+        auto topo = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+        auto nodes = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
+        auto node = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+        auto aps = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
+        auto ap = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+        ap->set("clients", Poco::JSON::Object::Ptr(new Poco::JSON::Object())); // not an array
+        aps->add(ap);
+        node->set("aps", aps);
+        nodes->add(node);
+        topo->set("nodes", nodes);
+        g_state.topologyResponse = topo;
+
+        std::string gatewaySerial;
+        FakeResponse response;
+        FakeRequest request("GET", "/test", "", response);
+        FakeRESTAPIHandler handler(Poco::Logger::get("test"), &request, &response);
+
+        ExpectEq(
+            (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacInTopology(handler, "sub-1", "op-1", "112233445566", gatewaySerial),
+            (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacResult::TopologyUnusable,
+            "non-array nested clients should return TopologyUnusable"
+        );
+    }
+}
+
 void TestHandleValidateMacResult() {
     using namespace OpenWifi::RESTAPI::ParentalControl;
 
@@ -1042,6 +1284,9 @@ const std::vector<std::pair<std::string, std::function<void()>>> kTests = {
     {"ValidateMacInTopologyMalformedNodesApsNotArray", TestValidateMacInTopologyMalformedNodesApsNotArray},
     {"ValidateMacInTopologyMalformedNodesApsElementNotObject", TestValidateMacInTopologyMalformedNodesApsElementNotObject},
     {"ValidateMacInTopologyMalformedNodesApsClientsNotArray", TestValidateMacInTopologyMalformedNodesApsClientsNotArray},
+    {"ValidateMacInTopologyNullArrays", TestValidateMacInTopologyNullArrays},
+    {"ValidateMacInTopologyNestedNullApsAndClients", TestValidateMacInTopologyNestedNullApsAndClients},
+    {"ValidateMacInTopologyNegativeNonNullNonArray", TestValidateMacInTopologyNegativeNonNullNonArray},
     {"HandleValidateMacResult", TestHandleValidateMacResult},
     {"ParseTimeStringAcceptsMidnight", TestParseTimeStringAcceptsMidnight},
     {"ParseTimeStringAcceptsLastMinuteOfDay", TestParseTimeStringAcceptsLastMinuteOfDay},
