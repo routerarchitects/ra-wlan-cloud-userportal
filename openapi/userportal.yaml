@@ -198,7 +198,7 @@ components:
           type: integer
           format: int64
           minimum: 1
-          description: Optional duration in seconds for client block (access = deny). If omitted, block is treated as indefinite/permanent for whole day.
+          description: Optional duration in seconds for client block (access = deny). If omitted, block applies for remainder of current day (until 23:59:59).
       additionalProperties: false
 
     ActionSuccessResponse:

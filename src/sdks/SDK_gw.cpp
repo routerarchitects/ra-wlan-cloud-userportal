@@ -514,10 +514,12 @@ namespace OpenWifi::SDK::GW {
 				std::string mac;
 				std::string access;
 				int64_t durationSec = 0;
+				bool hasDuration = false;
 				try {
 					mac = entry->getValue<std::string>("mac");
 					access = entry->getValue<std::string>("access");
 					if (entry->has("duration") && !entry->isNull("duration")) {
+						hasDuration = true;
 						durationSec = entry->getValue<int64_t>("duration");
 					}
 				} catch (...) {
@@ -528,8 +530,8 @@ namespace OpenWifi::SDK::GW {
 				}
 				Poco::trimInPlace(access);
 				Poco::toLowerInPlace(access);
-				if (!Utils::NormalizeMac(mac) || (access != "allow" && access != "deny")) {
-					Poco::Logger::get("SDK_gw").error(fmt::format("Invalid MAC [{}] or access [{}] for entry {}.", mac, access, i));
+				if (!Utils::NormalizeMac(mac) || (access != "allow" && access != "deny") || (hasDuration && durationSec < 1)) {
+					Poco::Logger::get("SDK_gw").error(fmt::format("Invalid MAC [{}], access [{}], or duration [{}] for entry {}.", mac, access, durationSec, i));
 					return SetErrorResponse(Poco::Net::HTTPResponse::HTTP_BAD_REQUEST,
 											RESTAPI::Errors::MissingOrInvalidParameters, responseStatus,
 											response);
