@@ -42,6 +42,7 @@ namespace OpenWifi::SDK::GW {
 		bool SetConfig(RESTAPIHandler *client, const Poco::JSON::Object::Ptr &Body,
 					   const ProvObjects::SubscriberDeviceList &SubscriberDevices,
 					   const std::string &GatewaySerial,
+					   const std::string &SubscriberId,
 					   Poco::Net::HTTPResponse::HTTPStatus &ResponseStatus,
 					   Poco::JSON::Object::Ptr &Response);
 		bool GetLastStats(RESTAPIHandler *client, const std::string &Mac,

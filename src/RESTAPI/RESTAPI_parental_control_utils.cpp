@@ -6,6 +6,9 @@
 
 #include "RESTAPI_parental_control_utils.h"
 #include "Poco/Format.h"
+#include "Poco/DateTime.h"
+#include "Poco/DateTimeFormatter.h"
+#include "Poco/String.h"
 #include "fmt/format.h"
 #include "sdks/SDK_gw.h"
 #include "sdks/SDK_prov.h"
@@ -13,7 +16,10 @@
 #include "framework/utils.h"
 #include "framework/ow_constants.h"
 #include <cctype>
+#include <list>
+#include <map>
 #include <set>
+#include <sstream>
 #include <vector>
 
 namespace OpenWifi::RESTAPI::ParentalControl {
@@ -104,7 +110,7 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 											 Poco::JSON::Object::Ptr &topologyResponse) {
 			Poco::Net::HTTPServerResponse::HTTPStatus topoStatus = Poco::Net::HTTPServerResponse::HTTP_INTERNAL_SERVER_ERROR;
 			topologyResponse = Poco::makeShared<Poco::JSON::Object>();
-			if (!SDK::Topology::Get(&handler, boardId, topoStatus, topologyResponse)) {
+			if (!SDK::Topology::Get(nullptr, boardId, topoStatus, topologyResponse)) {
 				return ValidateMacResult::TopologyNotFound;
 			}
 
@@ -698,6 +704,170 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 		}
 		handler.InternalError(RESTAPI::Errors::InternalError);
 		return false;
+	}
+	// =========================================================================
+	// Blocked-Client Evaluation (used by topology response)
+	// =========================================================================
+
+	namespace {
+		struct FirewallRuleInfo {
+			bool enabled = true;
+			std::string startDate;
+			std::string stopDate;
+			std::string startTime;
+			std::string stopTime;
+			std::string weekdays;
+			std::vector<std::string> macs;
+		};
+
+		/*
+			ParseWeekdays: Converts space-separated day names (e.g. "Mon Wed") into day numbers (0=Sun..6=Sat).
+			Uses istringstream (iss) to split the string into individual day tokens (e.g. token = "Mon").
+		*/
+		std::set<int> ParseWeekdays(const std::string &weekdaysStr) {
+			static const std::vector<std::string> names = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
+			std::set<int> days;
+			if (weekdaysStr.empty()) {
+				return days;
+			}
+			std::istringstream iss(weekdaysStr);
+			std::string token;
+			while (iss >> token) {
+				for (int i = 0; i < static_cast<int>(names.size()); ++i) {
+					if (token == names[i]) {
+						days.insert(i);
+						break;
+					}
+				}
+			}
+			return days;
+		}
+
+		/*
+			IsRuleActive: Checks if a firewall block rule is currently active.
+			- Group-Schedule rules (recurring weekly): Active if today's day-of-week matches and current time is within start/stop time window.
+			- Client-Access rules (temporary/one-time): Active if current date/time is between start date/time and stop date/time.
+		*/
+		bool IsRuleActive(const Poco::DateTime &now, const std::string &nowDateStr,
+						  const std::string &nowTimeStr, const FirewallRuleInfo &rule) {
+			if (!rule.enabled) {
+				return false;
+			}
+
+			// Group-schedule rules: have weekdays but no start_date/stop_date.
+			if (!rule.weekdays.empty() && rule.startDate.empty() && rule.stopDate.empty()) {
+				auto allowedDays = ParseWeekdays(rule.weekdays);
+				if (allowedDays.empty()) {
+					return false;
+				}
+				int todayDow = now.dayOfWeek(); // 0=Sun, 1=Mon, ..., 6=Sat
+				if (allowedDays.find(todayDow) == allowedDays.end()) {
+					return false;
+				}
+				if (!rule.startTime.empty() && nowTimeStr < rule.startTime) {
+					return false;
+				}
+				if (!rule.stopTime.empty() && nowTimeStr > rule.stopTime) {
+					return false;
+				}
+				return true;
+			}
+
+			// Client-access rules: have start_date/stop_date + start_time/stop_time.
+			std::string nowStr = nowDateStr + " " + nowTimeStr;
+
+			if (!rule.startDate.empty() && !rule.startTime.empty()) {
+				std::string startStr = rule.startDate + " " + rule.startTime;
+				if (nowStr < startStr) {
+					return false;
+				}
+			}
+
+			if (!rule.stopTime.empty()) {
+				// For same-day time windows (stopTime >= startTime), the daily stop
+				// threshold uses startDate because stop_date is intentionally set to
+				// the next calendar date by mango-parental-control.
+				std::string stopDate = rule.stopDate;
+				if (!rule.startTime.empty() && rule.stopTime >= rule.startTime && !rule.startDate.empty()) {
+					stopDate = rule.startDate;
+				}
+				if (!stopDate.empty()) {
+					std::string stopStr = stopDate + " " + rule.stopTime;
+					if (nowStr > stopStr) {
+						return false;
+					}
+				}
+			}
+
+			return true;
+		}
+	} // namespace
+
+	bool GetBlockedClients(const Poco::JSON::Object::Ptr &config,
+						   std::list<std::string> &blockedMacs) {
+		blockedMacs.clear();
+		if (!config || !config->has("config-raw") || !config->isArray("config-raw")) {
+			return config != nullptr;
+		}
+
+		auto configRaw = config->getArray("config-raw");
+		if (!configRaw) {
+			return true;
+		}
+
+		Poco::DateTime now;
+		std::string nowDateStr = Poco::DateTimeFormatter::format(now, "%Y-%m-%d");
+		std::string nowTimeStr = Poco::DateTimeFormatter::format(now, "%H:%M:%S");
+
+		std::map<std::string, FirewallRuleInfo> rules;
+		for (std::size_t i = 0; i < configRaw->size(); ++i) {
+			try {
+				auto cmd = configRaw->getArray(i);
+				if (!cmd || cmd->size() != 3)
+					continue;
+
+				auto op = cmd->getElement<std::string>(0);
+				auto key = cmd->getElement<std::string>(1);
+				auto val = cmd->getElement<std::string>(2);
+
+				auto dotPos = key.rfind('.');
+				if (dotPos != std::string::npos) {
+					std::string section = key.substr(0, dotPos);
+					std::string param = key.substr(dotPos + 1);
+
+					if (param == "enabled") {
+						rules[section].enabled = (val == "1");
+					} else if (param == "start_date") {
+						rules[section].startDate = val;
+					} else if (param == "stop_date") {
+						rules[section].stopDate = val;
+					} else if (param == "start_time") {
+						rules[section].startTime = val;
+					} else if (param == "stop_time") {
+						rules[section].stopTime = val;
+					} else if (param == "weekdays") {
+						rules[section].weekdays = val;
+					} else if (op == "add_list" && param == "src_mac") {
+						rules[section].macs.push_back(val);
+					}
+				}
+			} catch (...) {
+				continue;
+			}
+		}
+
+		auto &logger = Poco::Logger::get("ParentalControl");
+		for (const auto &[section, rule] : rules) {
+			if (IsRuleActive(now, nowDateStr, nowTimeStr, rule)) {
+				for (auto mac : rule.macs) {
+					if (Utils::NormalizeMac(mac)) {
+						blockedMacs.push_back(mac);
+						logger.debug(fmt::format("Active blocked client MAC found: {}", Utils::SerialToMAC(mac)));
+					}
+				}
+			}
+		}
+		return true;
 	}
 
 } // namespace OpenWifi::RESTAPI::ParentalControl

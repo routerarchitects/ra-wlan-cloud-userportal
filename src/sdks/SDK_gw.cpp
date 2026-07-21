@@ -7,6 +7,11 @@
 //
 // Created by stephane bourque on 2022-01-11.
 //
+#include "RESTAPI/RESTAPI_parental_control_utils.h"
+#include "sdks/SDK_parental_control.h"
+#include <Poco/DateTime.h>
+#include <Poco/DateTimeFormatter.h>
+#include <Poco/Timespan.h>
 #include <algorithm>
 #include <regex>
 #include <sstream>
@@ -454,21 +459,6 @@ namespace OpenWifi::SDK::GW {
 			return true;
 		}
 
-		/*
-			MakeConfigRawCmd():
-			1. Build a single config-raw command array with 3 elements: [op, path, value].
-			2. Return it so callers can append it into a config-raw list.
-		*/
-		static Poco::JSON::Array::Ptr BuildConfigRawCommand(const std::string &op,
-															const std::string &path,
-															const std::string &value) {
-			auto cmd = Poco::makeShared<Poco::JSON::Array>();
-			cmd->add(op);
-			cmd->add(path);
-			cmd->add(value);
-			return cmd;
-		}
-
 		static std::string SerializeJson(const Poco::JSON::Object::Ptr &object) {
 			if (!object) {
 				return {};
@@ -479,47 +469,22 @@ namespace OpenWifi::SDK::GW {
 		}
 
 		/*
-			MakeBlockRuleRaw():
-			1. Build a config-raw array containing a single firewall rule named "Block_Clients".
-			2. Add one src_mac entry per blocked MAC (from blockedMacsNorm).
-			3. Return the constructed config-raw array so it can be saved into Config["config-raw"].
-		*/
-		static Poco::JSON::Array::Ptr BuildBlockClientsRule(
-			const std::list<std::string> &blockedMacsNorm) {
-			auto raw = Poco::makeShared<Poco::JSON::Array>();
-
-			raw->add(BuildConfigRawCommand("add", "firewall", "rule"));
-			raw->add(BuildConfigRawCommand("set", "firewall.@rule[-1].name", "Block_Clients"));
-			raw->add(BuildConfigRawCommand("set", "firewall.@rule[-1].src", "down1v0"));
-			raw->add(BuildConfigRawCommand("set", "firewall.@rule[-1].dest", "up0v0"));
-
-			for (const auto &macNorm : blockedMacsNorm) {
-				raw->add(BuildConfigRawCommand("add_list", "firewall.@rule[-1].src_mac",
-											   Utils::SerialToMAC(macNorm)));
-			}
-
-			raw->add(BuildConfigRawCommand("set", "firewall.@rule[-1].family", "any"));
-			raw->add(BuildConfigRawCommand("set", "firewall.@rule[-1].proto", "all"));
-			raw->add(BuildConfigRawCommand("set", "firewall.@rule[-1].target", "REJECT"));
-			raw->add(BuildConfigRawCommand("set", "firewall.@rule[-1].enabled", "1"));
-
-			return raw;
-		}
-
-		/*
 			ApplyClientAccessChanges():
 			1. Read and validate the request "client" array (each item needs "mac" + "access").
-			2. Normalize MAC addresses and validate access is either "allow" or "deny".
-			3. Load current blocked list from Config["config-raw"].
-			4. Apply request entries as a delta (deny adds, allow removes).
-			5. Remove existing Config["config-raw"] completely.
-			6. Write new block rule to Config["config-raw"] if blocked list is non-empty.
+			2. For each entry:
+			   - If access == "deny": compute start/stop date/time (with optional duration) and call
+				 SDK::ParentalControl::CreateClientAccess.
+			   - If access == "allow": call SDK::ParentalControl::DeleteClientAccess.
+			3. Extract config-raw snapshot from the PC response and update Config["config-raw"].
 		*/
-		static bool ApplyClientAccessChanges(
-			Poco::JSON::Object::Ptr &Config, const Poco::JSON::Object::Ptr &Body,
-			Poco::Net::HTTPResponse::HTTPStatus &responseStatus,
-			Poco::JSON::Object::Ptr &response) {
+		static bool ApplyClientAccessChanges(RESTAPIHandler *client,
+											 Poco::JSON::Object::Ptr &Config,
+											 const Poco::JSON::Object::Ptr &Body,
+											 const std::string &SubscriberId,
+											 Poco::Net::HTTPResponse::HTTPStatus &responseStatus,
+											 Poco::JSON::Object::Ptr &response) {
 			if (!Config || !Body || !Body->has("client") || !Body->isArray("client")) {
+				Poco::Logger::get("SDK_gw").error("Missing or invalid 'client' array in request body.");
 				return SetErrorResponse(Poco::Net::HTTPResponse::HTTP_BAD_REQUEST,
 										RESTAPI::Errors::MissingOrInvalidParameters, responseStatus,
 										response);
@@ -527,20 +492,20 @@ namespace OpenWifi::SDK::GW {
 
 			auto clientList = Body->getArray("client");
 			if (!clientList || clientList->size() == 0) {
+				Poco::Logger::get("SDK_gw").error("'client' array is empty.");
 				return SetErrorResponse(Poco::Net::HTTPResponse::HTTP_BAD_REQUEST,
 										RESTAPI::Errors::MissingOrInvalidParameters, responseStatus,
 										response);
 			}
 
-			std::list<std::string> blockedMacs;
-			if (!GetBlockedClients(Config, blockedMacs)) {
-				return SetErrorResponse(Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR,
-										RESTAPI::Errors::InternalError, responseStatus, response);
-			}
+			Poco::Logger::get("SDK_gw").information(fmt::format("Processing {} client access entry(ies) for subscriber: [{}]", clientList->size(), SubscriberId));
+
+			Poco::JSON::Object::Ptr lastCallResponse;
 
 			for (std::size_t i = 0; i < clientList->size(); ++i) {
 				auto entry = clientList->getObject(i);
 				if (!entry || !entry->has("mac") || !entry->has("access")) {
+					Poco::Logger::get("SDK_gw").error(fmt::format("Entry {} missing required 'mac' or 'access' fields.", i));
 					return SetErrorResponse(Poco::Net::HTTPResponse::HTTP_BAD_REQUEST,
 											RESTAPI::Errors::MissingOrInvalidParameters, responseStatus,
 											response);
@@ -548,10 +513,15 @@ namespace OpenWifi::SDK::GW {
 
 				std::string mac;
 				std::string access;
+				int64_t durationSec = 0;
 				try {
 					mac = entry->getValue<std::string>("mac");
 					access = entry->getValue<std::string>("access");
+					if (entry->has("duration") && !entry->isNull("duration")) {
+						durationSec = entry->getValue<int64_t>("duration");
+					}
 				} catch (...) {
+					Poco::Logger::get("SDK_gw").error(fmt::format("Failed to parse fields for entry {}.", i));
 					return SetErrorResponse(Poco::Net::HTTPResponse::HTTP_BAD_REQUEST,
 											RESTAPI::Errors::MissingOrInvalidParameters, responseStatus,
 											response);
@@ -559,25 +529,78 @@ namespace OpenWifi::SDK::GW {
 				Poco::trimInPlace(access);
 				Poco::toLowerInPlace(access);
 				if (!Utils::NormalizeMac(mac) || (access != "allow" && access != "deny")) {
+					Poco::Logger::get("SDK_gw").error(fmt::format("Invalid MAC [{}] or access [{}] for entry {}.", mac, access, i));
 					return SetErrorResponse(Poco::Net::HTTPResponse::HTTP_BAD_REQUEST,
 											RESTAPI::Errors::MissingOrInvalidParameters, responseStatus,
 											response);
 				}
+				std::string formattedMac = Utils::SerialToMAC(mac);
+				Poco::toLowerInPlace(formattedMac);
+
+				Poco::Net::HTTPResponse::HTTPStatus callStatus = Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR;
+				Poco::JSON::Object::Ptr callResponse;
 
 				if (access == "deny") {
-					if (std::find(blockedMacs.begin(), blockedMacs.end(), mac) == blockedMacs.end()) {
-						blockedMacs.push_back(mac);
+					Poco::DateTime now;
+					std::string startDate = Poco::DateTimeFormatter::format(now, "%Y-%m-%d");
+					std::string startTime = Poco::DateTimeFormatter::format(now, "%H:%M:%S");
+
+					Poco::DateTime nextDay = now + Poco::Timespan(86400, 0);
+					std::string stopDate = Poco::DateTimeFormatter::format(nextDay, "%Y-%m-%d");
+
+					std::string stopTime;
+					if (durationSec > 0) {
+						Poco::DateTime endDt = now + Poco::Timespan(durationSec, 0);
+						stopTime = Poco::DateTimeFormatter::format(endDt, "%H:%M:%S");
+					} else {
+						stopTime = "23:59:59";
 					}
+
+					Poco::JSON::Object reqBody;
+					reqBody.set("client_mac", formattedMac);
+					reqBody.set("start_date", startDate);
+					reqBody.set("stop_date", stopDate);
+					reqBody.set("start_time", startTime);
+					reqBody.set("stop_time", stopTime);
+
+					Poco::Logger::get("SDK_gw").information(fmt::format(
+						"Sending BLOCK request for client: [{}] subscriber: [{}] "
+						"(start_date={}, stop_date={}, start_time={}, stop_time={}) to parental-control",
+						formattedMac, SubscriberId, startDate, stopDate, startTime, stopTime));
+
+					if (!SDK::ParentalControl::CreateClientAccess(client, SubscriberId, reqBody, callStatus, callResponse)) {
+						Poco::Logger::get("SDK_gw").error(fmt::format("CreateClientAccess failed for client: [{}] subscriber: [{}], Status={}",
+							formattedMac, SubscriberId, static_cast<int>(callStatus)));
+						responseStatus = callStatus;
+						response = callResponse ? callResponse : Poco::makeShared<Poco::JSON::Object>();
+						return false;
+					}
+					lastCallResponse = callResponse;
 				} else {
-					blockedMacs.remove(mac);
+					std::string rawResponseBody;
+					Poco::Logger::get("SDK_gw").information(fmt::format("Sending UNBLOCK request for client: [{}] subscriber: [{}] to parental-control",
+									formattedMac, SubscriberId));
+
+					if (!SDK::ParentalControl::DeleteClientAccess(client, SubscriberId, formattedMac, callStatus, callResponse, rawResponseBody)) {
+						Poco::Logger::get("SDK_gw").error(fmt::format("DeleteClientAccess failed for client: [{}] subscriber: [{}], Status={}",
+							formattedMac, SubscriberId, static_cast<int>(callStatus)));
+						responseStatus = callStatus;
+						response = callResponse ? callResponse : Poco::makeShared<Poco::JSON::Object>();
+						return false;
+					}
+					lastCallResponse = callResponse;
 				}
 			}
 
-			if (Config->has("config-raw")) {
-				Config->remove("config-raw");
-			}
-			if (!blockedMacs.empty()) {
-				Config->set("config-raw", BuildBlockClientsRule(blockedMacs));
+			Poco::JSON::Array::Ptr configRaw;
+			if (lastCallResponse && RESTAPI::ParentalControl::ExtractConfigRawSnapshot(lastCallResponse, configRaw, false) && configRaw && configRaw->size() > 0) {
+				Poco::Logger::get("SDK_gw").information(fmt::format("Updated config-raw snapshot with {} rule(s) from parental-control", configRaw->size()));
+				Config->set("config-raw", configRaw);
+			} else {
+				Poco::Logger::get("SDK_gw").information("No active parental control rules remaining, clearing config-raw section");
+				if (Config->has("config-raw")) {
+					Config->remove("config-raw");
+				}
 			}
 			return true;
 		}
@@ -602,7 +625,7 @@ namespace OpenWifi::SDK::GW {
 
 		bool SetConfig(RESTAPIHandler *client, const Poco::JSON::Object::Ptr &Body,
 					   const ProvObjects::SubscriberDeviceList &SubscriberDevices,
-					   const std::string &GatewaySerial,
+					   const std::string &GatewaySerial, const std::string &SubscriberId,
 					   Poco::Net::HTTPResponse::HTTPStatus &ResponseStatus,
 					   Poco::JSON::Object::Ptr &Response) {
 			if (!Body) {
@@ -648,7 +671,7 @@ namespace OpenWifi::SDK::GW {
 			}
 
 			if (Body->has("client") &&
-				!ApplyClientAccessChanges(config, Body, ResponseStatus, Response)) {
+				!ApplyClientAccessChanges(client, config, Body, SubscriberId, ResponseStatus, Response)) {
 				return false;
 			}
 			const auto updatedConfigSnapshot = SerializeJson(config);

@@ -259,4 +259,30 @@ namespace OpenWifi::SDK::ParentalControl {
 		return ExecutePutObject(client, endpoint, Body, 120000, CallStatus, CallResponse);
 	}
 
+	// =========================================================================
+	// Client Access
+	// =========================================================================
+
+	bool CreateClientAccess(RESTAPIHandler *client, const std::string &SubscriberId,
+							const Poco::JSON::Object &Body,
+							Poco::Net::HTTPResponse::HTTPStatus &CallStatus,
+							Poco::JSON::Object::Ptr &CallResponse) {
+		std::string endpoint = "/api/v1/subscribers/" + SubscriberId + "/client-access";
+		return ExecutePostObject(client, endpoint, Body, 120000, CallStatus, CallResponse);
+	}
+
+	bool DeleteClientAccess(RESTAPIHandler *client, const std::string &SubscriberId,
+							const std::string &ClientMac,
+							Poco::Net::HTTPResponse::HTTPStatus &CallStatus,
+							Poco::JSON::Object::Ptr &CallResponse, std::string &RawResponseBody) {
+		std::string endpoint = "/api/v1/subscribers/" + SubscriberId + "/client-access/" + ClientMac;
+		if (!ExecuteDelete(client, endpoint, 120000, CallStatus, CallResponse, RawResponseBody)) {
+			return false;
+		}
+		if (RawResponseBody.empty() || !CallResponse || !CallResponse->has("config-raw")) {
+			return false;
+		}
+		return true;
+	}
+
 } // namespace OpenWifi::SDK::ParentalControl

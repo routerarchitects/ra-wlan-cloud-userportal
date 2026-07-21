@@ -129,4 +129,18 @@ namespace OpenWifi::SDK::ParentalControl {
 							   Poco::Net::HTTPResponse::HTTPStatus &CallStatus,
 							   Poco::JSON::Object::Ptr &CallResponse);
 
+	// =========================================================================
+	// Client Access
+	// =========================================================================
+
+	bool CreateClientAccess(RESTAPIHandler *client, const std::string &SubscriberId,
+							const Poco::JSON::Object &Body,
+							Poco::Net::HTTPResponse::HTTPStatus &CallStatus,
+							Poco::JSON::Object::Ptr &CallResponse);
+
+	bool DeleteClientAccess(RESTAPIHandler *client, const std::string &SubscriberId,
+							const std::string &ClientMac,
+							Poco::Net::HTTPResponse::HTTPStatus &CallStatus,
+							Poco::JSON::Object::Ptr &CallResponse, std::string &RawResponseBody);
+
 } // namespace OpenWifi::SDK::ParentalControl

@@ -194,6 +194,11 @@ components:
           enum:
             - allow
             - deny
+        duration:
+          type: integer
+          format: int64
+          minimum: 1
+          description: Optional duration in seconds for client block (access = deny). If omitted, block is treated as indefinite/permanent for whole day.
       additionalProperties: false
 
     ActionSuccessResponse:
@@ -1260,6 +1265,7 @@ paths:
       tags:
         - Device Commands
       summary: Sending different commands to a device
+      description: Executes device control commands (configure, reboot, blink, upgrade, factory). For action=configure, applies network configuration changes including SSID overrides and client-access parental control rules to the gateway.
       operationId: performAnAction
       security:
         - bearerAuth: []
@@ -1291,6 +1297,7 @@ paths:
                       access: allow
                     - mac: f0:09:0d:2d:b4:9c
                       access: deny
+                      duration: 1800
               blink:
                 value:
                   mac: f0:09:0d:2d:b4:9c
@@ -1322,6 +1329,7 @@ paths:
       tags:
         - Device Topology
       summary: Retrieve the network topology for the subscriber
+      description: Retrieve the network topology for the subscriber. Evaluates active parental control rules in real-time (combining date-bounded client access rules and recurring group schedule weekday rules) to set the 'blocked' status ("0" or "1") on historical and connected clients.
       operationId: getTopology
       security:
         - bearerAuth: []

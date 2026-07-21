@@ -342,24 +342,10 @@ namespace OpenWifi {
 				}
 			}
 
-			// If config-raw contains our block-clients rule, don't send config-raw to mesh devices.
+			// Parental control rules in config-raw are gateway-only; strip config-raw for mesh devices.
 			if (cfg.contains("config-raw")) {
-				for (const auto &cmd : cfg["config-raw"]) {
-					if (!cmd.is_array() || cmd.size() < 3) {
-						continue;
-					}
-					if (cmd[0] != "set" || cmd[1] != "firewall.@rule[-1].name" ||
-						!cmd[2].is_string()) {
-						continue;
-					}
-					if (cmd[2].get<std::string>() == "Block_Clients") {
-						Logger_.information(
-							"Removing firewall-rule [Block_Clients] from config-raw for mesh "
-							"device.");
-						cfg.erase("config-raw");
-						break;
-					}
-				}
+				Logger_.information("Removing config-raw section for mesh device.");
+				cfg.erase("config-raw");
 			}
 
 			Poco::JSON::Parser parser;

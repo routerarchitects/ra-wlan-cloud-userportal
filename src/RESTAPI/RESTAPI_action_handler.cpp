@@ -143,8 +143,15 @@ namespace OpenWifi {
 			Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR;
 		Poco::JSON::Object::Ptr callResponse;
 
-		SDK::GW::Device::SetConfig(nullptr, ParsedBody_, ctx.SubscriberDevices, ctx.GatewaySerial,
-								   callStatus, callResponse);
+		Logger().information(fmt::format("Processing configure request for subscriber: [{}] gateway: [{}]", UserInfo_.userinfo.id, ctx.GatewaySerial));
+
+		SDK::GW::Device::SetConfig(this, ParsedBody_, ctx.SubscriberDevices, ctx.GatewaySerial, UserInfo_.userinfo.id, callStatus, callResponse);
+		if (callStatus != Poco::Net::HTTPResponse::HTTP_OK) {
+			Logger().error(fmt::format("SetConfig failed for subscriber: [{}] gateway: [{}], Status={}",
+									   UserInfo_.userinfo.id, ctx.GatewaySerial, static_cast<int>(callStatus)));
+		} else {
+			Logger().information(fmt::format("SetConfig succeeded for subscriber: [{}] gateway: [{}]", UserInfo_.userinfo.id, ctx.GatewaySerial));
+		}
 		ReturnSDKResponse(callStatus, callResponse);
 		return callStatus == Poco::Net::HTTPResponse::HTTP_OK;
 	}
