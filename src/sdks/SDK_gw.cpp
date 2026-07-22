@@ -12,6 +12,7 @@
 #include <Poco/DateTime.h>
 #include <Poco/DateTimeFormatter.h>
 #include <Poco/Timespan.h>
+#include <chrono>
 #include <algorithm>
 #include <regex>
 #include <sstream>
@@ -472,7 +473,7 @@ namespace OpenWifi::SDK::GW {
 			ApplyClientAccessChanges():
 			1. Read and validate the request "client" array (each item needs "mac" + "access").
 			2. For each entry:
-			   - If access == "deny": compute start/stop date/time (with optional duration) and call
+			   - If access == "deny": compute start/stop date/time (with optional duration in minutes) and call
 				 SDK::ParentalControl::CreateClientAccess.
 			   - If access == "allow": call SDK::ParentalControl::DeleteClientAccess.
 			3. Extract config-raw snapshot from the PC response and update Config["config-raw"].
@@ -513,14 +514,14 @@ namespace OpenWifi::SDK::GW {
 
 				std::string mac;
 				std::string access;
-				int64_t durationSec = 0;
+				int64_t durationMinutes = 0;
 				bool hasDuration = false;
 				try {
 					mac = entry->getValue<std::string>("mac");
 					access = entry->getValue<std::string>("access");
 					if (entry->has("duration") && !entry->isNull("duration")) {
 						hasDuration = true;
-						durationSec = entry->getValue<int64_t>("duration");
+						durationMinutes = entry->getValue<int64_t>("duration");
 					}
 				} catch (...) {
 					Poco::Logger::get("SDK_gw").error(fmt::format("Failed to parse fields for entry {}.", i));
@@ -530,12 +531,13 @@ namespace OpenWifi::SDK::GW {
 				}
 				Poco::trimInPlace(access);
 				Poco::toLowerInPlace(access);
-				if (!Utils::NormalizeMac(mac) || (access != "allow" && access != "deny") || (hasDuration && durationSec < 1)) {
-					Poco::Logger::get("SDK_gw").error(fmt::format("Invalid MAC [{}], access [{}], or duration [{}] for entry {}.", mac, access, durationSec, i));
+				if (!Utils::NormalizeMac(mac) || (access != "allow" && access != "deny") || (hasDuration && durationMinutes < 1)) {
+					Poco::Logger::get("SDK_gw").error(fmt::format("Invalid MAC [{}], access [{}], or duration minutes [{}] for entry {}.", mac, access, durationMinutes, i));
 					return SetErrorResponse(Poco::Net::HTTPResponse::HTTP_BAD_REQUEST,
 											RESTAPI::Errors::MissingOrInvalidParameters, responseStatus,
 											response);
 				}
+
 				std::string formattedMac = Utils::SerialToMAC(mac);
 				Poco::toLowerInPlace(formattedMac);
 
@@ -551,8 +553,8 @@ namespace OpenWifi::SDK::GW {
 					std::string stopDate = Poco::DateTimeFormatter::format(nextDay, "%Y-%m-%d");
 
 					std::string stopTime;
-					if (durationSec > 0) {
-						Poco::DateTime endDt = now + Poco::Timespan(durationSec, 0);
+					if (durationMinutes > 0) {
+						Poco::DateTime endDt = now + Poco::Timespan(std::chrono::minutes(durationMinutes));
 						stopTime = Poco::DateTimeFormatter::format(endDt, "%H:%M:%S");
 					} else {
 						stopTime = "23:59:59";

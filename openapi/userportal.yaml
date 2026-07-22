@@ -198,7 +198,7 @@ components:
           type: integer
           format: int64
           minimum: 1
-          description: Optional duration in seconds for client block (access = deny). If omitted, block applies for remainder of current day (until 23:59:59).
+          description: Optional duration in minutes for client block (access = deny). If omitted, block applies for remainder of current day (until 23:59:59).
       additionalProperties: false
 
     ActionSuccessResponse:
@@ -1297,7 +1297,7 @@ paths:
                       access: allow
                     - mac: f0:09:0d:2d:b4:9c
                       access: deny
-                      duration: 1800
+                      duration: 30
               blink:
                 value:
                   mac: f0:09:0d:2d:b4:9c
