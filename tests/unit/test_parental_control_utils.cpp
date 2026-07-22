@@ -1456,7 +1456,211 @@ void TestGetBlockedClientsClientAccessOvernightExpiredWindowInactive() {
     Expect(blockedMacs.empty(), "Expired overnight client-access window should not block client");
 }
 
+void TestGetBlockedClientsIncompleteRuleMissingEnabled() {
+    auto config = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+    auto configRaw = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E", "rule"}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.start_date", "2026-07-21"}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.stop_date", "2026-07-22"}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.start_time", "08:00:00"}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.stop_time", "18:00:00"}));
+    configRaw->add(MakeStringArray({"add_list", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.src_mac", "5a:f8:57:ca:a5:3e"}));
+    config->set("config-raw", configRaw);
+
+    std::list<std::string> blockedMacs;
+    Expect(OpenWifi::RESTAPI::ParentalControl::GetBlockedClients(config, blockedMacs), "GetBlockedClients should return true");
+    Expect(blockedMacs.empty(), "Rule missing enabled should be ignored");
+}
+
+void TestGetBlockedClientsIncompleteRuleMissingSectionDeclaration() {
+    auto config = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+    auto configRaw = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.enabled", "1"}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.start_date", "2026-07-21"}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.stop_date", "2026-07-22"}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.start_time", "08:00:00"}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.stop_time", "18:00:00"}));
+    configRaw->add(MakeStringArray({"add_list", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.src_mac", "5a:f8:57:ca:a5:3e"}));
+    config->set("config-raw", configRaw);
+
+    std::list<std::string> blockedMacs;
+    Expect(OpenWifi::RESTAPI::ParentalControl::GetBlockedClients(config, blockedMacs), "GetBlockedClients should return true");
+    Expect(blockedMacs.empty(), "Rule missing section declaration should be ignored");
+}
+
+void TestGetBlockedClientsIncompleteRuleMissingDates() {
+    auto config = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+    auto configRaw = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E", "rule"}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.enabled", "1"}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.start_time", "08:00:00"}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.stop_time", "18:00:00"}));
+    configRaw->add(MakeStringArray({"add_list", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.src_mac", "5a:f8:57:ca:a5:3e"}));
+    config->set("config-raw", configRaw);
+
+    std::list<std::string> blockedMacs;
+    Expect(OpenWifi::RESTAPI::ParentalControl::GetBlockedClients(config, blockedMacs), "GetBlockedClients should return true");
+    Expect(blockedMacs.empty(), "Rule missing start/stop date should be ignored");
+}
+
+void TestGetBlockedClientsIncompleteRuleMissingStopTime() {
+    auto config = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+    auto configRaw = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E", "rule"}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.enabled", "1"}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.start_date", "2026-07-21"}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.stop_date", "2026-07-22"}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.start_time", "08:00:00"}));
+    configRaw->add(MakeStringArray({"add_list", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.src_mac", "5a:f8:57:ca:a5:3e"}));
+    config->set("config-raw", configRaw);
+
+    std::list<std::string> blockedMacs;
+    Expect(OpenWifi::RESTAPI::ParentalControl::GetBlockedClients(config, blockedMacs), "GetBlockedClients should return true");
+    Expect(blockedMacs.empty(), "Rule missing stop time should be ignored");
+}
+
+void TestGetBlockedClientsMalformedDatesOrTimes() {
+    // 1. Invalid date (Feb 31)
+    {
+        auto config = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+        auto configRaw = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
+        configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E", "rule"}));
+        configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.enabled", "1"}));
+        configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.start_date", "2026-02-31"}));
+        configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.stop_date", "2026-07-22"}));
+        configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.start_time", "08:00:00"}));
+        configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.stop_time", "18:00:00"}));
+        configRaw->add(MakeStringArray({"add_list", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.src_mac", "5a:f8:57:ca:a5:3e"}));
+        config->set("config-raw", configRaw);
+        std::list<std::string> blockedMacs;
+        Expect(OpenWifi::RESTAPI::ParentalControl::GetBlockedClients(config, blockedMacs), "GetBlockedClients should return true");
+        Expect(blockedMacs.empty(), "Rule with 2026-02-31 should be ignored");
+    }
+
+    // 2. Invalid date (April 31)
+    {
+        auto config = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+        auto configRaw = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
+        configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E", "rule"}));
+        configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.enabled", "1"}));
+        configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.start_date", "2026-04-31"}));
+        configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.stop_date", "2026-07-22"}));
+        configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.start_time", "08:00:00"}));
+        configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.stop_time", "18:00:00"}));
+        configRaw->add(MakeStringArray({"add_list", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.src_mac", "5a:f8:57:ca:a5:3e"}));
+        config->set("config-raw", configRaw);
+        std::list<std::string> blockedMacs;
+        Expect(OpenWifi::RESTAPI::ParentalControl::GetBlockedClients(config, blockedMacs), "GetBlockedClients should return true");
+        Expect(blockedMacs.empty(), "Rule with 2026-04-31 should be ignored");
+    }
+
+    // 3. Invalid hour (25:00:00)
+    {
+        auto config = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+        auto configRaw = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
+        configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E", "rule"}));
+        configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.enabled", "1"}));
+        configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.start_date", "2026-07-21"}));
+        configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.stop_date", "2026-07-22"}));
+        configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.start_time", "25:00:00"}));
+        configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.stop_time", "18:00:00"}));
+        configRaw->add(MakeStringArray({"add_list", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.src_mac", "5a:f8:57:ca:a5:3e"}));
+        config->set("config-raw", configRaw);
+        std::list<std::string> blockedMacs;
+        Expect(OpenWifi::RESTAPI::ParentalControl::GetBlockedClients(config, blockedMacs), "GetBlockedClients should return true");
+        Expect(blockedMacs.empty(), "Rule with 25:00:00 should be ignored");
+    }
+
+    // 4. Invalid time format (12:00)
+    {
+        auto config = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+        auto configRaw = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
+        configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E", "rule"}));
+        configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.enabled", "1"}));
+        configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.start_date", "2026-07-21"}));
+        configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.stop_date", "2026-07-22"}));
+        configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.start_time", "12:00"}));
+        configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.stop_time", "18:00:00"}));
+        configRaw->add(MakeStringArray({"add_list", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.src_mac", "5a:f8:57:ca:a5:3e"}));
+        config->set("config-raw", configRaw);
+        std::list<std::string> blockedMacs;
+        Expect(OpenWifi::RESTAPI::ParentalControl::GetBlockedClients(config, blockedMacs), "GetBlockedClients should return true");
+        Expect(blockedMacs.empty(), "Rule with 12:00 should be ignored");
+    }
+}
+
+void TestGetBlockedClientsIncorrectOperationTypes() {
+    auto config = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+    auto configRaw = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
+    configRaw->add(MakeStringArray({"add_list", "firewall.pc_client_access_5A_F8_57_CA_A5_3E", "rule"}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.enabled", "1"}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.start_date", "2026-07-21"}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.stop_date", "2026-07-22"}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.start_time", "08:00:00"}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.stop_time", "18:00:00"}));
+    configRaw->add(MakeStringArray({"add_list", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.src_mac", "5a:f8:57:ca:a5:3e"}));
+    config->set("config-raw", configRaw);
+
+    std::list<std::string> blockedMacs;
+    Expect(OpenWifi::RESTAPI::ParentalControl::GetBlockedClients(config, blockedMacs), "GetBlockedClients should return true");
+    Expect(blockedMacs.empty(), "Rule with incorrect section op should be ignored");
+
+    auto config2 = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+    auto configRaw2 = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
+    configRaw2->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E", "rule"}));
+    configRaw2->add(MakeStringArray({"add_list", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.enabled", "1"}));
+    configRaw2->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.start_date", "2026-07-21"}));
+    configRaw2->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.stop_date", "2026-07-22"}));
+    configRaw2->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.start_time", "08:00:00"}));
+    configRaw2->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.stop_time", "18:00:00"}));
+    configRaw2->add(MakeStringArray({"add_list", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.src_mac", "5a:f8:57:ca:a5:3e"}));
+    config2->set("config-raw", configRaw2);
+
+    blockedMacs.clear();
+    Expect(OpenWifi::RESTAPI::ParentalControl::GetBlockedClients(config2, blockedMacs), "GetBlockedClients should return true");
+    Expect(blockedMacs.empty(), "Rule with incorrect scalar field op should be ignored");
+
+    auto config3 = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+    auto configRaw3 = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
+    configRaw3->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E", "rule"}));
+    configRaw3->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.enabled", "1"}));
+    configRaw3->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.start_date", "2026-07-21"}));
+    configRaw3->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.stop_date", "2026-07-22"}));
+    configRaw3->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.start_time", "08:00:00"}));
+    configRaw3->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.stop_time", "18:00:00"}));
+    configRaw3->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.src_mac", "5a:f8:57:ca:a5:3e"}));
+    config3->set("config-raw", configRaw3);
+
+    blockedMacs.clear();
+    Expect(OpenWifi::RESTAPI::ParentalControl::GetBlockedClients(config3, blockedMacs), "GetBlockedClients should return true");
+    Expect(blockedMacs.empty(), "Rule with incorrect MAC list op should be ignored");
+}
+
+void TestGetBlockedClientsIncompleteRuleMissingMacs() {
+    auto config = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+    auto configRaw = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E", "rule"}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.enabled", "1"}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.start_date", "2026-07-21"}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.stop_date", "2026-07-22"}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.start_time", "08:00:00"}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.stop_time", "18:00:00"}));
+    configRaw->add(MakeStringArray({"add_list", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.src_mac", "invalid_mac"}));
+    config->set("config-raw", configRaw);
+
+    std::list<std::string> blockedMacs;
+    Expect(OpenWifi::RESTAPI::ParentalControl::GetBlockedClients(config, blockedMacs), "GetBlockedClients should return true");
+    Expect(blockedMacs.empty(), "Rule without valid MACs should be ignored");
+}
+
 const std::vector<std::pair<std::string, std::function<void()>>> kTests = {
+    {"GetBlockedClientsIncompleteRuleMissingEnabled", TestGetBlockedClientsIncompleteRuleMissingEnabled},
+    {"GetBlockedClientsIncompleteRuleMissingSectionDeclaration", TestGetBlockedClientsIncompleteRuleMissingSectionDeclaration},
+    {"GetBlockedClientsIncompleteRuleMissingDates", TestGetBlockedClientsIncompleteRuleMissingDates},
+    {"GetBlockedClientsIncompleteRuleMissingStopTime", TestGetBlockedClientsIncompleteRuleMissingStopTime},
+    {"GetBlockedClientsMalformedDatesOrTimes", TestGetBlockedClientsMalformedDatesOrTimes},
+    {"GetBlockedClientsIncorrectOperationTypes", TestGetBlockedClientsIncorrectOperationTypes},
+    {"GetBlockedClientsIncompleteRuleMissingMacs", TestGetBlockedClientsIncompleteRuleMissingMacs},
     {"ValidateMacInTopologySuccessHistoricalClient", TestValidateMacInTopologySuccessHistoricalClient},
     {"ValidateMacInTopologySuccessHistoricalDevice", TestValidateMacInTopologySuccessHistoricalDevice},
     {"ValidateMacInTopologySuccessNodesClient", TestValidateMacInTopologySuccessNodesClient},

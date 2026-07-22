@@ -8,6 +8,7 @@
 #include "Poco/Format.h"
 #include "Poco/DateTime.h"
 #include "Poco/DateTimeFormatter.h"
+#include "Poco/DateTimeParser.h"
 #include "Poco/String.h"
 #include "fmt/format.h"
 #include "sdks/SDK_gw.h"
@@ -711,13 +712,33 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 
 	namespace {
 		struct FirewallRuleInfo {
-			bool enabled = true;
+			bool enabled = false;
+			bool hasSection = false;
+			bool hasEnabled = false;
+			bool hasStartDate = false;
+			bool hasStopDate = false;
+			bool hasStartTime = false;
+			bool hasStopTime = false;
 			std::string startDate;
 			std::string stopDate;
 			std::string startTime;
 			std::string stopTime;
 			std::vector<std::string> macs;
 		};
+
+		bool IsValidDate(const std::string &date) {
+			if (date.size() != 10) return false;
+			Poco::DateTime dt;
+			int tz = 0;
+			return Poco::DateTimeParser::tryParse("%Y-%m-%d", date, dt, tz);
+		}
+
+		bool IsValidTime(const std::string &time) {
+			if (time.size() != 8) return false;
+			Poco::DateTime dt;
+			int tz = 0;
+			return Poco::DateTimeParser::tryParse("%H:%M:%S", time, dt, tz);
+		}
 
 		/*
 			IsRuleActive: Checks if a client-access firewall block rule is currently active.
@@ -728,33 +749,35 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 			by mango-parental-control.
 		*/
 		bool IsRuleActive(const std::string &nowDateStr, const std::string &nowTimeStr, const FirewallRuleInfo &rule) {
-			if (!rule.enabled) {
+			if (!rule.hasSection || !rule.hasEnabled || !rule.enabled) {
+				return false;
+			}
+
+			if (!rule.hasStartDate || !rule.hasStopDate || !rule.hasStartTime || !rule.hasStopTime) {
+				return false;
+			}
+
+			if (rule.macs.empty()) {
 				return false;
 			}
 
 			std::string nowStr = nowDateStr + " " + nowTimeStr;
-
-			if (!rule.startDate.empty() && !rule.startTime.empty()) {
-				std::string startStr = rule.startDate + " " + rule.startTime;
-				if (nowStr < startStr) {
-					return false;
-				}
+			std::string startStr = rule.startDate + " " + rule.startTime;
+			if (nowStr < startStr) {
+				return false;
 			}
 
-			if (!rule.stopTime.empty()) {
-				// For same-day time windows (stopTime >= startTime), the daily stop
-				// threshold uses startDate because stop_date is intentionally set to
-				// the next calendar date by mango-parental-control.
-				std::string stopDate = rule.stopDate;
-				if (!rule.startTime.empty() && rule.stopTime >= rule.startTime && !rule.startDate.empty()) {
-					stopDate = rule.startDate;
-				}
-				if (!stopDate.empty()) {
-					std::string stopStr = stopDate + " " + rule.stopTime;
-					if (nowStr > stopStr) {
-						return false;
-					}
-				}
+			// For same-day time windows (stopTime >= startTime), the daily stop
+			// threshold uses startDate because stop_date is intentionally set to
+			// the next calendar date by mango-parental-control.
+			std::string stopDate = rule.stopDate;
+			if (rule.stopTime >= rule.startTime) {
+				stopDate = rule.startDate;
+			}
+
+			std::string stopStr = stopDate + " " + rule.stopTime;
+			if (nowStr > stopStr) {
+				return false;
 			}
 
 			return true;
@@ -788,27 +811,40 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 				auto key = cmd->getElement<std::string>(1);
 				auto val = cmd->getElement<std::string>(2);
 
-				auto dotPos = key.rfind('.');
-				if (dotPos != std::string::npos) {
-					std::string section = key.substr(0, dotPos);
-					std::string param = key.substr(dotPos + 1);
+				if (key.rfind("firewall.pc_client_access_", 0) == 0) {
+					std::string prefix = "firewall.pc_client_access_";
+					auto nextDot = key.find('.', prefix.size());
+					if (nextDot == std::string::npos) {
+						if (op == "set" && val == "rule") {
+							rules[key].hasSection = true;
+						}
+					} else {
+						std::string section = key.substr(0, nextDot);
+						std::string param = key.substr(nextDot + 1);
 
-					if (section.find("pc_client_access_") == std::string::npos) {
-						continue;
-					}
-
-					if (param == "enabled") {
-						rules[section].enabled = (val == "1");
-					} else if (param == "start_date") {
-						rules[section].startDate = val;
-					} else if (param == "stop_date") {
-						rules[section].stopDate = val;
-					} else if (param == "start_time") {
-						rules[section].startTime = val;
-					} else if (param == "stop_time") {
-						rules[section].stopTime = val;
-					} else if (op == "add_list" && param == "src_mac") {
-						rules[section].macs.push_back(val);
+						if (op == "set") {
+							if (param == "enabled") {
+								rules[section].enabled = (val == "1");
+								rules[section].hasEnabled = true;
+							} else if (param == "start_date") {
+								rules[section].startDate = val;
+								rules[section].hasStartDate = IsValidDate(val);
+							} else if (param == "stop_date") {
+								rules[section].stopDate = val;
+								rules[section].hasStopDate = IsValidDate(val);
+							} else if (param == "start_time") {
+								rules[section].startTime = val;
+								rules[section].hasStartTime = IsValidTime(val);
+							} else if (param == "stop_time") {
+								rules[section].stopTime = val;
+								rules[section].hasStopTime = IsValidTime(val);
+							}
+						} else if (op == "add_list" && param == "src_mac") {
+							std::string normalizedMac = val;
+							if (Utils::NormalizeMac(normalizedMac)) {
+								rules[section].macs.push_back(normalizedMac);
+							}
+						}
 					}
 				}
 			} catch (...) {
