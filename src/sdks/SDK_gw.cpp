@@ -503,6 +503,17 @@ namespace OpenWifi::SDK::GW {
 
 			Poco::JSON::Object::Ptr lastCallResponse;
 
+			struct ValidatedClientEntry {
+				std::string mac;
+				std::string formattedMac;
+				std::string access;
+				int64_t durationMinutes = 0;
+				bool hasDuration = false;
+			};
+			std::vector<ValidatedClientEntry> validatedEntries;
+			validatedEntries.reserve(clientList->size());
+
+			// Pass 1: Local validation with no side effects
 			for (std::size_t i = 0; i < clientList->size(); ++i) {
 				auto entry = clientList->getObject(i);
 				if (!entry || !entry->has("mac") || !entry->has("access")) {
@@ -579,18 +590,29 @@ namespace OpenWifi::SDK::GW {
 				std::string formattedMac = Utils::SerialToMAC(mac);
 				Poco::toLowerInPlace(formattedMac);
 
+				ValidatedClientEntry validatedEntry;
+				validatedEntry.mac = mac;
+				validatedEntry.formattedMac = formattedMac;
+				validatedEntry.access = access;
+				validatedEntry.durationMinutes = durationMinutes;
+				validatedEntry.hasDuration = hasDuration;
+				validatedEntries.push_back(validatedEntry);
+			}
+
+			// Pass 2: Execute REST calls downstream (guaranteed that all entries are locally valid)
+			for (const auto &entry : validatedEntries) {
 				Poco::Net::HTTPResponse::HTTPStatus callStatus = Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR;
 				Poco::JSON::Object::Ptr callResponse;
 
-				if (access == "deny") {
+				if (entry.access == "deny") {
 					Poco::DateTime now;
 					std::string startDate = Poco::DateTimeFormatter::format(now, "%Y-%m-%d");
 					std::string startTime = Poco::DateTimeFormatter::format(now, "%H:%M:%S");
 
 					std::string stopDate;
 					std::string stopTime;
-					if (durationMinutes > 0) {
-						Poco::DateTime endDt = now + Poco::Timespan(durationMinutes * 60, 0);
+					if (entry.durationMinutes > 0) {
+						Poco::DateTime endDt = now + Poco::Timespan(entry.durationMinutes * 60, 0);
 						stopTime = Poco::DateTimeFormatter::format(endDt, "%H:%M:%S");
 
 						Poco::DateTime nextDay = endDt + Poco::Timespan(86400, 0);
@@ -602,7 +624,7 @@ namespace OpenWifi::SDK::GW {
 					}
 
 					Poco::JSON::Object reqBody;
-					reqBody.set("client_mac", formattedMac);
+					reqBody.set("client_mac", entry.formattedMac);
 					reqBody.set("start_date", startDate);
 					reqBody.set("stop_date", stopDate);
 					reqBody.set("start_time", startTime);
@@ -611,11 +633,11 @@ namespace OpenWifi::SDK::GW {
 					Poco::Logger::get("SDK_gw").information(fmt::format(
 						"Sending BLOCK request for client: [{}] subscriber: [{}] "
 						"(start_date={}, stop_date={}, start_time={}, stop_time={}) to parental-control",
-						formattedMac, SubscriberId, startDate, stopDate, startTime, stopTime));
+						entry.formattedMac, SubscriberId, startDate, stopDate, startTime, stopTime));
 
 					if (!SDK::ParentalControl::CreateClientAccess(client, SubscriberId, reqBody, callStatus, callResponse)) {
 						Poco::Logger::get("SDK_gw").error(fmt::format("CreateClientAccess failed for client: [{}] subscriber: [{}], Status={}",
-							formattedMac, SubscriberId, static_cast<int>(callStatus)));
+							entry.formattedMac, SubscriberId, static_cast<int>(callStatus)));
 						responseStatus = callStatus;
 						response = callResponse ? callResponse : Poco::makeShared<Poco::JSON::Object>();
 						return false;
@@ -624,11 +646,11 @@ namespace OpenWifi::SDK::GW {
 				} else {
 					std::string rawResponseBody;
 					Poco::Logger::get("SDK_gw").information(fmt::format("Sending UNBLOCK request for client: [{}] subscriber: [{}] to parental-control",
-									formattedMac, SubscriberId));
+									entry.formattedMac, SubscriberId));
 
-					if (!SDK::ParentalControl::DeleteClientAccess(client, SubscriberId, formattedMac, callStatus, callResponse, rawResponseBody)) {
+					if (!SDK::ParentalControl::DeleteClientAccess(client, SubscriberId, entry.formattedMac, callStatus, callResponse, rawResponseBody)) {
 						Poco::Logger::get("SDK_gw").error(fmt::format("DeleteClientAccess failed for client: [{}] subscriber: [{}], Status={}",
-							formattedMac, SubscriberId, static_cast<int>(callStatus)));
+							entry.formattedMac, SubscriberId, static_cast<int>(callStatus)));
 						responseStatus = callStatus;
 						response = callResponse ? callResponse : Poco::makeShared<Poco::JSON::Object>();
 						return false;

@@ -593,6 +593,107 @@ void TestSetConfigDurationValidation() {
     }
 }
 
+void TestSetConfigTwoPassValidation() {
+    // Case 1: Send multiple clients where the last client has an invalid MAC.
+    // Assert response is 400, and assert no downstream parental-control client-access calls are made.
+    {
+        ResetState();
+        auto deviceObj = Poco::makeShared<Poco::JSON::Object>();
+        auto configObj = Poco::makeShared<Poco::JSON::Object>();
+        deviceObj->set("configuration", configObj);
+        deviceObj->set("config-raw", Poco::makeShared<Poco::JSON::Array>());
+        g_state.nextObject = deviceObj;
+        g_state.nextStatus = Poco::Net::HTTPResponse::HTTP_OK;
+
+        OpenWifi::ProvObjects::SubscriberDeviceList subDevices;
+        OpenWifi::ProvObjects::SubscriberDevice dev;
+        dev.deviceGroup = "olg";
+        dev.serialNumber = "112233445566";
+        subDevices.subscriberDevices.push_back(dev);
+
+        auto body = Poco::makeShared<Poco::JSON::Object>();
+        auto clientArr = Poco::makeShared<Poco::JSON::Array>();
+        
+        // Client 1: Valid MAC
+        auto entry1 = Poco::makeShared<Poco::JSON::Object>();
+        entry1->set("mac", "11:22:33:44:55:66");
+        entry1->set("access", "deny");
+        clientArr->add(entry1);
+
+        // Client 2: Invalid MAC
+        auto entry2 = Poco::makeShared<Poco::JSON::Object>();
+        entry2->set("mac", "invalid-mac-address");
+        entry2->set("access", "deny");
+        clientArr->add(entry2);
+
+        body->set("client", clientArr);
+
+        Poco::Net::HTTPResponse::HTTPStatus status = Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR;
+        Poco::JSON::Object::Ptr response;
+        bool success = OpenWifi::SDK::GW::Device::SetConfig(nullptr, body, subDevices, "112233445566", "sub-123", status, response);
+        
+        Expect(!success, "SetConfig should fail because of the invalid MAC in the second client");
+        ExpectEq(status, Poco::Net::HTTPResponse::HTTP_BAD_REQUEST, "status should be 400");
+        Expect(response && response->has("ErrorDescription"), "response must contain ErrorDescription");
+        ExpectEq(response->getValue<std::string>("ErrorDescription"),
+                 std::string("1019: Invalid MAC address."),
+                 "error text must match InvalidMacAddress");
+        
+        // Since GetConfig sets the endpoint to /api/v1/device/...
+        // If any client-access POST or DELETE call had been made, lastEndpoint would contain "client-access".
+        // Assert that lastEndpoint does NOT contain "client-access", verifying no calls were made.
+        Expect(g_state.lastEndpoint.find("client-access") == std::string::npos, 
+               "No downstream client-access calls should have been made due to early validation failure");
+    }
+
+    // Case 2: Success case confirming valid multi-client input still executes calls normally.
+    {
+        ResetState();
+        auto deviceObj = Poco::makeShared<Poco::JSON::Object>();
+        auto configObj = Poco::makeShared<Poco::JSON::Object>();
+        deviceObj->set("configuration", configObj);
+        deviceObj->set("config-raw", Poco::makeShared<Poco::JSON::Array>());
+        g_state.nextObject = deviceObj;
+        g_state.nextStatus = Poco::Net::HTTPResponse::HTTP_OK;
+
+        OpenWifi::ProvObjects::SubscriberDeviceList subDevices;
+        OpenWifi::ProvObjects::SubscriberDevice dev;
+        dev.deviceGroup = "olg";
+        dev.serialNumber = "112233445566";
+        subDevices.subscriberDevices.push_back(dev);
+
+        auto body = Poco::makeShared<Poco::JSON::Object>();
+        auto clientArr = Poco::makeShared<Poco::JSON::Array>();
+        
+        // Client 1: Valid MAC
+        auto entry1 = Poco::makeShared<Poco::JSON::Object>();
+        entry1->set("mac", "11:22:33:44:55:66");
+        entry1->set("access", "deny");
+        clientArr->add(entry1);
+
+        // Client 2: Valid MAC
+        auto entry2 = Poco::makeShared<Poco::JSON::Object>();
+        entry2->set("mac", "aa:bb:cc:dd:ee:ff");
+        entry2->set("access", "deny");
+        clientArr->add(entry2);
+
+        body->set("client", clientArr);
+
+        Poco::Net::HTTPResponse::HTTPStatus status = Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR;
+        Poco::JSON::Object::Ptr response;
+        bool success = OpenWifi::SDK::GW::Device::SetConfig(nullptr, body, subDevices, "112233445566", "sub-123", status, response);
+        
+        Expect(success, "SetConfig with multiple valid clients should succeed");
+        ExpectEq(status, Poco::Net::HTTPResponse::HTTP_OK, "status should be 200");
+        
+        // Verify that downstream client-access calls were actually executed.
+        // The last endpoint processed should be the client-access endpoint for aa:bb:cc:dd:ee:ff (Client 2).
+        Expect(g_state.lastEndpoint.find("client-access") != std::string::npos,
+               "Downstream client-access calls should have been executed");
+        ExpectEq(g_state.lastMethod, std::string("POST"), "Last call should have been a POST to client-access");
+    }
+}
+
 const std::vector<std::pair<std::string, std::function<void()>>> kTests = {
     {"GetGroupDevicesSuccess", TestGetGroupDevicesSuccess},
     {"CreateGroupDeviceSuccess", TestCreateGroupDeviceSuccess},
@@ -608,6 +709,7 @@ const std::vector<std::pair<std::string, std::function<void()>>> kTests = {
     {"Non200StatusFailsWrapper", TestNon200StatusFailsWrapper},
     {"BearerTokenIsNotForwardedFromClient", TestBearerTokenIsNotForwardedFromClient},
     {"SetConfigDurationValidation", TestSetConfigDurationValidation},
+    {"SetConfigTwoPassValidation", TestSetConfigTwoPassValidation},
 };
 
 
