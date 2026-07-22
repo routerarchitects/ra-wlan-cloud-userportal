@@ -17,6 +17,8 @@
 #include "Poco/JSON/Object.h"
 #include "Poco/JSON/Parser.h"
 #include "Poco/Logger.h"
+#include "Poco/Timespan.h"
+#include "Poco/Timestamp.h"
 #include "Poco/Net/HTTPServerParams.h"
 #include "Poco/Net/SocketAddress.h"
 #include "RESTAPI/RESTAPI_parental_control_utils.h"
@@ -92,6 +94,16 @@ std::string MacWithColons(const std::string &value) {
         os << value.substr(i, 2);
     }
     return os.str();
+}
+
+std::string FormatDate(const Poco::DateTime &value) {
+    return Poco::DateTimeFormatter::format(value, "%Y-%m-%d");
+}
+
+Poco::DateTime ShiftDateTime(const Poco::DateTime &value, int days, int hours = 0, int minutes = 0, int seconds = 0) {
+    Poco::Timestamp ts = value.timestamp();
+    ts += Poco::Timespan(days, hours, minutes, seconds, 0);
+    return Poco::DateTime(ts);
 }
 
 class FakeHTTPServerParams final : public Poco::Net::HTTPServerParams {
@@ -1265,14 +1277,15 @@ void TestHandleValidateMacResult() {
 
 void TestGetBlockedClientsClientAccessExpiredRuleSameDay() {
     Poco::DateTime now;
-    std::string todayDate = Poco::DateTimeFormatter::format(now, "%Y-%m-%d");
+    std::string todayDate = FormatDate(now);
+    std::string tomorrowDate = FormatDate(ShiftDateTime(now, 1));
 
     auto config = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
     auto configRaw = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
     configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_6C_C7_EC_DE_10_65", "rule"}));
     configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_6C_C7_EC_DE_10_65.enabled", "1"}));
     configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_6C_C7_EC_DE_10_65.start_date", todayDate}));
-    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_6C_C7_EC_DE_10_65.stop_date", "2099-12-31"}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_6C_C7_EC_DE_10_65.stop_date", tomorrowDate}));
     configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_6C_C7_EC_DE_10_65.start_time", "00:00:00"}));
     configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_6C_C7_EC_DE_10_65.stop_time", "00:00:01"}));
     configRaw->add(MakeStringArray({"add_list", "firewall.pc_client_access_6C_C7_EC_DE_10_65.src_mac", "6c:c7:ec:de:10:65"}));
@@ -1285,14 +1298,15 @@ void TestGetBlockedClientsClientAccessExpiredRuleSameDay() {
 
 void TestGetBlockedClientsClientAccessActiveRule() {
     Poco::DateTime now;
-    std::string todayDate = Poco::DateTimeFormatter::format(now, "%Y-%m-%d");
+    std::string todayDate = FormatDate(now);
+    std::string tomorrowDate = FormatDate(ShiftDateTime(now, 1));
 
     auto config = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
     auto configRaw = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
     configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_10_F1_F2_86_11_DC", "rule"}));
     configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_10_F1_F2_86_11_DC.enabled", "1"}));
     configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_10_F1_F2_86_11_DC.start_date", todayDate}));
-    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_10_F1_F2_86_11_DC.stop_date", "2099-12-31"}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_10_F1_F2_86_11_DC.stop_date", tomorrowDate}));
     configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_10_F1_F2_86_11_DC.start_time", "00:00:00"}));
     configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_10_F1_F2_86_11_DC.stop_time", "23:59:59"}));
     configRaw->add(MakeStringArray({"add_list", "firewall.pc_client_access_10_F1_F2_86_11_DC.src_mac", "10:f1:f2:86:11:dc"}));
@@ -1303,7 +1317,7 @@ void TestGetBlockedClientsClientAccessActiveRule() {
     ExpectEq(blockedMacs.size(), static_cast<std::size_t>(1), "Active rule should produce 1 blocked MAC");
 }
 
-void TestGetBlockedClientsGroupScheduleRuleWeekdayMatch() {
+void TestGetBlockedClientsGroupScheduleRuleIgnored() {
     Poco::DateTime now;
     static const std::vector<std::string> names = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
     std::string todayWeekday = names[now.dayOfWeek()];
@@ -1320,48 +1334,26 @@ void TestGetBlockedClientsGroupScheduleRuleWeekdayMatch() {
 
     std::list<std::string> blockedMacs;
     Expect(OpenWifi::RESTAPI::ParentalControl::GetBlockedClients(config, blockedMacs), "GetBlockedClients should return true");
-    ExpectEq(blockedMacs.size(), static_cast<std::size_t>(1), "Group schedule active today should block client");
+    Expect(blockedMacs.empty(), "Topology blocked clients should ignore active group schedule rules");
 }
 
-void TestGetBlockedClientsGroupScheduleRuleWeekdayMismatch() {
+void TestGetBlockedClientsMixedRulesOnlyClientAccessBlocks() {
     Poco::DateTime now;
-    static const std::vector<std::string> names = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
-    std::string notTodayWeekday = names[(now.dayOfWeek() + 1) % 7];
-
-    auto config = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
-    auto configRaw = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
-    configRaw->add(MakeStringArray({"set", "firewall.pc_rule_g1_s1_5a_f8_57_ca_a5_3e", "rule"}));
-    configRaw->add(MakeStringArray({"set", "firewall.pc_rule_g1_s1_5a_f8_57_ca_a5_3e.enabled", "1"}));
-    configRaw->add(MakeStringArray({"set", "firewall.pc_rule_g1_s1_5a_f8_57_ca_a5_3e.weekdays", notTodayWeekday}));
-    configRaw->add(MakeStringArray({"set", "firewall.pc_rule_g1_s1_5a_f8_57_ca_a5_3e.start_time", "00:00:00"}));
-    configRaw->add(MakeStringArray({"set", "firewall.pc_rule_g1_s1_5a_f8_57_ca_a5_3e.stop_time", "23:59:59"}));
-    configRaw->add(MakeStringArray({"add_list", "firewall.pc_rule_g1_s1_5a_f8_57_ca_a5_3e.src_mac", "5a:f8:57:ca:a5:3e"}));
-    config->set("config-raw", configRaw);
-
-    std::list<std::string> blockedMacs;
-    Expect(OpenWifi::RESTAPI::ParentalControl::GetBlockedClients(config, blockedMacs), "GetBlockedClients should return true");
-    Expect(blockedMacs.empty(), "Group schedule for another weekday should not block client today");
-}
-
-void TestGetBlockedClientsOverlappingActiveRules() {
-    Poco::DateTime now;
-    std::string todayDate = Poco::DateTimeFormatter::format(now, "%Y-%m-%d");
+    std::string todayDate = FormatDate(now);
+    std::string tomorrowDate = FormatDate(ShiftDateTime(now, 1));
     static const std::vector<std::string> names = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
     std::string todayWeekday = names[now.dayOfWeek()];
 
     auto config = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
     auto configRaw = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
-
-    // Active client-access rule for MAC 1
     configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_10_F1_F2_86_11_DC", "rule"}));
     configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_10_F1_F2_86_11_DC.enabled", "1"}));
     configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_10_F1_F2_86_11_DC.start_date", todayDate}));
-    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_10_F1_F2_86_11_DC.stop_date", "2099-12-31"}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_10_F1_F2_86_11_DC.stop_date", tomorrowDate}));
     configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_10_F1_F2_86_11_DC.start_time", "00:00:00"}));
     configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_10_F1_F2_86_11_DC.stop_time", "23:59:59"}));
     configRaw->add(MakeStringArray({"add_list", "firewall.pc_client_access_10_F1_F2_86_11_DC.src_mac", "10:f1:f2:86:11:dc"}));
 
-    // Active group-schedule rule for MAC 2
     configRaw->add(MakeStringArray({"set", "firewall.pc_rule_g1_s1_5a_f8_57_ca_a5_3e", "rule"}));
     configRaw->add(MakeStringArray({"set", "firewall.pc_rule_g1_s1_5a_f8_57_ca_a5_3e.enabled", "1"}));
     configRaw->add(MakeStringArray({"set", "firewall.pc_rule_g1_s1_5a_f8_57_ca_a5_3e.weekdays", todayWeekday}));
@@ -1373,19 +1365,20 @@ void TestGetBlockedClientsOverlappingActiveRules() {
 
     std::list<std::string> blockedMacs;
     Expect(OpenWifi::RESTAPI::ParentalControl::GetBlockedClients(config, blockedMacs), "GetBlockedClients should return true");
-    ExpectEq(blockedMacs.size(), static_cast<std::size_t>(2), "Overlapping rules for MAC 1 & MAC 2 should produce 2 blocked MACs");
+    ExpectEq(blockedMacs.size(), static_cast<std::size_t>(1), "Only active client-access rules should affect topology blocked clients");
 }
 
 void TestGetBlockedClientsDisabledRulesIgnored() {
     Poco::DateTime now;
-    std::string todayDate = Poco::DateTimeFormatter::format(now, "%Y-%m-%d");
+    std::string todayDate = FormatDate(now);
+    std::string tomorrowDate = FormatDate(ShiftDateTime(now, 1));
 
     auto config = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
     auto configRaw = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
     configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_10_F1_F2_86_11_DC", "rule"}));
     configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_10_F1_F2_86_11_DC.enabled", "0"}));
     configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_10_F1_F2_86_11_DC.start_date", todayDate}));
-    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_10_F1_F2_86_11_DC.stop_date", "2099-12-31"}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_10_F1_F2_86_11_DC.stop_date", tomorrowDate}));
     configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_10_F1_F2_86_11_DC.start_time", "00:00:00"}));
     configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_10_F1_F2_86_11_DC.stop_time", "23:59:59"}));
     configRaw->add(MakeStringArray({"add_list", "firewall.pc_client_access_10_F1_F2_86_11_DC.src_mac", "10:f1:f2:86:11:dc"}));
@@ -1394,6 +1387,73 @@ void TestGetBlockedClientsDisabledRulesIgnored() {
     std::list<std::string> blockedMacs;
     Expect(OpenWifi::RESTAPI::ParentalControl::GetBlockedClients(config, blockedMacs), "GetBlockedClients should return true");
     Expect(blockedMacs.empty(), "Disabled rule (enabled=0) should be ignored");
+}
+
+// =========================================================================
+// Client-access time window tests
+// =========================================================================
+
+void TestGetBlockedClientsClientAccessOvernightWindowActive() {
+    Poco::DateTime now;
+    std::string yesterdayDate = FormatDate(ShiftDateTime(now, -1));
+    std::string tomorrowDate = FormatDate(ShiftDateTime(now, 1));
+
+    auto config = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+    auto configRaw = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E", "rule"}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.enabled", "1"}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.start_date", yesterdayDate}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.stop_date", tomorrowDate}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.start_time", "23:59:59"}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.stop_time", "00:00:00"}));
+    configRaw->add(MakeStringArray({"add_list", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.src_mac", "5a:f8:57:ca:a5:3e"}));
+    config->set("config-raw", configRaw);
+
+    std::list<std::string> blockedMacs;
+    Expect(OpenWifi::RESTAPI::ParentalControl::GetBlockedClients(config, blockedMacs), "GetBlockedClients should return true");
+    ExpectEq(blockedMacs.size(), static_cast<std::size_t>(1), "Active overnight client-access window should block client");
+}
+
+void TestGetBlockedClientsClientAccessOvernightFutureWindowInactive() {
+    Poco::DateTime now;
+    std::string tomorrowDate = FormatDate(ShiftDateTime(now, 1));
+    std::string dayAfterTomorrowDate = FormatDate(ShiftDateTime(now, 2));
+
+    auto config = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+    auto configRaw = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E", "rule"}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.enabled", "1"}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.start_date", tomorrowDate}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.stop_date", dayAfterTomorrowDate}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.start_time", "23:59:59"}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.stop_time", "00:00:00"}));
+    configRaw->add(MakeStringArray({"add_list", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.src_mac", "5a:f8:57:ca:a5:3e"}));
+    config->set("config-raw", configRaw);
+
+    std::list<std::string> blockedMacs;
+    Expect(OpenWifi::RESTAPI::ParentalControl::GetBlockedClients(config, blockedMacs), "GetBlockedClients should return true");
+    Expect(blockedMacs.empty(), "Future overnight client-access window should not block client yet");
+}
+
+void TestGetBlockedClientsClientAccessOvernightExpiredWindowInactive() {
+    Poco::DateTime now;
+    std::string twoDaysAgoDate = FormatDate(ShiftDateTime(now, -2));
+    std::string yesterdayDate = FormatDate(ShiftDateTime(now, -1));
+
+    auto config = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+    auto configRaw = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E", "rule"}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.enabled", "1"}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.start_date", twoDaysAgoDate}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.stop_date", yesterdayDate}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.start_time", "23:59:59"}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.stop_time", "00:00:00"}));
+    configRaw->add(MakeStringArray({"add_list", "firewall.pc_client_access_5A_F8_57_CA_A5_3E.src_mac", "5a:f8:57:ca:a5:3e"}));
+    config->set("config-raw", configRaw);
+
+    std::list<std::string> blockedMacs;
+    Expect(OpenWifi::RESTAPI::ParentalControl::GetBlockedClients(config, blockedMacs), "GetBlockedClients should return true");
+    Expect(blockedMacs.empty(), "Expired overnight client-access window should not block client");
 }
 
 const std::vector<std::pair<std::string, std::function<void()>>> kTests = {
@@ -1447,10 +1507,12 @@ const std::vector<std::pair<std::string, std::function<void()>>> kTests = {
     {"ExtractConfigRawSnapshotRejectsNonStringCommandEntry", TestExtractConfigRawSnapshotRejectsNonStringCommandEntry},
     {"GetBlockedClientsClientAccessExpiredRuleSameDay", TestGetBlockedClientsClientAccessExpiredRuleSameDay},
     {"GetBlockedClientsClientAccessActiveRule", TestGetBlockedClientsClientAccessActiveRule},
-    {"GetBlockedClientsGroupScheduleRuleWeekdayMatch", TestGetBlockedClientsGroupScheduleRuleWeekdayMatch},
-    {"GetBlockedClientsGroupScheduleRuleWeekdayMismatch", TestGetBlockedClientsGroupScheduleRuleWeekdayMismatch},
-    {"GetBlockedClientsOverlappingActiveRules", TestGetBlockedClientsOverlappingActiveRules},
+    {"GetBlockedClientsGroupScheduleRuleIgnored", TestGetBlockedClientsGroupScheduleRuleIgnored},
+    {"GetBlockedClientsMixedRulesOnlyClientAccessBlocks", TestGetBlockedClientsMixedRulesOnlyClientAccessBlocks},
     {"GetBlockedClientsDisabledRulesIgnored", TestGetBlockedClientsDisabledRulesIgnored},
+    {"GetBlockedClientsClientAccessOvernightWindowActive", TestGetBlockedClientsClientAccessOvernightWindowActive},
+    {"GetBlockedClientsClientAccessOvernightFutureWindowInactive", TestGetBlockedClientsClientAccessOvernightFutureWindowInactive},
+    {"GetBlockedClientsClientAccessOvernightExpiredWindowInactive", TestGetBlockedClientsClientAccessOvernightExpiredWindowInactive},
 };
 
 } // namespace

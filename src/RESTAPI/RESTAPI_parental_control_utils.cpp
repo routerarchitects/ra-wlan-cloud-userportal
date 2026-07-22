@@ -716,64 +716,22 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 			std::string stopDate;
 			std::string startTime;
 			std::string stopTime;
-			std::string weekdays;
 			std::vector<std::string> macs;
 		};
 
 		/*
-			ParseWeekdays: Converts space-separated day names (e.g. "Mon Wed") into day numbers (0=Sun..6=Sat).
-			Uses istringstream (iss) to split the string into individual day tokens (e.g. token = "Mon").
+			IsRuleActive: Checks if a client-access firewall block rule is currently active.
+			Client-access rules have start_date/stop_date + start_time/stop_time.
+			Active if current date/time is between start date/time and stop date/time.
+			For same-day time windows (stopTime >= startTime), the stop threshold uses
+			startDate because stop_date is intentionally set to the next calendar date
+			by mango-parental-control.
 		*/
-		std::set<int> ParseWeekdays(const std::string &weekdaysStr) {
-			static const std::vector<std::string> names = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
-			std::set<int> days;
-			if (weekdaysStr.empty()) {
-				return days;
-			}
-			std::istringstream iss(weekdaysStr);
-			std::string token;
-			while (iss >> token) {
-				for (int i = 0; i < static_cast<int>(names.size()); ++i) {
-					if (token == names[i]) {
-						days.insert(i);
-						break;
-					}
-				}
-			}
-			return days;
-		}
-
-		/*
-			IsRuleActive: Checks if a firewall block rule is currently active.
-			- Group-Schedule rules (recurring weekly): Active if today's day-of-week matches and current time is within start/stop time window.
-			- Client-Access rules (temporary/one-time): Active if current date/time is between start date/time and stop date/time.
-		*/
-		bool IsRuleActive(const Poco::DateTime &now, const std::string &nowDateStr,
-						  const std::string &nowTimeStr, const FirewallRuleInfo &rule) {
+		bool IsRuleActive(const std::string &nowDateStr, const std::string &nowTimeStr, const FirewallRuleInfo &rule) {
 			if (!rule.enabled) {
 				return false;
 			}
 
-			// Group-schedule rules: have weekdays but no start_date/stop_date.
-			if (!rule.weekdays.empty() && rule.startDate.empty() && rule.stopDate.empty()) {
-				auto allowedDays = ParseWeekdays(rule.weekdays);
-				if (allowedDays.empty()) {
-					return false;
-				}
-				int todayDow = now.dayOfWeek(); // 0=Sun, 1=Mon, ..., 6=Sat
-				if (allowedDays.find(todayDow) == allowedDays.end()) {
-					return false;
-				}
-				if (!rule.startTime.empty() && nowTimeStr < rule.startTime) {
-					return false;
-				}
-				if (!rule.stopTime.empty() && nowTimeStr > rule.stopTime) {
-					return false;
-				}
-				return true;
-			}
-
-			// Client-access rules: have start_date/stop_date + start_time/stop_time.
 			std::string nowStr = nowDateStr + " " + nowTimeStr;
 
 			if (!rule.startDate.empty() && !rule.startTime.empty()) {
@@ -835,6 +793,10 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 					std::string section = key.substr(0, dotPos);
 					std::string param = key.substr(dotPos + 1);
 
+					if (section.find("pc_client_access_") == std::string::npos) {
+						continue;
+					}
+
 					if (param == "enabled") {
 						rules[section].enabled = (val == "1");
 					} else if (param == "start_date") {
@@ -845,8 +807,6 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 						rules[section].startTime = val;
 					} else if (param == "stop_time") {
 						rules[section].stopTime = val;
-					} else if (param == "weekdays") {
-						rules[section].weekdays = val;
 					} else if (op == "add_list" && param == "src_mac") {
 						rules[section].macs.push_back(val);
 					}
@@ -858,7 +818,7 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 
 		auto &logger = Poco::Logger::get("ParentalControl");
 		for (const auto &[section, rule] : rules) {
-			if (IsRuleActive(now, nowDateStr, nowTimeStr, rule)) {
+			if (IsRuleActive(nowDateStr, nowTimeStr, rule)) {
 				for (auto mac : rule.macs) {
 					if (Utils::NormalizeMac(mac)) {
 						blockedMacs.push_back(mac);
