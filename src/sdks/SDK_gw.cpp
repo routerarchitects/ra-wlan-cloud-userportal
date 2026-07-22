@@ -558,21 +558,21 @@ namespace OpenWifi::SDK::GW {
 				if (access != "allow" && access != "deny") {
 					Poco::Logger::get("SDK_gw").error(fmt::format("Invalid access value [{}] for client MAC [{}].", access, mac));
 					return SetErrorResponse(Poco::Net::HTTPResponse::HTTP_BAD_REQUEST,
-											RESTAPI::Errors::ParentalControlInvalidAccess, responseStatus,
+											RESTAPI::Errors::InvalidAccess, responseStatus,
 											response);
 				}
 
 				if (access == "allow" && hasDuration) {
 					Poco::Logger::get("SDK_gw").error(fmt::format("Duration specified with access 'allow' for client MAC [{}].", mac));
 					return SetErrorResponse(Poco::Net::HTTPResponse::HTTP_BAD_REQUEST,
-											RESTAPI::Errors::ParentalControlDurationNotAllowedForAllow, responseStatus,
+											RESTAPI::Errors::DurationNotAllowedForAllow, responseStatus,
 											response);
 				}
 
 				if (hasDuration && (durationIsNull || durationMinutes < 1)) {
 					Poco::Logger::get("SDK_gw").error(fmt::format("Invalid duration minutes [{}] for client MAC [{}].", durationMinutes, mac));
 					return SetErrorResponse(Poco::Net::HTTPResponse::HTTP_BAD_REQUEST,
-											RESTAPI::Errors::ParentalControlInvalidDuration, responseStatus,
+											RESTAPI::Errors::InvalidDuration, responseStatus,
 											response);
 				}
 
@@ -582,7 +582,7 @@ namespace OpenWifi::SDK::GW {
 					if (endDt.year() != now.year() || endDt.month() != now.month() || endDt.day() != now.day()) {
 						Poco::Logger::get("SDK_gw").error(fmt::format("Duration [{}] minutes crosses midnight for client MAC [{}].", durationMinutes, mac));
 						return SetErrorResponse(Poco::Net::HTTPResponse::HTTP_BAD_REQUEST,
-												RESTAPI::Errors::ParentalControlDurationCrossesMidnight, responseStatus,
+												RESTAPI::Errors::DurationCrossesMidnight, responseStatus,
 												response);
 					}
 				}

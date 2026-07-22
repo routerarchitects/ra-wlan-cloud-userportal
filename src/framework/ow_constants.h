@@ -456,10 +456,10 @@ namespace OpenWifi::RESTAPI::Errors {
 	static const struct msg MacNotPresentInTopology { 1198, "MAC address is not present in subscriber topology." };
 	static const struct msg GatewayInventoryNotFound { 1199, "Gateway inventory record not found." };
 	static const struct msg VenueMissingBoardId { 1200, "Venue record does not contain a usable Board ID." };
-	static const struct msg ParentalControlDurationCrossesMidnight { 1201, "Duration crosses midnight. Duration-based client blocking is limited to the current block day." };
-	static const struct msg ParentalControlDurationNotAllowedForAllow { 1202, "Duration is not allowed when access is set to 'allow'." };
-	static const struct msg ParentalControlInvalidDuration { 1203, "Duration must be a positive integer greater than or equal to 1." };
-	static const struct msg ParentalControlInvalidAccess { 1204, "Access must be 'allow' or 'deny'." };
+	static const struct msg DurationCrossesMidnight { 1201, "Duration crosses midnight. Duration-based client blocking is limited to the current block day." };
+	static const struct msg DurationNotAllowedForAllow { 1202, "Duration is not allowed when access is set to 'allow'." };
+	static const struct msg InvalidDuration { 1203, "Duration must be a positive integer greater than or equal to 1." };
+	static const struct msg InvalidAccess { 1204, "Access must be 'allow' or 'deny'." };
 
 } // namespace OpenWifi::RESTAPI::Errors
 

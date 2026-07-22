@@ -411,7 +411,7 @@ void TestSetConfigDurationValidation() {
         Expect(response && response->has("ErrorDescription"), "response must contain ErrorDescription");
         ExpectEq(response->getValue<std::string>("ErrorDescription"),
                  std::string("1201: Duration crosses midnight. Duration-based client blocking is limited to the current block day."),
-                 "error text must match ParentalControlDurationCrossesMidnight");
+                 "error text must match DurationCrossesMidnight");
     }
 
     // 3. Invalid MAC address must be rejected with HTTP 400 Bad Request (Error 1019)
@@ -481,7 +481,7 @@ void TestSetConfigDurationValidation() {
         Expect(response && response->has("ErrorDescription"), "response must contain ErrorDescription");
         ExpectEq(response->getValue<std::string>("ErrorDescription"),
                  std::string("1204: Access must be 'allow' or 'deny'."),
-                 "error text must match ParentalControlInvalidAccess");
+                 "error text must match InvalidAccess");
     }
 
     // 5. Duration on 'allow' must be rejected with HTTP 400 Bad Request (Error 1202)
@@ -517,7 +517,7 @@ void TestSetConfigDurationValidation() {
         Expect(response && response->has("ErrorDescription"), "response must contain ErrorDescription");
         ExpectEq(response->getValue<std::string>("ErrorDescription"),
                  std::string("1202: Duration is not allowed when access is set to 'allow'."),
-                 "error text must match ParentalControlDurationNotAllowedForAllow");
+                 "error text must match DurationNotAllowedForAllow");
     }
 
     // 6. Invalid duration minutes (< 1) must be rejected with HTTP 400 Bad Request (Error 1203)
@@ -553,7 +553,7 @@ void TestSetConfigDurationValidation() {
         Expect(response && response->has("ErrorDescription"), "response must contain ErrorDescription");
         ExpectEq(response->getValue<std::string>("ErrorDescription"),
                  std::string("1203: Duration must be a positive integer greater than or equal to 1."),
-                 "error text must match ParentalControlInvalidDuration");
+                 "error text must match InvalidDuration");
      }
 
     // 7. Access 'allow' with duration: null must be rejected with HTTP 400 (Error 1202)
@@ -589,7 +589,7 @@ void TestSetConfigDurationValidation() {
         Expect(response && response->has("ErrorDescription"), "response must contain ErrorDescription");
         ExpectEq(response->getValue<std::string>("ErrorDescription"),
                  std::string("1202: Duration is not allowed when access is set to 'allow'."),
-                 "error text must match ParentalControlDurationNotAllowedForAllow");
+                 "error text must match DurationNotAllowedForAllow");
     }
 }
 
