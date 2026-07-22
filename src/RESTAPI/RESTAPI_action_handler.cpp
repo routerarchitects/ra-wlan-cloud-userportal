@@ -145,7 +145,7 @@ namespace OpenWifi {
 
 		Logger().information(fmt::format("Processing configure request for subscriber: [{}] gateway: [{}]", UserInfo_.userinfo.id, ctx.GatewaySerial));
 
-		SDK::GW::Device::SetConfig(this, ParsedBody_, ctx.SubscriberDevices, ctx.GatewaySerial, UserInfo_.userinfo.id, callStatus, callResponse);
+		SDK::GW::Device::SetConfig(nullptr, ParsedBody_, ctx.SubscriberDevices, ctx.GatewaySerial, UserInfo_.userinfo.id, callStatus, callResponse);
 		if (callStatus != Poco::Net::HTTPResponse::HTTP_OK) {
 			Logger().error(fmt::format("SetConfig failed for subscriber: [{}] gateway: [{}], Status={}",
 									   UserInfo_.userinfo.id, ctx.GatewaySerial, static_cast<int>(callStatus)));

@@ -516,12 +516,17 @@ namespace OpenWifi::SDK::GW {
 				std::string access;
 				int64_t durationMinutes = 0;
 				bool hasDuration = false;
+				bool durationIsNull = false;
 				try {
 					mac = entry->getValue<std::string>("mac");
 					access = entry->getValue<std::string>("access");
-					if (entry->has("duration") && !entry->isNull("duration")) {
+					if (entry->has("duration")) {
 						hasDuration = true;
-						durationMinutes = entry->getValue<int64_t>("duration");
+						if (entry->isNull("duration")) {
+							durationIsNull = true;
+						} else {
+							durationMinutes = entry->getValue<int64_t>("duration");
+						}
 					}
 				} catch (...) {
 					Poco::Logger::get("SDK_gw").error(fmt::format("Failed to parse fields for entry {}.", i));
@@ -531,11 +536,44 @@ namespace OpenWifi::SDK::GW {
 				}
 				Poco::trimInPlace(access);
 				Poco::toLowerInPlace(access);
-				if (!Utils::NormalizeMac(mac) || (access != "allow" && access != "deny") || (hasDuration && durationMinutes < 1)) {
-					Poco::Logger::get("SDK_gw").error(fmt::format("Invalid MAC [{}], access [{}], or duration minutes [{}] for entry {}.", mac, access, durationMinutes, i));
+
+				if (!Utils::NormalizeMac(mac)) {
+					Poco::Logger::get("SDK_gw").error(fmt::format("Invalid MAC address [{}] for entry {}.", mac, i));
 					return SetErrorResponse(Poco::Net::HTTPResponse::HTTP_BAD_REQUEST,
-											RESTAPI::Errors::MissingOrInvalidParameters, responseStatus,
+											RESTAPI::Errors::InvalidMacAddress, responseStatus,
 											response);
+				}
+
+				if (access != "allow" && access != "deny") {
+					Poco::Logger::get("SDK_gw").error(fmt::format("Invalid access value [{}] for client MAC [{}].", access, mac));
+					return SetErrorResponse(Poco::Net::HTTPResponse::HTTP_BAD_REQUEST,
+											RESTAPI::Errors::ParentalControlInvalidAccess, responseStatus,
+											response);
+				}
+
+				if (access == "allow" && hasDuration) {
+					Poco::Logger::get("SDK_gw").error(fmt::format("Duration specified with access 'allow' for client MAC [{}].", mac));
+					return SetErrorResponse(Poco::Net::HTTPResponse::HTTP_BAD_REQUEST,
+											RESTAPI::Errors::ParentalControlDurationNotAllowedForAllow, responseStatus,
+											response);
+				}
+
+				if (hasDuration && (durationIsNull || durationMinutes < 1)) {
+					Poco::Logger::get("SDK_gw").error(fmt::format("Invalid duration minutes [{}] for client MAC [{}].", durationMinutes, mac));
+					return SetErrorResponse(Poco::Net::HTTPResponse::HTTP_BAD_REQUEST,
+											RESTAPI::Errors::ParentalControlInvalidDuration, responseStatus,
+											response);
+				}
+
+				if (hasDuration && access == "deny") {
+					Poco::DateTime now;
+					Poco::DateTime endDt = now + Poco::Timespan(durationMinutes * 60, 0);
+					if (endDt.year() != now.year() || endDt.month() != now.month() || endDt.day() != now.day()) {
+						Poco::Logger::get("SDK_gw").error(fmt::format("Duration [{}] minutes crosses midnight for client MAC [{}].", durationMinutes, mac));
+						return SetErrorResponse(Poco::Net::HTTPResponse::HTTP_BAD_REQUEST,
+												RESTAPI::Errors::ParentalControlDurationCrossesMidnight, responseStatus,
+												response);
+					}
 				}
 
 				std::string formattedMac = Utils::SerialToMAC(mac);
@@ -549,15 +587,18 @@ namespace OpenWifi::SDK::GW {
 					std::string startDate = Poco::DateTimeFormatter::format(now, "%Y-%m-%d");
 					std::string startTime = Poco::DateTimeFormatter::format(now, "%H:%M:%S");
 
-					Poco::DateTime nextDay = now + Poco::Timespan(86400, 0);
-					std::string stopDate = Poco::DateTimeFormatter::format(nextDay, "%Y-%m-%d");
-
+					std::string stopDate;
 					std::string stopTime;
 					if (durationMinutes > 0) {
-						Poco::DateTime endDt = now + Poco::Timespan(std::chrono::minutes(durationMinutes));
+						Poco::DateTime endDt = now + Poco::Timespan(durationMinutes * 60, 0);
 						stopTime = Poco::DateTimeFormatter::format(endDt, "%H:%M:%S");
+
+						Poco::DateTime nextDay = endDt + Poco::Timespan(86400, 0);
+						stopDate = Poco::DateTimeFormatter::format(nextDay, "%Y-%m-%d");
 					} else {
 						stopTime = "23:59:59";
+						Poco::DateTime nextDay = now + Poco::Timespan(86400, 0);
+						stopDate = Poco::DateTimeFormatter::format(nextDay, "%Y-%m-%d");
 					}
 
 					Poco::JSON::Object reqBody;

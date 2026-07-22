@@ -17,6 +17,7 @@
 #include "Poco/Logger.h"
 #include "framework/RESTAPI_GenericServerAccounting.h"
 #include "sdks/SDK_parental_control.h"
+#include "sdks/SDK_gw.h"
 #include "framework/OpenAPIRequests.h"
 
 namespace {
@@ -151,6 +152,7 @@ OpenAPIRequestDelete::Do(Poco::JSON::Object::Ptr &responseObject, std::string &r
 } // namespace OpenWifi
 
 #include "../../src/sdks/SDK_parental_control.cpp"
+#include "../../src/sdks/SDK_gw.cpp"
 
 namespace {
 
@@ -339,6 +341,258 @@ void TestBearerTokenIsNotForwardedFromClient() {
     ExpectEq(g_state.lastBearerToken, std::string(""), "bearer token should not be forwarded");
 }
 
+void TestSetConfigDurationValidation() {
+    // 1. Same-day duration is allowed if it does not cross midnight (safeDuration minutes)
+    {
+        ResetState();
+        Poco::DateTime now;
+        int remainingMinutes = (23 - now.hour()) * 60 + (59 - now.minute());
+        if (remainingMinutes > 5) {
+            auto deviceObj = Poco::makeShared<Poco::JSON::Object>();
+            auto configObj = Poco::makeShared<Poco::JSON::Object>();
+            deviceObj->set("configuration", configObj);
+            deviceObj->set("config-raw", Poco::makeShared<Poco::JSON::Array>());
+            g_state.nextObject = deviceObj;
+            g_state.nextStatus = Poco::Net::HTTPResponse::HTTP_OK;
+
+            OpenWifi::ProvObjects::SubscriberDeviceList subDevices;
+            OpenWifi::ProvObjects::SubscriberDevice dev;
+            dev.deviceGroup = "olg";
+            dev.serialNumber = "112233445566";
+            subDevices.subscriberDevices.push_back(dev);
+
+            auto body = Poco::makeShared<Poco::JSON::Object>();
+            auto clientArr = Poco::makeShared<Poco::JSON::Array>();
+            auto entry = Poco::makeShared<Poco::JSON::Object>();
+            entry->set("mac", "aa:bb:cc:dd:ee:ff");
+            entry->set("access", "deny");
+            entry->set("duration", 2); // 2 minutes (safely less than remainingMinutes)
+            clientArr->add(entry);
+            body->set("client", clientArr);
+
+            Poco::Net::HTTPResponse::HTTPStatus status = Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR;
+            Poco::JSON::Object::Ptr response;
+            bool success = OpenWifi::SDK::GW::Device::SetConfig(nullptr, body, subDevices, "112233445566", "sub-123", status, response);
+            Expect(success, "SetConfig with same-day duration should succeed");
+            ExpectEq(status, Poco::Net::HTTPResponse::HTTP_OK, "status should be 200");
+        }
+    }
+
+    // 2. Overnight / >24h duration (1500 mins) must be rejected with HTTP 400 Bad Request (Error 1201)
+    {
+        ResetState();
+        auto deviceObj = Poco::makeShared<Poco::JSON::Object>();
+        auto configObj = Poco::makeShared<Poco::JSON::Object>();
+        deviceObj->set("configuration", configObj);
+        deviceObj->set("config-raw", Poco::makeShared<Poco::JSON::Array>());
+        g_state.nextObject = deviceObj;
+        g_state.nextStatus = Poco::Net::HTTPResponse::HTTP_OK;
+
+        OpenWifi::ProvObjects::SubscriberDeviceList subDevices;
+        OpenWifi::ProvObjects::SubscriberDevice dev;
+        dev.deviceGroup = "olg";
+        dev.serialNumber = "112233445566";
+        subDevices.subscriberDevices.push_back(dev);
+
+        auto body = Poco::makeShared<Poco::JSON::Object>();
+        auto clientArr = Poco::makeShared<Poco::JSON::Array>();
+        auto entry = Poco::makeShared<Poco::JSON::Object>();
+        entry->set("mac", "aa:bb:cc:dd:ee:ff");
+        entry->set("access", "deny");
+        entry->set("duration", 1500); // 1500 minutes (25 hours) - always crosses midnight
+        clientArr->add(entry);
+        body->set("client", clientArr);
+
+        Poco::Net::HTTPResponse::HTTPStatus status = Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR;
+        Poco::JSON::Object::Ptr response;
+        bool success = OpenWifi::SDK::GW::Device::SetConfig(nullptr, body, subDevices, "112233445566", "sub-123", status, response);
+        Expect(!success, "SetConfig with overnight/24h+ duration should fail");
+        ExpectEq(status, Poco::Net::HTTPResponse::HTTP_BAD_REQUEST, "status should be 400");
+        Expect(response && response->has("ErrorDescription"), "response must contain ErrorDescription");
+        ExpectEq(response->getValue<std::string>("ErrorDescription"),
+                 std::string("1201: Duration crosses midnight. Duration-based client blocking is limited to the current block day."),
+                 "error text must match ParentalControlDurationCrossesMidnight");
+    }
+
+    // 3. Invalid MAC address must be rejected with HTTP 400 Bad Request (Error 1019)
+    {
+        ResetState();
+        auto deviceObj = Poco::makeShared<Poco::JSON::Object>();
+        auto configObj = Poco::makeShared<Poco::JSON::Object>();
+        deviceObj->set("configuration", configObj);
+        deviceObj->set("config-raw", Poco::makeShared<Poco::JSON::Array>());
+        g_state.nextObject = deviceObj;
+        g_state.nextStatus = Poco::Net::HTTPResponse::HTTP_OK;
+
+        OpenWifi::ProvObjects::SubscriberDeviceList subDevices;
+        OpenWifi::ProvObjects::SubscriberDevice dev;
+        dev.deviceGroup = "olg";
+        dev.serialNumber = "112233445566";
+        subDevices.subscriberDevices.push_back(dev);
+
+        auto body = Poco::makeShared<Poco::JSON::Object>();
+        auto clientArr = Poco::makeShared<Poco::JSON::Array>();
+        auto entry = Poco::makeShared<Poco::JSON::Object>();
+        entry->set("mac", "invalid-mac-address-here");
+        entry->set("access", "deny");
+        clientArr->add(entry);
+        body->set("client", clientArr);
+
+        Poco::Net::HTTPResponse::HTTPStatus status = Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR;
+        Poco::JSON::Object::Ptr response;
+        bool success = OpenWifi::SDK::GW::Device::SetConfig(nullptr, body, subDevices, "112233445566", "sub-123", status, response);
+        Expect(!success, "SetConfig with invalid mac should fail");
+        ExpectEq(status, Poco::Net::HTTPResponse::HTTP_BAD_REQUEST, "status should be 400");
+        Expect(response && response->has("ErrorDescription"), "response must contain ErrorDescription");
+        ExpectEq(response->getValue<std::string>("ErrorDescription"),
+                 std::string("1019: Invalid MAC address."),
+                 "error text must match InvalidMacAddress");
+    }
+
+    // 4. Invalid access mode must be rejected with HTTP 400 Bad Request (Error 1204)
+    {
+        ResetState();
+        auto deviceObj = Poco::makeShared<Poco::JSON::Object>();
+        auto configObj = Poco::makeShared<Poco::JSON::Object>();
+        deviceObj->set("configuration", configObj);
+        deviceObj->set("config-raw", Poco::makeShared<Poco::JSON::Array>());
+        g_state.nextObject = deviceObj;
+        g_state.nextStatus = Poco::Net::HTTPResponse::HTTP_OK;
+
+        OpenWifi::ProvObjects::SubscriberDeviceList subDevices;
+        OpenWifi::ProvObjects::SubscriberDevice dev;
+        dev.deviceGroup = "olg";
+        dev.serialNumber = "112233445566";
+        subDevices.subscriberDevices.push_back(dev);
+
+        auto body = Poco::makeShared<Poco::JSON::Object>();
+        auto clientArr = Poco::makeShared<Poco::JSON::Array>();
+        auto entry = Poco::makeShared<Poco::JSON::Object>();
+        entry->set("mac", "aa:bb:cc:dd:ee:ff");
+        entry->set("access", "invalid_mode");
+        clientArr->add(entry);
+        body->set("client", clientArr);
+
+        Poco::Net::HTTPResponse::HTTPStatus status = Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR;
+        Poco::JSON::Object::Ptr response;
+        bool success = OpenWifi::SDK::GW::Device::SetConfig(nullptr, body, subDevices, "112233445566", "sub-123", status, response);
+        Expect(!success, "SetConfig with invalid access should fail");
+        ExpectEq(status, Poco::Net::HTTPResponse::HTTP_BAD_REQUEST, "status should be 400");
+        Expect(response && response->has("ErrorDescription"), "response must contain ErrorDescription");
+        ExpectEq(response->getValue<std::string>("ErrorDescription"),
+                 std::string("1204: Access must be 'allow' or 'deny'."),
+                 "error text must match ParentalControlInvalidAccess");
+    }
+
+    // 5. Duration on 'allow' must be rejected with HTTP 400 Bad Request (Error 1202)
+    {
+        ResetState();
+        auto deviceObj = Poco::makeShared<Poco::JSON::Object>();
+        auto configObj = Poco::makeShared<Poco::JSON::Object>();
+        deviceObj->set("configuration", configObj);
+        deviceObj->set("config-raw", Poco::makeShared<Poco::JSON::Array>());
+        g_state.nextObject = deviceObj;
+        g_state.nextStatus = Poco::Net::HTTPResponse::HTTP_OK;
+
+        OpenWifi::ProvObjects::SubscriberDeviceList subDevices;
+        OpenWifi::ProvObjects::SubscriberDevice dev;
+        dev.deviceGroup = "olg";
+        dev.serialNumber = "112233445566";
+        subDevices.subscriberDevices.push_back(dev);
+
+        auto body = Poco::makeShared<Poco::JSON::Object>();
+        auto clientArr = Poco::makeShared<Poco::JSON::Array>();
+        auto entry = Poco::makeShared<Poco::JSON::Object>();
+        entry->set("mac", "aa:bb:cc:dd:ee:ff");
+        entry->set("access", "allow");
+        entry->set("duration", 30);
+        clientArr->add(entry);
+        body->set("client", clientArr);
+
+        Poco::Net::HTTPResponse::HTTPStatus status = Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR;
+        Poco::JSON::Object::Ptr response;
+        bool success = OpenWifi::SDK::GW::Device::SetConfig(nullptr, body, subDevices, "112233445566", "sub-123", status, response);
+        Expect(!success, "SetConfig with duration on allow should fail");
+        ExpectEq(status, Poco::Net::HTTPResponse::HTTP_BAD_REQUEST, "status should be 400");
+        Expect(response && response->has("ErrorDescription"), "response must contain ErrorDescription");
+        ExpectEq(response->getValue<std::string>("ErrorDescription"),
+                 std::string("1202: Duration is not allowed when access is set to 'allow'."),
+                 "error text must match ParentalControlDurationNotAllowedForAllow");
+    }
+
+    // 6. Invalid duration minutes (< 1) must be rejected with HTTP 400 Bad Request (Error 1203)
+    {
+        ResetState();
+        auto deviceObj = Poco::makeShared<Poco::JSON::Object>();
+        auto configObj = Poco::makeShared<Poco::JSON::Object>();
+        deviceObj->set("configuration", configObj);
+        deviceObj->set("config-raw", Poco::makeShared<Poco::JSON::Array>());
+        g_state.nextObject = deviceObj;
+        g_state.nextStatus = Poco::Net::HTTPResponse::HTTP_OK;
+
+        OpenWifi::ProvObjects::SubscriberDeviceList subDevices;
+        OpenWifi::ProvObjects::SubscriberDevice dev;
+        dev.deviceGroup = "olg";
+        dev.serialNumber = "112233445566";
+        subDevices.subscriberDevices.push_back(dev);
+
+        auto body = Poco::makeShared<Poco::JSON::Object>();
+        auto clientArr = Poco::makeShared<Poco::JSON::Array>();
+        auto entry = Poco::makeShared<Poco::JSON::Object>();
+        entry->set("mac", "aa:bb:cc:dd:ee:ff");
+        entry->set("access", "deny");
+        entry->set("duration", 0);
+        clientArr->add(entry);
+        body->set("client", clientArr);
+
+        Poco::Net::HTTPResponse::HTTPStatus status = Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR;
+        Poco::JSON::Object::Ptr response;
+        bool success = OpenWifi::SDK::GW::Device::SetConfig(nullptr, body, subDevices, "112233445566", "sub-123", status, response);
+        Expect(!success, "SetConfig with invalid duration should fail");
+        ExpectEq(status, Poco::Net::HTTPResponse::HTTP_BAD_REQUEST, "status should be 400");
+        Expect(response && response->has("ErrorDescription"), "response must contain ErrorDescription");
+        ExpectEq(response->getValue<std::string>("ErrorDescription"),
+                 std::string("1203: Duration must be a positive integer greater than or equal to 1."),
+                 "error text must match ParentalControlInvalidDuration");
+     }
+
+    // 7. Access 'allow' with duration: null must be rejected with HTTP 400 (Error 1202)
+    {
+        ResetState();
+        auto deviceObj = Poco::makeShared<Poco::JSON::Object>();
+        auto configObj = Poco::makeShared<Poco::JSON::Object>();
+        deviceObj->set("configuration", configObj);
+        deviceObj->set("config-raw", Poco::makeShared<Poco::JSON::Array>());
+        g_state.nextObject = deviceObj;
+        g_state.nextStatus = Poco::Net::HTTPResponse::HTTP_OK;
+
+        OpenWifi::ProvObjects::SubscriberDeviceList subDevices;
+        OpenWifi::ProvObjects::SubscriberDevice dev;
+        dev.deviceGroup = "olg";
+        dev.serialNumber = "112233445566";
+        subDevices.subscriberDevices.push_back(dev);
+
+        auto body = Poco::makeShared<Poco::JSON::Object>();
+        auto clientArr = Poco::makeShared<Poco::JSON::Array>();
+        auto entry = Poco::makeShared<Poco::JSON::Object>();
+        entry->set("mac", "aa:bb:cc:dd:ee:ff");
+        entry->set("access", "allow");
+        entry->set("duration", Poco::Dynamic::Var());
+        clientArr->add(entry);
+        body->set("client", clientArr);
+
+        Poco::Net::HTTPResponse::HTTPStatus status = Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR;
+        Poco::JSON::Object::Ptr response;
+        bool success = OpenWifi::SDK::GW::Device::SetConfig(nullptr, body, subDevices, "112233445566", "sub-123", status, response);
+        Expect(!success, "SetConfig with duration: null on allow should fail");
+        ExpectEq(status, Poco::Net::HTTPResponse::HTTP_BAD_REQUEST, "status should be 400");
+        Expect(response && response->has("ErrorDescription"), "response must contain ErrorDescription");
+        ExpectEq(response->getValue<std::string>("ErrorDescription"),
+                 std::string("1202: Duration is not allowed when access is set to 'allow'."),
+                 "error text must match ParentalControlDurationNotAllowedForAllow");
+    }
+}
+
 const std::vector<std::pair<std::string, std::function<void()>>> kTests = {
     {"GetGroupDevicesSuccess", TestGetGroupDevicesSuccess},
     {"CreateGroupDeviceSuccess", TestCreateGroupDeviceSuccess},
@@ -353,6 +607,7 @@ const std::vector<std::pair<std::string, std::function<void()>>> kTests = {
     {"ReplaceGroupSchedulesSuccess", TestReplaceGroupSchedulesSuccess},
     {"Non200StatusFailsWrapper", TestNon200StatusFailsWrapper},
     {"BearerTokenIsNotForwardedFromClient", TestBearerTokenIsNotForwardedFromClient},
+    {"SetConfigDurationValidation", TestSetConfigDurationValidation},
 };
 
 
@@ -407,4 +662,64 @@ namespace OpenWifi {
 
 namespace OpenWifi::Utils {
     std::string FormatIPv6(const std::string &addr) { return addr; }
+
+    std::string StripMac(const std::string &value) {
+        std::string result;
+        for (char c : value) {
+            if (c == ':' || c == '-' || c == '.') {
+                continue;
+            }
+            result.push_back(static_cast<char>(std::toupper(static_cast<unsigned char>(c))));
+        }
+        return result;
+    }
+
+    bool IsNormalizedMac(const std::string &value) {
+        if (value.size() != 12) {
+            return false;
+        }
+        return std::all_of(value.begin(), value.end(), [](unsigned char c) { return std::isxdigit(c) != 0; });
+    }
+
+    std::string MacWithColons(const std::string &value) {
+        if (!IsNormalizedMac(value)) {
+            return value;
+        }
+        std::ostringstream os;
+        for (std::size_t i = 0; i < value.size(); i += 2) {
+            if (i != 0) {
+                os << ':';
+            }
+            os << value.substr(i, 2);
+        }
+        return os.str();
+    }
+
+    bool NormalizeMac(std::string &mac) {
+        std::string normalized = StripMac(mac);
+        if (!IsNormalizedMac(normalized)) {
+            return false;
+        }
+        mac = normalized;
+        return true;
+    }
+
+    std::string SerialToMAC(const std::string &serial) { return MacWithColons(StripMac(serial)); }
+}
+
+namespace OpenWifi {
+    bool ConfigMaker::BuildMeshConfig(const Poco::JSON::Object::Ptr &inputConfig, Poco::JSON::Object::Ptr &meshConfig) {
+        meshConfig = inputConfig;
+        return true;
+    }
+}
+
+namespace OpenWifi::RESTAPI::ParentalControl {
+    bool ExtractConfigRawSnapshot(const Poco::JSON::Object::Ptr &response, Poco::JSON::Array::Ptr &configRaw, bool required) {
+        if (response && response->has("config-raw")) {
+            configRaw = response->getArray("config-raw");
+            return true;
+        }
+        return !required;
+    }
 }

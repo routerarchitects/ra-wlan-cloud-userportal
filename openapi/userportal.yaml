@@ -1329,7 +1329,7 @@ paths:
       tags:
         - Device Topology
       summary: Retrieve the network topology for the subscriber
-      description: Retrieve the network topology for the subscriber. Evaluates active parental control rules in real-time (combining date-bounded client access rules and recurring group schedule weekday rules) to set the 'blocked' status ("0" or "1") on historical and connected clients.
+      description: Retrieve the network topology for the subscriber. Evaluates active date-bounded client-access parental-control rules in real time to set the 'blocked' status ("0" or "1") on historical and connected clients.
       operationId: getTopology
       security:
         - bearerAuth: []
