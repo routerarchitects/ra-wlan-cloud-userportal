@@ -9,6 +9,7 @@
 #include "sdks/SDK_gw.h"
 
 #include "RESTAPI_topology_handler.h"
+#include "RESTAPI_parental_control_utils.h"
 
 #include "Poco/String.h"
 #include "framework/ow_constants.h"
@@ -151,67 +152,6 @@ namespace OpenWifi {
 		return true;
 	}
 
-	/*
-		GetBlockedClients():
-		1. Read Config["config-raw"] (if missing/empty, return an empty list).
-		2. Walk firewall rule blocks (started by ["add","firewall","rule"]).
-		3. Detect our block-clients rule by name "Block_Clients".
-		4. Collect all src_mac entries from that rule into blockedMacs (normalized).
-	*/
-	bool GetBlockedClients(const Poco::JSON::Object::Ptr &config, std::list<std::string> &blockedMacs) {
-		blockedMacs.clear();
-		if (!config) {
-			return false;
-		}
-
-		if (!config->has("config-raw") || !config->isArray("config-raw")) {
-			return true;
-		}
-
-		auto configRaw = config->getArray("config-raw");
-		if (!configRaw || configRaw->size() == 0)
-			return true;
-
-		bool inFirewallRule = false;
-		bool isBlockRule = false;
-
-		for (std::size_t i = 0; i < configRaw->size(); ++i) {
-			try {
-				auto cmd = configRaw->getArray(i);
-				if (!cmd || cmd->size() != 3)
-					continue;
-
-				auto op = cmd->getElement<std::string>(0);
-				auto key = cmd->getElement<std::string>(1);
-				auto val = cmd->getElement<std::string>(2);
-
-				if (op == "add" && key == "firewall" && val == "rule") {
-					inFirewallRule = true;
-					isBlockRule = false;
-					continue;
-				}
-
-				if (!inFirewallRule)
-					continue;
-
-				if (op == "set" && key == "firewall.@rule[-1].name") {
-					isBlockRule = (val == "Block_Clients");
-					continue;
-				}
-
-				if (isBlockRule && op == "add_list" && key == "firewall.@rule[-1].src_mac") {
-					std::string mac = val;
-					if (Utils::NormalizeMac(mac)) {
-						blockedMacs.push_back(mac);
-						Poco::Logger::get("SDK_gw").debug(fmt::format("Blocked client MAC found: {}", Utils::SerialToMAC(mac)));
-					}
-				}
-			} catch (...) {
-				continue;
-			}
-		}
-		return true;
-	}
 
 	/*
 		FinalizeTopologyResponse:
@@ -368,7 +308,7 @@ namespace OpenWifi {
 			config = deviceObj->getObject("configuration");
 		}
 
-		if (!config || !GetBlockedClients(config, blockedMacs)) {
+		if (!config || !RESTAPI::ParentalControl::GetBlockedClients(config, blockedMacs)) {
 			Logger().debug(fmt::format("[GET-TOPOLOGY] Failed to fetch config for {}.", gatewaySerial));
 		}
 
@@ -387,9 +327,11 @@ namespace OpenWifi {
 				} catch (...) {
 					continue;
 				}
+				std::string normalizedStation = station;
+				Poco::toLowerInPlace(normalizedStation);
 				auto entry = Poco::makeShared<Poco::JSON::Object>();
 				entry->set("station", station);
-				entry->set("blocked", blockedMacSet.count(station) ? "1" : "0");
+				entry->set("blocked", blockedMacSet.count(normalizedStation) ? "1" : "0");
 				historicalClientsWithFlags->add(entry);
 			}
 			topologyResponse->set("historicalClients", historicalClientsWithFlags);
@@ -418,7 +360,9 @@ namespace OpenWifi {
 							continue;
 						}
 						const auto station = client->getValue<std::string>("station");
-						client->set("blocked", blockedMacSet.count(station) ? "1" : "0");
+						std::string normalizedStation = station;
+						Poco::toLowerInPlace(normalizedStation);
+						client->set("blocked", blockedMacSet.count(normalizedStation) ? "1" : "0");
 					}
 				}
 			}

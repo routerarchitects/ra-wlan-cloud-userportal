@@ -396,11 +396,9 @@ namespace OpenWifi {
 											const Poco::JSON::Object::Ptr &callResponse) {
 			auto Forward = callResponse ? callResponse : Poco::makeShared<Poco::JSON::Object>();
 			auto *target = client ? client : this;
-			target->Response->setStatus(callStatus);
+			target->PrepareResponse(callStatus);
 			std::stringstream ss;
 			Poco::JSON::Stringifier::condense(Forward, ss);
-			target->Response->setContentType("application/json");
-			target->Response->setContentLength(ss.str().size());
 			auto &os = target->Response->send();
 			os << ss.str();
 			os.flush();

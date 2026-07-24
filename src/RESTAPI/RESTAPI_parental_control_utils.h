@@ -9,10 +9,17 @@
 #include "Poco/JSON/Array.h"
 #include "Poco/JSON/Object.h"
 #include "framework/RESTAPI_Handler.h"
+#include <list>
 #include <optional>
 #include <string>
 
 namespace OpenWifi::RESTAPI::ParentalControl {
+
+	// =========================================================================
+	// Blocked-Client Evaluation (used by topology response)
+	// =========================================================================
+
+	bool GetBlockedClients(const Poco::JSON::Object::Ptr &config, std::list<std::string> &blockedMacs);
 
 	// =========================================================================
 	// Schedule Helpers
