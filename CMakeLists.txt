@@ -152,6 +152,7 @@ add_executable(owsub
         src/RESTAPI/RESTAPI_group_devices_handler.cpp src/RESTAPI/RESTAPI_group_devices_handler.h
         src/RESTAPI/RESTAPI_group_schedules_list_handler.cpp src/RESTAPI/RESTAPI_group_schedules_list_handler.h
         src/RESTAPI/RESTAPI_group_schedules_handler.cpp src/RESTAPI/RESTAPI_group_schedules_handler.h
+        src/RESTAPI/RESTAPI_subscriber_location_handler.cpp src/RESTAPI/RESTAPI_subscriber_location_handler.h
         )
 
 target_link_libraries(owsub PUBLIC

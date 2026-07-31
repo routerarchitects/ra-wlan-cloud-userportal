@@ -1,0 +1,44 @@
+/*
+ * SPDX-License-Identifier: AGPL-3.0 OR LicenseRef-Commercial
+ * Copyright (c) 2025 Infernet Systems Pvt Ltd
+ * Portions copyright (c) Telecom Infra Project (TIP), BSD-3-Clause
+ */
+
+#include "RESTAPI_subscriber_location_handler.h"
+#include "sdks/SDK_prov.h"
+
+namespace OpenWifi {
+
+	void RESTAPI_subscriber_location_handler::DoPost() {
+		if (UserInfo_.userinfo.id.empty()) {
+			return UnAuthorized(RESTAPI::Errors::InvalidSubscriberId);
+		}
+
+		Poco::Net::HTTPServerResponse::HTTPStatus callStatus = Poco::Net::HTTPServerResponse::HTTP_INTERNAL_SERVER_ERROR;
+		auto callResponse = Poco::makeShared<Poco::JSON::Object>();
+		ProvObjects::VenueList venueList;
+
+		if (!SDK::Prov::Venue::GetVenues(nullptr, UserInfo_.userinfo.id, venueList, callStatus, callResponse)) {
+			if (callStatus != Poco::Net::HTTPServerResponse::HTTP_OK) {
+				return ForwardErrorResponse(this, callStatus, callResponse);
+			}
+			return InternalError(RESTAPI::Errors::InvalidJSONDocument);
+		}
+
+		if (venueList.venues.empty()) {
+			return NotFound();
+		}
+
+		const auto &venue = venueList.venues[0];
+		const std::string venueId = venue.info.id;
+		if (venueId.empty()) {
+			return InternalError(RESTAPI::Errors::InvalidJSONDocument);
+		}
+
+		if (!SDK::Prov::Venue::CreateLocation(nullptr, venueId, ParsedBody_, callStatus, callResponse)) {
+			return ForwardErrorResponse(this, callStatus, callResponse);
+		}
+		return OK();
+	}
+
+} // namespace OpenWifi

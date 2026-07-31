@@ -242,6 +242,23 @@ components:
         timestamp:
           type: string
           format: date-time
+        timezone:
+          type: string
+          description: IANA timezone configured for the subscriber's venue
+          example: "Asia/Tokyo"
+      additionalProperties: true
+
+    SubscriberLocationCreateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Name of the location
+          example: "Home Location"
+        timezone:
+          type: string
+          description: IANA timezone string for the location
+          example: "Asia/Tokyo"
       additionalProperties: true
 
     TopologyEmptyResponse:
@@ -1262,6 +1279,37 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/EmptySuccess'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /subscriber/location:
+    post:
+      tags:
+        - Subscriber Location
+      summary: Create and link a location to the subscriber's venue
+      description: Creates a location object containing location parameters (such as name and IANA timezone) and links it to the subscriber's venue.
+      operationId: createSubscriberLocation
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        description: Location object containing location details.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubscriberLocationCreateRequest'
+            example:
+              name: "Home Location"
+              timezone: "Asia/Tokyo"
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
