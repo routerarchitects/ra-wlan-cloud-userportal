@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.14)
 project(owsub VERSION 1.0.0)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -53,6 +53,25 @@ else()
     find_package(MySQL REQUIRED)
     find_package(Poco REQUIRED COMPONENTS JSON Crypto JWT Net Util NetSSL Data DataSQLite DataPostgreSQL DataMySQL)
 endif()
+
+# Howard Hinnant date/tz library for IANA timezone support
+include(FetchContent)
+
+set(_SAVED_BUILD_SHARED_LIBS "${BUILD_SHARED_LIBS}")
+set(BUILD_SHARED_LIBS OFF)
+set(BUILD_TZ_LIB ON CACHE BOOL "" FORCE)
+set(USE_SYSTEM_TZ_DB ON CACHE BOOL "" FORCE)
+set(FETCHCONTENT_UPDATES_DISCONNECTED ON CACHE BOOL "" FORCE)
+
+FetchContent_Declare(
+    date
+    GIT_REPOSITORY https://github.com/HowardHinnant/date.git
+    GIT_TAG        v3.0.1
+)
+
+FetchContent_MakeAvailable(date)
+
+set(BUILD_SHARED_LIBS "${_SAVED_BUILD_SHARED_LIBS}")
 
 include_directories(/usr/local/include  /usr/local/opt/openssl/include src include/kafka /usr/local/opt/mysql-client/include)
 
@@ -161,7 +180,8 @@ target_link_libraries(owsub PUBLIC
         ${ZLIB_LIBRARIES}
         CppKafka::cppkafka
         resolv
-        fmt::fmt)
+        fmt::fmt
+        date::date-tz)
 
 include(CTest)
 

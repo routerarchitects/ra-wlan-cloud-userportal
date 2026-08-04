@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     make cmake g++ git \
     libpq-dev libmariadb-dev libmariadbclient-dev-compat \
     librdkafka-dev libboost-all-dev libssl-dev \
-    zlib1g-dev nlohmann-json3-dev ca-certificates libfmt-dev
+    zlib1g-dev nlohmann-json3-dev ca-certificates libfmt-dev tzdata
 
 FROM build-base AS poco-build
 
@@ -90,7 +90,7 @@ RUN mkdir -p "$OWSUB_ROOT" "$OWSUB_CONFIG" && \
 
 RUN apt-get update && apt-get install --no-install-recommends -y \
     librdkafka++1 gosu gettext ca-certificates bash jq curl wget \
-    libmariadb-dev-compat libpq5 postgresql-client libfmt7
+    libmariadb-dev-compat libpq5 postgresql-client libfmt7 tzdata
 
 COPY test_scripts/curl/cli /cli
 
