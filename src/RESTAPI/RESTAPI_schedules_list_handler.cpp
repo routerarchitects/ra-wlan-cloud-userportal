@@ -25,9 +25,13 @@ namespace OpenWifi {
 			return ForwardErrorResponse(this, callStatus, errorResponse);
 		}
 
+		std::string timezone;
+		if (!arrayResponse->empty() && !RESTAPI::ParentalControl::ResolveSubscriberTimezone(*this, UserInfo_.userinfo.id, timezone)) {
+			return; // Response already sent inside resolver
+		}
+
 		for (std::size_t i = 0; i < arrayResponse->size(); ++i) {
-			if (!arrayResponse->isObject(i) ||
-				!RESTAPI::ParentalControl::NormalizeScheduleResponse(arrayResponse->getObject(i))) {
+			if (!arrayResponse->isObject(i) || !RESTAPI::ParentalControl::NormalizeScheduleResponse(arrayResponse->getObject(i), timezone)) {
 				return InternalError(RESTAPI::Errors::InternalError);
 			}
 		}
@@ -53,6 +57,15 @@ namespace OpenWifi {
 			return;
 		}
 
+		std::string timezone;
+		if (!RESTAPI::ParentalControl::ResolveSubscriberTimezone(*this, UserInfo_.userinfo.id, timezone)) {
+			return; // Response already sent inside resolver
+		}
+
+		if (!RESTAPI::ParentalControl::ConvertScheduleTimesToUtc(timezone, req)) {
+			return InternalError(RESTAPI::Errors::InternalError);
+		}
+
 		Poco::JSON::Object body = RESTAPI::ParentalControl::BuildScheduleRequestBody(req);
 
 		Poco::Net::HTTPResponse::HTTPStatus callStatus;
@@ -63,7 +76,7 @@ namespace OpenWifi {
 			return ForwardErrorResponse(this, callStatus, callResponse);
 		}
 
-		if (!RESTAPI::ParentalControl::NormalizeScheduleResponse(callResponse)) {
+		if (!RESTAPI::ParentalControl::NormalizeScheduleResponse(callResponse, timezone)) {
 			return InternalError(RESTAPI::Errors::InternalError);
 		}
 		return ReturnObject(*callResponse);
