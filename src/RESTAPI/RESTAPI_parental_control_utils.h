@@ -74,32 +74,6 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 
 
 	// =========================================================================
-	// Topology/Device Validation Helpers
-	// =========================================================================
-
-	enum class ValidateMacResult {
-		Success,
-		MissingSubscriberOrOperator,
-		SubscriberDevicesNotFound,
-		ProvisioningLookupFailed,
-		GatewaySerialNotFound,
-		InventoryNotFound,
-		VenueNotFound,
-		VenueLookupFailed,
-		BoardIdNotFound,
-		TopologyNotFound,
-		MacNotPresentInTopology,
-		TopologyUnusable
-	};
-
-	ValidateMacResult ValidateMacInTopology(RESTAPIHandler &handler,
-											const std::string &subscriberId,
-											const std::string &operatorId,
-											const std::string &clientMac,
-											std::string &gatewaySerial);
-
-
-	// =========================================================================
 	// Config-Raw Extraction/Apply Helpers
 	// =========================================================================
 
@@ -132,7 +106,5 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 	// =========================================================================
 
 	bool HandleApplyConfigRawResult(RESTAPIHandler &handler, ApplyConfigRawResult result);
-
-	bool HandleValidateMacResult(RESTAPIHandler &handler, ValidateMacResult result);
 
 } // namespace OpenWifi::RESTAPI::ParentalControl

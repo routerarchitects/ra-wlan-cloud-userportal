@@ -13,7 +13,6 @@
 #include "fmt/format.h"
 #include "sdks/SDK_gw.h"
 #include "sdks/SDK_prov.h"
-#include "sdks/SDK_nw_topology.h"
 #include "framework/utils.h"
 #include "framework/ow_constants.h"
 #include <date/tz.h>
@@ -37,205 +36,6 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 			const int minute = minuteOfDay % 60;
 			timeValue = Poco::format("%02d:%02d", hour, minute);
 			return true;
-		}
-
-		ValidateMacResult ResolveGatewaySerial(RESTAPIHandler &handler,
-											   const std::string &subscriberId,
-											   const std::string &operatorId,
-											   std::string &gatewaySerial) {
-			if (subscriberId.empty() || operatorId.empty()) {
-				return ValidateMacResult::MissingSubscriberOrOperator;
-			}
-
-			ProvObjects::SubscriberDeviceList devList;
-			Poco::Net::HTTPResponse::HTTPStatus provStatus = Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR;
-			Poco::JSON::Object::Ptr provResponse;
-			if (!SDK::Prov::Subscriber::GetDevices(&handler, subscriberId, operatorId, devList,
-												   provStatus, provResponse)) {
-				if (provStatus == Poco::Net::HTTPResponse::HTTP_NOT_FOUND) {
-					return ValidateMacResult::SubscriberDevicesNotFound;
-				}
-				return ValidateMacResult::ProvisioningLookupFailed;
-			}
-
-			if (devList.subscriberDevices.empty()) {
-				return ValidateMacResult::SubscriberDevicesNotFound;
-			}
-
-			for (const auto &dev : devList.subscriberDevices) {
-				std::string grp = dev.deviceGroup;
-				Poco::toLowerInPlace(grp);
-				if (grp == "olg") {
-					gatewaySerial = dev.serialNumber;
-					break;
-				}
-			}
-
-			if (gatewaySerial.empty()) {
-				return ValidateMacResult::GatewaySerialNotFound;
-			}
-
-			return ValidateMacResult::Success;
-		}
-
-		ValidateMacResult ResolveVenueBoards(RESTAPIHandler &handler,
-											 const std::string &gatewaySerial,
-											 std::string &boardId) {
-			ProvObjects::InventoryTag inventory;
-			if (!SDK::Prov::Device::Get(&handler, gatewaySerial, inventory)) {
-				return ValidateMacResult::InventoryNotFound;
-			}
-
-			if (inventory.venue.empty()) {
-				return ValidateMacResult::VenueNotFound;
-			}
-
-			Poco::Net::HTTPServerResponse::HTTPStatus venueStatus = Poco::Net::HTTPServerResponse::HTTP_INTERNAL_SERVER_ERROR;
-			Poco::JSON::Object::Ptr venueResponse = Poco::makeShared<Poco::JSON::Object>();
-			ProvObjects::Venue venue;
-			if (!SDK::Prov::Venue::Get(&handler, inventory.venue, venue, venueStatus, venueResponse)) {
-				if (venueStatus == Poco::Net::HTTPResponse::HTTP_NOT_FOUND) {
-					return ValidateMacResult::VenueNotFound;
-				}
-				return ValidateMacResult::VenueLookupFailed;
-			}
-
-			if (venue.boards.empty() || venue.boards.front().empty()) {
-				return ValidateMacResult::BoardIdNotFound;
-			}
-
-			boardId = venue.boards.front();
-			return ValidateMacResult::Success;
-		}
-
-		ValidateMacResult FetchBoardTopology(RESTAPIHandler &handler,
-											 const std::string &boardId,
-											 Poco::JSON::Object::Ptr &topologyResponse) {
-			Poco::Net::HTTPServerResponse::HTTPStatus topoStatus = Poco::Net::HTTPServerResponse::HTTP_INTERNAL_SERVER_ERROR;
-			topologyResponse = Poco::makeShared<Poco::JSON::Object>();
-			if (!SDK::Topology::Get(nullptr, boardId, topoStatus, topologyResponse)) {
-				return ValidateMacResult::TopologyNotFound;
-			}
-
-			if (!topologyResponse) {
-				return ValidateMacResult::TopologyNotFound;
-			}
-
-			return ValidateMacResult::Success;
-		}
-
-		ValidateMacResult MacPresentInTopologyPayload(const Poco::JSON::Object::Ptr &topologyResponse,
-													  const std::string &clientMac) {
-			if (!topologyResponse) {
-				return ValidateMacResult::TopologyNotFound;
-			}
-
-			// Check structures
-			bool hasNodes = topologyResponse->has("nodes") && !topologyResponse->isNull("nodes");
-			bool hasHistClients = topologyResponse->has("historicalClients") && !topologyResponse->isNull("historicalClients");
-			bool hasHistDevs = topologyResponse->has("historicalDevices") && !topologyResponse->isNull("historicalDevices");
-
-			if ((hasNodes && !topologyResponse->isArray("nodes")) ||
-				(hasHistClients && !topologyResponse->isArray("historicalClients")) ||
-				(hasHistDevs && !topologyResponse->isArray("historicalDevices")) ||
-				(!hasNodes && !hasHistClients && !hasHistDevs)) {
-				return ValidateMacResult::TopologyUnusable;
-			}
-
-			// Normalize client MAC to search
-			std::string targetMac = clientMac;
-			if (!Utils::NormalizeMac(targetMac)) {
-				return ValidateMacResult::MacNotPresentInTopology;
-			}
-			std::string targetMacFormatted = Utils::SerialToMAC(targetMac);
-			Poco::toLowerInPlace(targetMacFormatted);
-
-			// Check historicalClients
-			if (hasHistClients) {
-				auto histClients = topologyResponse->getArray("historicalClients");
-				for (std::size_t i = 0; i < histClients->size(); ++i) {
-					auto item = histClients->getObject(i);
-					if (!item) {
-						return ValidateMacResult::TopologyUnusable;
-					}
-					if (item->has("station") && item->get("station").isString()) {
-						std::string station = item->getValue<std::string>("station");
-						Poco::toLowerInPlace(station);
-						if (station == targetMacFormatted) {
-							return ValidateMacResult::Success;
-						}
-					}
-				}
-			}
-
-			// Check historicalDevices (array of MAC strings)
-			if (hasHistDevs) {
-				auto histDevs = topologyResponse->getArray("historicalDevices");
-				for (std::size_t i = 0; i < histDevs->size(); ++i) {
-					try {
-						if (!histDevs->get(i).isString()) {
-							return ValidateMacResult::TopologyUnusable;
-						}
-						std::string station = histDevs->getElement<std::string>(i);
-						if (Utils::NormalizeMac(station)) {
-							std::string normStation = Utils::SerialToMAC(station);
-							Poco::toLowerInPlace(normStation);
-							if (normStation == targetMacFormatted) {
-								return ValidateMacResult::Success;
-							}
-						}
-					} catch (...) {
-						return ValidateMacResult::TopologyUnusable;
-					}
-				}
-			}
-
-			// Check active nodes / aps / clients
-			if (hasNodes) {
-				auto nodes = topologyResponse->getArray("nodes");
-				for (std::size_t i = 0; i < nodes->size(); ++i) {
-					auto node = nodes->getObject(i);
-					if (!node) {
-						return ValidateMacResult::TopologyUnusable;
-					}
-					if (node->has("aps") && !node->isNull("aps")) {
-						if (!node->isArray("aps")) {
-							return ValidateMacResult::TopologyUnusable;
-						}
-						auto aps = node->getArray("aps");
-						for (std::size_t apIndex = 0; apIndex < aps->size(); ++apIndex) {
-							auto ap = aps->getObject(apIndex);
-							if (!ap) {
-								return ValidateMacResult::TopologyUnusable;
-							}
-							if (ap->has("clients") && !ap->isNull("clients")) {
-								if (!ap->isArray("clients")) {
-									return ValidateMacResult::TopologyUnusable;
-								}
-								auto clients = ap->getArray("clients");
-								for (std::size_t clientIndex = 0; clientIndex < clients->size(); ++clientIndex) {
-									auto client = clients->getObject(clientIndex);
-									if (!client) {
-										return ValidateMacResult::TopologyUnusable;
-									}
-									if (client->has("station")) {
-										if (!client->get("station").isString()) {
-											return ValidateMacResult::TopologyUnusable;
-										}
-										std::string station = client->getValue<std::string>("station");
-										Poco::toLowerInPlace(station);
-										if (station == targetMacFormatted) {
-											return ValidateMacResult::Success;
-										}
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-
-			return ValidateMacResult::MacNotPresentInTopology;
 		}
 
 		// Shift an array of weekdays (0=Sun..6=Sat) by a given day offset (positive or negative)
@@ -682,35 +482,6 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 	}
 
 	// =========================================================================
-	// Topology/Device Validation Helpers
-	// =========================================================================
-
-	ValidateMacResult ValidateMacInTopology(RESTAPIHandler &handler,
-											const std::string &subscriberId,
-											const std::string &operatorId,
-											const std::string &clientMac,
-											std::string &gatewaySerial) {
-		ValidateMacResult result = ResolveGatewaySerial(handler, subscriberId, operatorId, gatewaySerial);
-		if (result != ValidateMacResult::Success) {
-			return result;
-		}
-
-		std::string boardId;
-		result = ResolveVenueBoards(handler, gatewaySerial, boardId);
-		if (result != ValidateMacResult::Success) {
-			return result;
-		}
-
-		Poco::JSON::Object::Ptr topologyResponse;
-		result = FetchBoardTopology(handler, boardId, topologyResponse);
-		if (result != ValidateMacResult::Success) {
-			return result;
-		}
-
-		return MacPresentInTopologyPayload(topologyResponse, clientMac);
-	}
-
-	// =========================================================================
 	// Config-Raw Extraction/Apply Helpers
 	// =========================================================================
 
@@ -863,50 +634,14 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 		return false;
 	}
 
-	bool HandleValidateMacResult(RESTAPIHandler &handler, ValidateMacResult result) {
-		switch (result) {
-		case ValidateMacResult::Success:
-			return true;
-		case ValidateMacResult::MissingSubscriberOrOperator:
-			handler.UnAuthorized(RESTAPI::Errors::OperatorIdMustExist);
-			return false;
-		case ValidateMacResult::SubscriberDevicesNotFound:
-		case ValidateMacResult::GatewaySerialNotFound:
-			handler.BadRequest(RESTAPI::Errors::SubNoDeviceActivated);
-			return false;
-		case ValidateMacResult::ProvisioningLookupFailed:
-			handler.InternalError(RESTAPI::Errors::InternalError);
-			return false;
-		case ValidateMacResult::InventoryNotFound:
-			handler.BadRequest(RESTAPI::Errors::GatewayInventoryNotFound);
-			return false;
-		case ValidateMacResult::VenueNotFound:
-			handler.BadRequest(RESTAPI::Errors::VenueMustExist);
-			return false;
-		case ValidateMacResult::VenueLookupFailed:
-			handler.InternalError(RESTAPI::Errors::InternalError);
-			return false;
-		case ValidateMacResult::BoardIdNotFound:
-			handler.BadRequest(RESTAPI::Errors::VenueMissingBoardId);
-			return false;
-		case ValidateMacResult::TopologyNotFound:
-			handler.InternalError(RESTAPI::Errors::InternalError);
-			return false;
-		case ValidateMacResult::MacNotPresentInTopology:
-			handler.BadRequest(RESTAPI::Errors::MacNotPresentInTopology);
-			return false;
-		case ValidateMacResult::TopologyUnusable:
-			handler.InternalError(RESTAPI::Errors::InternalError);
-			return false;
-		}
-		handler.InternalError(RESTAPI::Errors::InternalError);
-		return false;
-	}
 	// =========================================================================
 	// Blocked-Client Evaluation (used by topology response)
 	// =========================================================================
 
 	namespace {
+		constexpr const char *CLIENT_ACCESS_PREFIX = "firewall.pc_client_access_";
+		constexpr const char *SCHEDULE_PREFIX = "firewall.pc_rule_g";
+
 		struct FirewallRuleInfo {
 			bool enabled = false;
 			bool hasSection = false;
@@ -915,10 +650,14 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 			bool hasStopDate = false;
 			bool hasStartTime = false;
 			bool hasStopTime = false;
+			bool hasWeekdays = false;
+			bool isClientAccessRule = false;
+			bool hasClientAccessBoundary = false;
 			std::string startDate;
 			std::string stopDate;
 			std::string startTime;
 			std::string stopTime;
+			std::set<int> weekdays;
 			std::vector<std::string> macs;
 		};
 
@@ -936,29 +675,48 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 			return Poco::DateTimeParser::tryParse("%H:%M:%S", time, dt, tz);
 		}
 
-		/*
-			IsRuleActive: Checks if a client-access firewall block rule is currently active.
-			Client-access rules have start_date/stop_date + start_time/stop_time.
-			Active if current date/time is between start date/time and stop date/time.
-			For same-day time windows (stopTime >= startTime), the stop threshold uses
-			startDate because stop_date is intentionally set to the next calendar date
-			by mango-parental-control.
-		*/
-		bool IsRuleActive(const std::string &nowDateStr, const std::string &nowTimeStr, const FirewallRuleInfo &rule) {
+		// Evaluates both date-bounded client-access rules and recurring UTC schedule
+		// rules. Schedule start is inclusive and stop is exclusive. Overnight
+		// schedules (startTime > stopTime) continue into the following weekday.
+		bool IsRuleActive(int nowUtcWeekday, const std::string &nowDateStr, const std::string &nowTimeStr, const FirewallRuleInfo &rule) {
 			if (!rule.hasSection || !rule.hasEnabled || !rule.enabled) {
 				return false;
+			}
+			if (rule.macs.empty()) {
+				return false;
+			}
+
+			if (rule.hasWeekdays) {
+				if (!rule.hasStartTime || !rule.hasStopTime) {
+					return false;
+				}
+				const std::string &start = rule.startTime;
+				const std::string &stop = rule.stopTime;
+				if (start == stop) {
+					return false;
+				}
+				if (start < stop) {
+					return rule.weekdays.count(nowUtcWeekday) && nowTimeStr >= start && nowTimeStr < stop;
+				} else {
+					const int previousWeekday = (nowUtcWeekday + 6) % 7;
+					return (rule.weekdays.count(nowUtcWeekday) && nowTimeStr >= start) || (rule.weekdays.count(previousWeekday) && nowTimeStr < stop);
+				}
+			}
+
+			if (!rule.isClientAccessRule) {
+				return false;
+			}
+
+			if (!rule.hasClientAccessBoundary) {
+				return true;
 			}
 
 			if (!rule.hasStartDate || !rule.hasStopDate || !rule.hasStartTime || !rule.hasStopTime) {
 				return false;
 			}
 
-			if (rule.macs.empty()) {
-				return false;
-			}
-
-			std::string nowStr = nowDateStr + " " + nowTimeStr;
-			std::string startStr = rule.startDate + " " + rule.startTime;
+			const std::string nowStr = nowDateStr + " " + nowTimeStr;
+			const std::string startStr = rule.startDate + " " + rule.startTime;
 			if (nowStr < startStr) {
 				return false;
 			}
@@ -971,7 +729,7 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 				stopDate = rule.startDate;
 			}
 
-			std::string stopStr = stopDate + " " + rule.stopTime;
+			const std::string stopStr = stopDate + " " + rule.stopTime;
 			if (nowStr > stopStr) {
 				return false;
 			}
@@ -992,9 +750,10 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 			return true;
 		}
 
-		Poco::DateTime now;
-		std::string nowDateStr = Poco::DateTimeFormatter::format(now, "%Y-%m-%d");
-		std::string nowTimeStr = Poco::DateTimeFormatter::format(now, "%H:%M:%S");
+		Poco::DateTime nowUtc;
+		const std::string nowDateStr = Poco::DateTimeFormatter::format(nowUtc, "%Y-%m-%d");
+		const std::string nowTimeStr = Poco::DateTimeFormatter::format(nowUtc, "%H:%M:%S");
+		const int nowUtcWeekday = nowUtc.dayOfWeek();
 
 		std::map<std::string, FirewallRuleInfo> rules;
 		for (std::size_t i = 0; i < configRaw->size(); ++i) {
@@ -1007,40 +766,101 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 				auto key = cmd->getElement<std::string>(1);
 				auto val = cmd->getElement<std::string>(2);
 
-				if (key.rfind("firewall.pc_client_access_", 0) == 0) {
-					std::string prefix = "firewall.pc_client_access_";
-					auto nextDot = key.find('.', prefix.size());
-					if (nextDot == std::string::npos) {
-						if (op == "set" && val == "rule") {
-							rules[key].hasSection = true;
-						}
-					} else {
-						std::string section = key.substr(0, nextDot);
-						std::string param = key.substr(nextDot + 1);
+				const bool isClientAccessRule = key.rfind(CLIENT_ACCESS_PREFIX, 0) == 0;
+				const bool isScheduleRule = key.rfind(SCHEDULE_PREFIX, 0) == 0;
 
-						if (op == "set") {
-							if (param == "enabled") {
-								rules[section].enabled = (val == "1");
-								rules[section].hasEnabled = true;
-							} else if (param == "start_date") {
-								rules[section].startDate = val;
-								rules[section].hasStartDate = IsValidDate(val);
-							} else if (param == "stop_date") {
-								rules[section].stopDate = val;
-								rules[section].hasStopDate = IsValidDate(val);
-							} else if (param == "start_time") {
-								rules[section].startTime = val;
-								rules[section].hasStartTime = IsValidTime(val);
-							} else if (param == "stop_time") {
-								rules[section].stopTime = val;
-								rules[section].hasStopTime = IsValidTime(val);
-							}
-						} else if (op == "add_list" && param == "src_mac") {
-							std::string normalizedMac = val;
-							if (Utils::NormalizeMac(normalizedMac)) {
-								rules[section].macs.push_back(normalizedMac);
+				if (!isClientAccessRule && !isScheduleRule) {
+					continue;
+				}
+
+				const std::size_t prefixLength = isClientAccessRule ? std::string(CLIENT_ACCESS_PREFIX).size() : std::string(SCHEDULE_PREFIX).size();
+				const auto nextDot = key.find('.', prefixLength);
+
+				if (isClientAccessRule) {
+					if (nextDot == std::string::npos) {
+						rules[key].isClientAccessRule = true;
+					} else {
+						rules[key.substr(0, nextDot)].isClientAccessRule = true;
+					}
+				}
+
+				if (nextDot == std::string::npos) {
+					if (op == "set" && val == "rule") {
+						rules[key].hasSection = true;
+					}
+					continue;
+				}
+
+				const std::string section = key.substr(0, nextDot);
+				const std::string param = key.substr(nextDot + 1);
+
+				if (op == "set") {
+					if (param == "enabled") {
+						rules[section].enabled = (val == "1");
+						rules[section].hasEnabled = true;
+					} else if (param == "start_time") {
+						if (isClientAccessRule) {
+							rules[section].hasClientAccessBoundary = true;
+						}
+						rules[section].startTime = val;
+						rules[section].hasStartTime = IsValidTime(val);
+					} else if (param == "stop_time") {
+						if (isClientAccessRule) {
+							rules[section].hasClientAccessBoundary = true;
+						}
+						rules[section].stopTime = val;
+						rules[section].hasStopTime = IsValidTime(val);
+					} else if (isClientAccessRule && param == "start_date") {
+						rules[section].hasClientAccessBoundary = true;
+						rules[section].startDate = val;
+						rules[section].hasStartDate = IsValidDate(val);
+					} else if (isClientAccessRule && param == "stop_date") {
+						rules[section].hasClientAccessBoundary = true;
+						rules[section].stopDate = val;
+						rules[section].hasStopDate = IsValidDate(val);
+					} else if (isScheduleRule && param == "weekdays") {
+						std::string weekdaysVal = val;
+						if (weekdaysVal.size() >= 2 && weekdaysVal.front() == '\'' && weekdaysVal.back() == '\'') {
+							weekdaysVal = weekdaysVal.substr(1, weekdaysVal.size() - 2);
+						}
+						std::istringstream stream(weekdaysVal);
+						std::string token;
+						std::set<int> parsedWeekdays;
+						bool validWeekdays = true;
+
+						rules[section].weekdays.clear();
+						rules[section].hasWeekdays = false;
+
+						while (stream >> token) {
+							if (token == "Sun") {
+								parsedWeekdays.insert(0);
+							} else if (token == "Mon") {
+								parsedWeekdays.insert(1);
+							} else if (token == "Tue") {
+								parsedWeekdays.insert(2);
+							} else if (token == "Wed") {
+								parsedWeekdays.insert(3);
+							} else if (token == "Thu") {
+								parsedWeekdays.insert(4);
+							} else if (token == "Fri") {
+								parsedWeekdays.insert(5);
+							} else if (token == "Sat") {
+								parsedWeekdays.insert(6);
+							} else {
+								validWeekdays = false;
+								break;
 							}
 						}
+
+						if (validWeekdays && !parsedWeekdays.empty()) {
+							rules[section].weekdays = parsedWeekdays;
+							rules[section].hasWeekdays = true;
+						}
+					}
+				} else if (op == "add_list" && param == "src_mac") {
+					std::string normalizedMac = val;
+					if (Utils::NormalizeMac(normalizedMac)) {
+						rules[section].macs.push_back(normalizedMac);
 					}
 				}
 			} catch (...) {
@@ -1048,17 +868,21 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 			}
 		}
 
-		auto &logger = Poco::Logger::get("ParentalControl");
+		std::set<std::string> activeBlockedMacs;
 		for (const auto &[section, rule] : rules) {
-			if (IsRuleActive(nowDateStr, nowTimeStr, rule)) {
-				for (auto mac : rule.macs) {
-					if (Utils::NormalizeMac(mac)) {
-						blockedMacs.push_back(mac);
-						logger.debug(fmt::format("Active blocked client MAC found: {}", Utils::SerialToMAC(mac)));
-					}
+			if (IsRuleActive(nowUtcWeekday, nowDateStr, nowTimeStr, rule)) {
+				for (const auto &mac : rule.macs) {
+					activeBlockedMacs.insert(mac);
 				}
 			}
 		}
+
+		auto &logger = Poco::Logger::get("ParentalControl");
+		for (const auto &mac : activeBlockedMacs) {
+			blockedMacs.push_back(mac);
+			logger.debug(fmt::format("Active blocked client MAC found: {}", Utils::SerialToMAC(mac)));
+		}
+
 		return true;
 	}
 
