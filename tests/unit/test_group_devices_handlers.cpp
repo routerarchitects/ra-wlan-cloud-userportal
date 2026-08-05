@@ -63,15 +63,11 @@ struct DeviceHandlerState {
     Poco::JSON::Object::Ptr deleteResponse = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
     std::string deleteRawBody = "{\"config-raw\":[]}";
 
-    OpenWifi::RESTAPI::ParentalControl::ValidateMacResult validateResult =
-        OpenWifi::RESTAPI::ParentalControl::ValidateMacResult::Success;
-    std::string validateGatewaySerial = "GW-123";
     bool extractConfigRawOk = true;
     Poco::JSON::Array::Ptr extractedConfigRaw = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
     OpenWifi::RESTAPI::ParentalControl::ApplyConfigRawResult applyResult =
         OpenWifi::RESTAPI::ParentalControl::ApplyConfigRawResult::Applied;
 
-    int validateCalls = 0;
     int createCalls = 0;
     int deleteCalls = 0;
     std::string lastSubscriberId;
@@ -107,27 +103,6 @@ class TestGroupDevicesHandler final : public OpenWifi::RESTAPI_group_devices_han
 } // namespace
 
 namespace OpenWifi::RESTAPI::ParentalControl {
-
-ValidateMacResult ValidateMacInTopology(RESTAPIHandler &, const std::string &subscriberId, const std::string &,
-                                        const std::string &clientMac, std::string &gatewaySerial) {
-    ++g_state.validateCalls;
-    g_state.lastSubscriberId = subscriberId;
-    g_state.lastClientMac = clientMac;
-    gatewaySerial = g_state.validateGatewaySerial;
-    return g_state.validateResult;
-}
-
-bool HandleValidateMacResult(RESTAPIHandler &handler, ValidateMacResult result) {
-    if (result == ValidateMacResult::Success) {
-        return true;
-    }
-    if (result == ValidateMacResult::MissingSubscriberOrOperator) {
-        handler.UnAuthorized(RESTAPI::Errors::OperatorIdMustExist);
-        return false;
-    }
-    handler.BadRequest(RESTAPI::Errors::MissingOrInvalidParameters);
-    return false;
-}
 
 bool ExtractConfigRawSnapshot(const Poco::JSON::Object::Ptr &, Poco::JSON::Array::Ptr &configRaw, bool) {
     configRaw = g_state.extractedConfigRaw;
@@ -293,7 +268,6 @@ void TestPostRejectsInvalidClientMac() {
             handler.setParsedBody(body);
         },
         [](const FakeResponse &) {
-            ExpectEq(g_state.validateCalls, 0, "topology validation should not run for invalid MAC");
             ExpectEq(g_state.createCalls, 0, "SDK create should not run for invalid MAC");
         }
     );
@@ -322,7 +296,7 @@ void TestPostStripsConfigRawAndReturnsObject() {
             auto parsed = ParseObject(response.body());
             Expect(!parsed->has("config-raw"), "POST response should strip config-raw");
             ExpectEq(parsed->getValue<std::string>("client_mac"), std::string(kValidMac), "client_mac should remain in response");
-            ExpectEq(g_state.lastGatewaySerial, std::string("GW-123"), "gateway serial should be passed to ApplyConfigRaw");
+            ExpectEq(g_state.lastGatewaySerial, std::string(""), "empty gateway serial should be passed to ApplyConfigRaw");
         }
     );
 }

@@ -16,6 +16,11 @@ namespace OpenWifi {
 			return UnAuthorized(RESTAPI::Errors::InvalidSubscriberId);
 		}
 
+		std::string timezone;
+		if (!RESTAPI::ParentalControl::ResolveSubscriberTimezone(*this, UserInfo_.userinfo.id, timezone)) {
+			return; // Response already sent inside resolver
+		}
+
 		Poco::Net::HTTPResponse::HTTPStatus callStatus;
 		Poco::JSON::Array::Ptr arrayResponse;
 		Poco::JSON::Object::Ptr errorResponse;
@@ -23,11 +28,6 @@ namespace OpenWifi {
 		if (!SDK::ParentalControl::GetSchedules(this, UserInfo_.userinfo.id, callStatus,
 												arrayResponse, errorResponse)) {
 			return ForwardErrorResponse(this, callStatus, errorResponse);
-		}
-
-		std::string timezone;
-		if (!arrayResponse->empty() && !RESTAPI::ParentalControl::ResolveSubscriberTimezone(*this, UserInfo_.userinfo.id, timezone)) {
-			return; // Response already sent inside resolver
 		}
 
 		for (std::size_t i = 0; i < arrayResponse->size(); ++i) {

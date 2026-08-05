@@ -25,17 +25,17 @@ namespace OpenWifi {
 			return BadRequest(RESTAPI::Errors::UnknownId);
 		}
 
+		std::string timezone;
+		if (!RESTAPI::ParentalControl::ResolveSubscriberTimezone(*this, UserInfo_.userinfo.id, timezone)) {
+			return; // Response already sent inside resolver
+		}
+
 		Poco::Net::HTTPResponse::HTTPStatus callStatus;
 		Poco::JSON::Object::Ptr callResponse;
 
 		if (!SDK::ParentalControl::GetSchedule(this, UserInfo_.userinfo.id, scheduleId, callStatus,
 											   callResponse)) {
 			return ForwardErrorResponse(this, callStatus, callResponse);
-		}
-
-		std::string timezone;
-		if (!RESTAPI::ParentalControl::ResolveSubscriberTimezone(*this, UserInfo_.userinfo.id, timezone)) {
-			return; // Response already sent inside resolver
 		}
 
 		if (!RESTAPI::ParentalControl::NormalizeScheduleResponse(callResponse, timezone)) {

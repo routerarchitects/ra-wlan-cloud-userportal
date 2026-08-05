@@ -198,6 +198,7 @@ if(BUILD_TESTING)
         CppKafka::cppkafka
         resolv
         fmt::fmt
+        date::date-tz
     )
     target_link_options(test_parental_control_utils PRIVATE "-Wl,-rpath,/usr/local/lib")
     add_test(NAME test_parental_control_utils COMMAND test_parental_control_utils)

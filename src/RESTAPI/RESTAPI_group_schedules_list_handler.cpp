@@ -27,6 +27,11 @@ namespace OpenWifi {
 			return BadRequest(RESTAPI::Errors::UnknownId);
 		}
 
+		std::string timezone;
+		if (!RESTAPI::ParentalControl::ResolveSubscriberTimezone(*this, UserInfo_.userinfo.id, timezone)) {
+			return; // Response already sent inside resolver
+		}
+
 		Poco::Net::HTTPResponse::HTTPStatus callStatus;
 		Poco::JSON::Array::Ptr arrayResponse;
 		Poco::JSON::Object::Ptr objectResponse;
@@ -38,6 +43,12 @@ namespace OpenWifi {
 
 		if (!arrayResponse) {
 			return InternalError(RESTAPI::Errors::InternalError);
+		}
+
+		for (std::size_t i = 0; i < arrayResponse->size(); ++i) {
+			if (!arrayResponse->isObject(i) || !RESTAPI::ParentalControl::NormalizeScheduleResponse(arrayResponse->getObject(i), timezone)) {
+				return InternalError(RESTAPI::Errors::InternalError);
+			}
 		}
 
 		std::ostringstream ss;

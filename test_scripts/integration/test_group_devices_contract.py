@@ -1,8 +1,18 @@
 import sys
+import json
+from urllib.parse import urlparse
+
 from parental_control_test_helpers import (
-    set_scenario, assert_auth_rejected, assert_unknown_field_rejected,
-    assert_missing_body_rejected, assert_malformed_json_rejected,
-    assert_local_validation_failed, run_scenario_failure_case
+    FAKE_URL,
+    open_url,
+    request,
+    reset_observations,
+    set_scenario,
+    assert_auth_rejected,
+    assert_unknown_field_rejected,
+    assert_missing_body_rejected,
+    assert_malformed_json_rejected,
+    assert_local_validation_failed,
 )
 
 VALID_GROUP_ID = "11111111-1111-4111-8111-111111111111"
@@ -49,31 +59,53 @@ def test_local_validation():
 
     print("✅ Local validation tests passed")
 
-def test_dependency_validation_failures():
-    print("Testing local topology/provisioning dependency validation failures on POST...")
+def test_no_topology_validation_on_post():
+    print("Testing POST /groups/{group_id}/devices performs no topology/venue/inventory validation...")
+    status, group_res = request("POST", "/api/v1/groups", body={"name": "no-topo-group", "description": "desc"})
+    assert status == 200, f"Expected 200 on group create, got {status}"
+    group_id = group_res["id"]
 
-    path = f"/api/v1/groups/{VALID_GROUP_ID}/devices"
-    body = {"client_mac": VALID_CLIENT_MAC}
+    set_scenario("config-raw")
+    reset_observations()
 
-    run_scenario_failure_case("prov-502", "POST", path, body, 500, "provisioning lookup failure")
-    run_scenario_failure_case("inventory-missing", "POST", path, body, 400, "inventory missing")
-    run_scenario_failure_case("inventory-venue-empty", "POST", path, body, 400, "inventory venue empty")
-    run_scenario_failure_case("venue-missing", "POST", path, body, 400, "venue missing")
-    run_scenario_failure_case("venue-fail", "POST", path, body, 500, "venue lookup failure")
-    run_scenario_failure_case("board-missing", "POST", path, body, 400, "board missing or empty")
-    run_scenario_failure_case("topology-fail", "POST", path, body, 500, "topology fetch failure")
-    run_scenario_failure_case("mac-not-present", "POST", path, body, 400, "MAC not present in topology")
-    run_scenario_failure_case("topology-malformed", "POST", path, body, 500, "malformed topology payload")
+    status, res_body = request("POST", f"/api/v1/groups/{group_id}/devices", body={"client_mac": VALID_CLIENT_MAC})
+    assert status == 200, f"Expected 200 on POST group device, got {status}. Body: {res_body}"
+
+    with open_url(f"{FAKE_URL}/observations") as r:
+        obs = json.loads(r.read())
+        calls = obs.get("calls", [])
+
+        # Assert no calls to inventory, venue, location, topology
+        for c in calls:
+            path = urlparse(c["path"]).path
+
+            assert not path.startswith("/api/v1/inventory/"), \
+                f"Forbidden call to inventory: {c['path']}"
+            assert path != "/api/v1/venue" and not path.startswith("/api/v1/venue/"), \
+                f"Forbidden call to venue: {c['path']}"
+            assert not path.startswith("/api/v1/location/"), \
+                f"Forbidden call to location: {c['path']}"
+            assert not path.startswith("/api/v1/topology"), \
+                f"Forbidden call to topology: {c['path']}"
+
+        # Assert parental-control call for group-device POST path
+        pc_calls = [
+            c for c in calls
+            if c["method"] == "POST"
+            and c["path"].startswith("/api/v1/subscribers/")
+            and c["path"].endswith(f"/groups/{group_id}/devices")
+        ]
+        assert len(pc_calls) > 0, f"Expected parental-control call for group-device POST, got {calls}"
 
     set_scenario("normal")
-    print("✅ Dependency validation failure tests passed")
+    print("✅ No topology validation on POST passed")
 
 if __name__ == "__main__":
     print("Starting group-devices contract tests...")
     try:
         test_auth_checks()
         test_local_validation()
-        test_dependency_validation_failures()
+        test_no_topology_validation_on_post()
         print("🎉 All group-devices contract tests passed!")
     except AssertionError as e:
         print(f"❌ TEST FAILED: {e}")

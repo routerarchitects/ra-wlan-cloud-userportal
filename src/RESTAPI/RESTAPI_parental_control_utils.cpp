@@ -405,6 +405,13 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 			return false;
 		}
 
+		try {
+			date::locate_zone(location.timezone);
+		} catch (...) {
+			handler.InternalError(RESTAPI::Errors::InternalError);
+			return false;
+		}
+
 		timezone = location.timezone;
 		auto &logger = Poco::Logger::get("ParentalControl");
 		logger.information(fmt::format("Resolved subscriber [{}] venue location timezone: [{}]", subscriberId, timezone));

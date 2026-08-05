@@ -43,6 +43,15 @@ struct ScheduleHandlerState {
     OpenWifi::RESTAPI::ParentalControl::ApplyConfigRawResult applyResult =
         OpenWifi::RESTAPI::ParentalControl::ApplyConfigRawResult::Applied;
 
+    bool resolveTimezoneOk = true;
+    std::string resolvedTimezone = "UTC";
+    bool normalizeScheduleResponseOk = true;
+
+    std::size_t resolveTimezoneCallCount = 0;
+    std::size_t getGroupSchedulesCallCount = 0;
+    std::size_t normalizeScheduleResponseCallCount = 0;
+    std::string lastNormalizedTimezone;
+
     std::string lastSubscriberId;
     std::string lastGroupId;
     std::string lastScheduleId;
@@ -79,6 +88,35 @@ class TestGroupSchedulesHandler final : public OpenWifi::RESTAPI_group_schedules
 
 namespace OpenWifi::RESTAPI::ParentalControl {
 
+bool ResolveSubscriberTimezone(RESTAPIHandler &handler, const std::string &subscriberId, std::string &timezone) {
+    g_state.lastSubscriberId = subscriberId;
+    g_state.resolveTimezoneCallCount++;
+    if (!g_state.resolveTimezoneOk) {
+        handler.BadRequest(RESTAPI::Errors::TimezoneRequired);
+        return false;
+    }
+    if (g_state.resolvedTimezone == "Invalid/Timezone") {
+        handler.InternalError(RESTAPI::Errors::InternalError);
+        return false;
+    }
+    timezone = g_state.resolvedTimezone;
+    return true;
+}
+
+bool NormalizeScheduleResponse(Poco::JSON::Object::Ptr schedule, const std::string &timezone) {
+    g_state.normalizeScheduleResponseCallCount++;
+    g_state.lastNormalizedTimezone = timezone;
+    if (!g_state.normalizeScheduleResponseOk || !schedule || !schedule->has("start_minute") || !schedule->has("stop_minute")) {
+        return false;
+    }
+    if (schedule->has("start_minute")) schedule->remove("start_minute");
+    if (schedule->has("stop_minute")) schedule->remove("stop_minute");
+    if (schedule->has("config-raw")) schedule->remove("config-raw");
+    schedule->set("start_time", "08:00");
+    schedule->set("stop_time", "17:00");
+    return true;
+}
+
 bool ExtractConfigRawSnapshot(const Poco::JSON::Object::Ptr &, Poco::JSON::Array::Ptr &configRaw, bool) {
     configRaw = g_state.extractedConfigRaw;
     return g_state.extractConfigRawOk;
@@ -113,6 +151,7 @@ bool GetGroupSchedules(RESTAPIHandler *, const std::string &subscriberId, const 
                        Poco::JSON::Object::Ptr &objectResponse) {
     g_state.lastSubscriberId = subscriberId;
     g_state.lastGroupId = groupId;
+    g_state.getGroupSchedulesCallCount++;
     callStatus = g_state.getListStatus;
     arrayResponse = g_state.getListArray;
     objectResponse = g_state.getListError;
@@ -183,13 +222,32 @@ void TestListGetRejectsInvalidGroupUuid() {
         {{"group_id", kInvalidUuid}},
         "subscriber-1",
         "",
-        Poco::Net::HTTPResponse::HTTP_BAD_REQUEST
+        Poco::Net::HTTPResponse::HTTP_BAD_REQUEST,
+        nullptr,
+        [](const FakeResponse &) {
+            ExpectEq(g_state.resolveTimezoneCallCount, static_cast<std::size_t>(0), "invalid group_id should return before timezone resolution");
+            ExpectEq(g_state.getGroupSchedulesCallCount, static_cast<std::size_t>(0), "invalid group_id should return before GetGroupSchedules");
+        }
     );
 }
 
 void TestListGetReturnsJsonArrayOnSuccess() {
     auto item = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
-    item->set("schedule_id", kValidScheduleId);
+    item->set("id", kValidScheduleId);
+    item->set("subscriber_id", "subscriber-1");
+    item->set("name", "Test schedule");
+    item->set("enabled", true);
+    item->set("action_type", "BLOCK");
+    item->set("target_kind", "INTERNET");
+    item->set("schedule_config_index", 1);
+    item->set("created_at", "2026-08-05T12:00:00Z");
+    item->set("updated_at", "2026-08-05T12:00:00Z");
+    item->set("start_minute", 480);
+    item->set("stop_minute", 1020);
+    item->set("config-raw", Poco::JSON::Array::Ptr(new Poco::JSON::Array()));
+    auto weekdays = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
+    weekdays->add(1);
+    item->set("weekdays", weekdays);
     g_state.getListArray->add(item);
 
     RunHandlerRequest<TestGroupSchedulesListHandler>(
@@ -205,6 +263,99 @@ void TestListGetReturnsJsonArrayOnSuccess() {
             auto array = ParseArray(response.body());
             ExpectEq(array->size(), static_cast<std::size_t>(1), "GET schedules should return one entry");
             ExpectEq(g_state.lastGroupId, kValidGroupId, "group id should be forwarded");
+            auto schedule = array->getObject(0);
+            ExpectEq(schedule->getValue<std::string>("id"), kValidScheduleId, "id should be preserved");
+            Expect(schedule->has("start_time"), "schedule should contain local start_time");
+            Expect(schedule->has("stop_time"), "schedule should contain local stop_time");
+            Expect(!schedule->has("start_minute"), "schedule should not contain start_minute");
+            Expect(!schedule->has("stop_minute"), "schedule should not contain stop_minute");
+            Expect(!schedule->has("config-raw"), "schedule should not expose config-raw");
+            ExpectEq(g_state.resolveTimezoneCallCount, static_cast<std::size_t>(1), "resolveTimezone should be called");
+            ExpectEq(g_state.getGroupSchedulesCallCount, static_cast<std::size_t>(1), "GetGroupSchedules should be called");
+            ExpectEq(g_state.normalizeScheduleResponseCallCount, static_cast<std::size_t>(1), "NormalizeScheduleResponse should be called");
+            ExpectEq(g_state.lastNormalizedTimezone, "UTC", "resolved timezone should be passed to normalization");
+        }
+    );
+}
+
+void TestListGetRejectsMissingTimezone() {
+    g_state.resolveTimezoneOk = false;
+
+    RunHandlerRequest<TestGroupSchedulesListHandler>(
+        Poco::Net::HTTPRequest::HTTP_GET,
+        "/api/v1/groups/x/schedules",
+        "",
+        {{"group_id", kValidGroupId}},
+        "subscriber-1",
+        "",
+        Poco::Net::HTTPResponse::HTTP_BAD_REQUEST,
+        nullptr,
+        [](const FakeResponse &) {
+            ExpectEq(g_state.resolveTimezoneCallCount, static_cast<std::size_t>(1), "timezone resolver should be called");
+            ExpectEq(g_state.getGroupSchedulesCallCount, static_cast<std::size_t>(0), "GetGroupSchedules should not be called when timezone is missing");
+            ExpectEq(g_state.normalizeScheduleResponseCallCount, static_cast<std::size_t>(0), "normalization should not run when timezone resolution fails");
+        }
+    );
+}
+
+void TestListGetRejectsInvalidIanaTimezone() {
+    g_state.resolvedTimezone = "Invalid/Timezone";
+
+    RunHandlerRequest<TestGroupSchedulesListHandler>(
+        Poco::Net::HTTPRequest::HTTP_GET,
+        "/api/v1/groups/x/schedules",
+        "",
+        {{"group_id", kValidGroupId}},
+        "subscriber-1",
+        "",
+        Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR,
+        nullptr,
+        [](const FakeResponse &) {
+            ExpectEq(g_state.resolveTimezoneCallCount, static_cast<std::size_t>(1), "timezone resolver should be called");
+            ExpectEq(g_state.getGroupSchedulesCallCount, static_cast<std::size_t>(0), "GetGroupSchedules should not be called on invalid timezone");
+            ExpectEq(g_state.normalizeScheduleResponseCallCount, static_cast<std::size_t>(0), "normalization should not run when timezone resolution fails");
+        }
+    );
+}
+
+void TestListGetResolvesTimezoneOnEmptyList() {
+    RunHandlerRequest<TestGroupSchedulesListHandler>(
+        Poco::Net::HTTPRequest::HTTP_GET,
+        "/api/v1/groups/x/schedules",
+        "",
+        {{"group_id", kValidGroupId}},
+        "subscriber-1",
+        "",
+        Poco::Net::HTTPResponse::HTTP_OK,
+        nullptr,
+        [](const FakeResponse &response) {
+            auto array = ParseArray(response.body());
+            ExpectEq(array->size(), static_cast<std::size_t>(0), "empty schedule list should return []");
+            ExpectEq(g_state.resolveTimezoneCallCount, static_cast<std::size_t>(1), "timezone resolver should be called for empty list");
+            ExpectEq(g_state.getGroupSchedulesCallCount, static_cast<std::size_t>(1), "GetGroupSchedules should be called");
+            ExpectEq(g_state.normalizeScheduleResponseCallCount, static_cast<std::size_t>(0), "empty list should not invoke normalization");
+        }
+    );
+}
+
+void TestListGetReturnsInternalErrorOnMalformedSchedule() {
+    auto item = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+    item->set("id", kValidScheduleId);
+    g_state.getListArray->add(item);
+
+    RunHandlerRequest<TestGroupSchedulesListHandler>(
+        Poco::Net::HTTPRequest::HTTP_GET,
+        "/api/v1/groups/x/schedules",
+        "",
+        {{"group_id", kValidGroupId}},
+        "subscriber-1",
+        "",
+        Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR,
+        nullptr,
+        [](const FakeResponse &) {
+            ExpectEq(g_state.resolveTimezoneCallCount, static_cast<std::size_t>(1), "resolveTimezone should be called");
+            ExpectEq(g_state.getGroupSchedulesCallCount, static_cast<std::size_t>(1), "GetGroupSchedules should be called");
+            ExpectEq(g_state.normalizeScheduleResponseCallCount, static_cast<std::size_t>(1), "NormalizeScheduleResponse should be called");
         }
     );
 }
@@ -374,6 +525,10 @@ void TestSingleDeleteReturnsOkOnSuccess() {
 const std::vector<std::pair<std::string, std::function<void()>>> kTests = {
     {"ListGetRejectsInvalidGroupUuid", TestListGetRejectsInvalidGroupUuid},
     {"ListGetReturnsJsonArrayOnSuccess", TestListGetReturnsJsonArrayOnSuccess},
+    {"ListGetRejectsMissingTimezone", TestListGetRejectsMissingTimezone},
+    {"ListGetRejectsInvalidIanaTimezone", TestListGetRejectsInvalidIanaTimezone},
+    {"ListGetResolvesTimezoneOnEmptyList", TestListGetResolvesTimezoneOnEmptyList},
+    {"ListGetReturnsInternalErrorOnMalformedSchedule", TestListGetReturnsInternalErrorOnMalformedSchedule},
     {"PostRejectsInvalidScheduleId", TestPostRejectsInvalidScheduleId},
     {"PostStripsConfigRawAndReturnsObject", TestPostStripsConfigRawAndReturnsObject},
     {"PutRejectsDuplicateScheduleIds", TestPutRejectsDuplicateScheduleIds},
