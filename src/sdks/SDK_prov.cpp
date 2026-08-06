@@ -100,6 +100,20 @@ namespace OpenWifi::SDK::Prov {
 								client == nullptr ? "" : client->UserInfo_.webtoken.access_token_);
 			return CallStatus == Poco::Net::HTTPServerResponse::HTTP_OK;
 		}
+
+		bool ClearLocation(RESTAPIHandler *client, const std::string &VenueId,
+						   Poco::Net::HTTPServerResponse::HTTPStatus &CallStatus,
+						   Poco::JSON::Object::Ptr &CallResponse) {
+			const std::string EndPoint = "/api/v1/venue/" + VenueId;
+			Poco::JSON::Object body;
+			body.set("location", "");
+
+			auto API = OpenAPIRequestPut(uSERVICE_PROVISIONING, EndPoint, {}, body, 60000);
+			CallResponse = Poco::makeShared<Poco::JSON::Object>();
+			CallStatus = API.Do(CallResponse,
+								client == nullptr ? "" : client->UserInfo_.webtoken.access_token_);
+			return CallStatus == Poco::Net::HTTPServerResponse::HTTP_OK;
+		}
 	} // namespace Venue
 
 	namespace Location {
@@ -119,6 +133,17 @@ namespace OpenWifi::SDK::Prov {
 				}
 			}
 			return false;
+		}
+
+		bool Delete(RESTAPIHandler *client, const std::string &LocationUUID,
+					Poco::Net::HTTPServerResponse::HTTPStatus &CallStatus,
+					Poco::JSON::Object::Ptr &CallResponse) {
+			const std::string EndPoint = "/api/v1/location/" + LocationUUID;
+			auto API = OpenAPIRequestDelete(uSERVICE_PROVISIONING, EndPoint, {}, 60000);
+			CallResponse = Poco::makeShared<Poco::JSON::Object>();
+			CallStatus = API.Do(CallResponse,
+								client == nullptr ? "" : client->UserInfo_.webtoken.access_token_);
+			return CallStatus == Poco::Net::HTTPServerResponse::HTTP_OK;
 		}
 	} // namespace Location
 

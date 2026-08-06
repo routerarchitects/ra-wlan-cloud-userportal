@@ -264,7 +264,7 @@ components:
           minLength: 1
           description: "Required IANA timezone identifier to configure on the location linked to the subscriber's venue."
           example: "Asia/Kolkata"
-      additionalProperties: false
+      additionalProperties: true
 
     TopologyEmptyResponse:
       type: object
@@ -1300,7 +1300,7 @@ paths:
       tags:
         - Subscriber Location
       summary: Create and link a location to the subscriber's venue
-      description: Creates a location object containing location parameters (such as optional name and required IANA timezone) and links it to the subscriber's venue.
+      description: Creates a location object containing location parameters (such as optional name and required IANA timezone) and links it to the subscriber's venue. Returns HTTP 400 (SubscriberLocationAlreadyConfigured) if a location is already linked to the venue.
       operationId: createSubscriberLocation
       security:
         - bearerAuth: []
@@ -1312,10 +1312,30 @@ paths:
             schema:
               $ref: '#/components/schemas/SubscriberLocationCreateRequest'
             example:
+              name: "Home Location"
               timezone: "Asia/Kolkata"
       responses:
         '200':
           $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      tags:
+        - Subscriber Location
+      summary: Delete location currently linked to the subscriber's venue
+      description: Unlinks and deletes the location object currently associated with the authenticated subscriber's venue. Returns HTTP 404 if no location is currently linked.
+      operationId: deleteSubscriberLocation
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/EmptySuccess'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':

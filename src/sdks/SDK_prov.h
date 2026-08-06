@@ -33,12 +33,18 @@ namespace OpenWifi::SDK::Prov {
 							const Poco::JSON::Object::Ptr &locationData,
 							Poco::Net::HTTPServerResponse::HTTPStatus &CallStatus,
 							Poco::JSON::Object::Ptr &CallResponse);
+		bool ClearLocation(RESTAPIHandler *client, const std::string &VenueId,
+						   Poco::Net::HTTPServerResponse::HTTPStatus &CallStatus,
+						   Poco::JSON::Object::Ptr &CallResponse);
 	} // namespace Venue
 
 	namespace Location {
 		bool Get(RESTAPIHandler *client, const std::string &LocationUUID, ProvObjects::Location &Location,
 				 Poco::Net::HTTPServerResponse::HTTPStatus &CallStatus,
 				 Poco::JSON::Object::Ptr &CallResponse);
+		bool Delete(RESTAPIHandler *client, const std::string &LocationUUID,
+					Poco::Net::HTTPServerResponse::HTTPStatus &CallStatus,
+					Poco::JSON::Object::Ptr &CallResponse);
 	} // namespace Location
 
 	namespace Subscriber {
