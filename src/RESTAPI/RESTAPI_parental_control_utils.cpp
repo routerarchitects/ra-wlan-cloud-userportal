@@ -737,7 +737,7 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 			}
 
 			const std::string stopStr = stopDate + " " + rule.stopTime;
-			if (nowStr > stopStr) {
+			if (nowStr >= stopStr) {
 				return false;
 			}
 

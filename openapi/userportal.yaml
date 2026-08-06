@@ -200,7 +200,7 @@ components:
           type: integer
           format: int64
           minimum: 1
-          description: 'Optional block duration in minutes. Valid only when access is "deny". When omitted, the client is blocked permanently until an "allow" request explicitly removes the block. The property must be omitted for a permanent block; null and values below 1 are invalid.'
+          description: 'Optional block duration in minutes. Valid only when access is "deny". Duration-based client blocking is limited to the current block day (the computed block end time must not cross midnight). When omitted, the client is blocked permanently until an "allow" request explicitly removes the block. The property must be omitted for a permanent block; null and values below 1 are invalid.'
       additionalProperties: false
 
     ActionSuccessResponse:
@@ -1350,7 +1350,7 @@ paths:
       tags:
         - Device Commands
       summary: Sending different commands to a device
-      description: "Executes device control commands (configure, reboot, blink, upgrade, factory). For action=configure, applies network configuration changes including SSID overrides and client-access parental control rules to the gateway. For client-access rules: access='deny' with a duration creates a timed block; access='deny' without duration creates a permanent block (duration property must be omitted; null and values below 1 are invalid); access='allow' removes an existing block (duration property is not allowed with allow). One client-access rule may exist per subscriber and MAC; the client must be unblocked before another timed or permanent block is created."
+      description: "Executes device control commands (configure, reboot, blink, upgrade, factory). For action=configure, applies network configuration changes including SSID overrides and client-access parental control rules to the gateway. For client-access rules: access='deny' with a duration creates a timed block limited to the current block day (end time cannot cross midnight); access='deny' without duration creates a permanent block (duration property must be omitted; null and values below 1 are invalid); access='allow' removes an existing block (duration property is not allowed with allow). One client-access rule may exist per subscriber and MAC; the client must be unblocked before another timed or permanent block is created."
       operationId: performAnAction
       security:
         - bearerAuth: []
