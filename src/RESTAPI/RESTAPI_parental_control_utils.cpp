@@ -367,7 +367,7 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 		auto callResponse = Poco::makeShared<Poco::JSON::Object>();
 		ProvObjects::VenueList venueList;
 
-		if (!SDK::Prov::Venue::GetVenues(&handler, subscriberId, venueList, callStatus, callResponse)) {
+		if (!SDK::Prov::Venue::GetVenues(nullptr, subscriberId, venueList, callStatus, callResponse)) {
 			if (callStatus != Poco::Net::HTTPServerResponse::HTTP_OK) {
 				handler.ForwardErrorResponse(&handler, callStatus, callResponse);
 				return false;
@@ -391,7 +391,7 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 		callResponse = Poco::makeShared<Poco::JSON::Object>();
 		ProvObjects::Location location;
 
-		if (!SDK::Prov::Location::Get(&handler, venue.location, location, callStatus, callResponse)) {
+		if (!SDK::Prov::Location::Get(nullptr, venue.location, location, callStatus, callResponse)) {
 			if (callStatus != Poco::Net::HTTPServerResponse::HTTP_OK) {
 				handler.ForwardErrorResponse(&handler, callStatus, callResponse);
 				return false;
@@ -555,7 +555,7 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 			ProvObjects::SubscriberDeviceList devList;
 			Poco::Net::HTTPResponse::HTTPStatus provStatus;
 			Poco::JSON::Object::Ptr provResponse;
-			if (!SDK::Prov::Subscriber::GetDevices(&handler, subscriberId, operatorId, devList, provStatus, provResponse)) {
+			if (!SDK::Prov::Subscriber::GetDevices(nullptr, subscriberId, operatorId, devList, provStatus, provResponse)) {
 				logger.error(fmt::format("{}: provisioning lookup failed (subscriber={} {}={})",
 										 operationName, subscriberId, objectType, objectId));
 				return ApplyConfigRawResult::ProvisioningLookupFailed;

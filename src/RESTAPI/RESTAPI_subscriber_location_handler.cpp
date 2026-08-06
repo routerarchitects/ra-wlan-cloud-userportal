@@ -5,7 +5,9 @@
  */
 
 #include "RESTAPI_subscriber_location_handler.h"
+#include "Poco/String.h"
 #include "sdks/SDK_prov.h"
+#include <date/tz.h>
 
 namespace OpenWifi {
 
@@ -13,6 +15,31 @@ namespace OpenWifi {
 		if (UserInfo_.userinfo.id.empty()) {
 			return UnAuthorized(RESTAPI::Errors::InvalidSubscriberId);
 		}
+
+		if (!ParsedBody_) {
+			return BadRequest(RESTAPI::Errors::InvalidJSONDocument);
+		}
+
+		if (!ParsedBody_->has("timezone") ||
+		    ParsedBody_->isNull("timezone") ||
+		    !ParsedBody_->get("timezone").isString()) {
+			return BadRequest(RESTAPI::Errors::MissingOrInvalidParameters);
+		}
+
+		std::string timezone = ParsedBody_->getValue<std::string>("timezone");
+		Poco::trimInPlace(timezone);
+
+		if (timezone.empty()) {
+			return BadRequest(RESTAPI::Errors::MissingOrInvalidParameters);
+		}
+
+		try {
+			date::locate_zone(timezone);
+		} catch (...) {
+			return BadRequest(RESTAPI::Errors::MissingOrInvalidParameters);
+		}
+
+		ParsedBody_->set("timezone", timezone);
 
 		Poco::Net::HTTPServerResponse::HTTPStatus callStatus = Poco::Net::HTTPServerResponse::HTTP_INTERNAL_SERVER_ERROR;
 		auto callResponse = Poco::makeShared<Poco::JSON::Object>();
