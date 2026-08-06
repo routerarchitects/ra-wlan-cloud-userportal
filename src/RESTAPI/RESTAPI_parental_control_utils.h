@@ -10,6 +10,7 @@
 #include "Poco/JSON/Object.h"
 #include "framework/RESTAPI_Handler.h"
 #include <list>
+#include <map>
 #include <optional>
 #include <string>
 
@@ -20,6 +21,7 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 	// =========================================================================
 
 	bool GetBlockedClients(const Poco::JSON::Object::Ptr &config, std::list<std::string> &blockedMacs);
+	bool GetBlockedClients(const Poco::JSON::Object::Ptr &config, std::map<std::string, std::string> &blockedMacsWithUntil, const std::string &timezoneStr = "");
 
 	// =========================================================================
 	// Schedule Helpers

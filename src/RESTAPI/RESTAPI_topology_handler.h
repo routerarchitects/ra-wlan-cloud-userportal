@@ -46,6 +46,6 @@ namespace OpenWifi {
 		void FinalizeTopologyResponse(const ProvObjects::SubscriberDeviceList &subscriberDevices, const std::string &gatewaySerial, const VenueTopologyContext &context, Poco::JSON::Object::Ptr &topologyResponse);
 		void FilterTopologyNodes(const ProvObjects::SubscriberDeviceList &subscriberDevices, Poco::JSON::Object::Ptr &topologyResponse);
 		void FilterTopologyEdges(const ProvObjects::SubscriberDeviceList &subscriberDevices, Poco::JSON::Object::Ptr &topologyResponse);
-		void TagBlockedClients(const std::string &gatewaySerial, Poco::JSON::Object::Ptr &topologyResponse);
+		void TagBlockedClients(const std::string &gatewaySerial, Poco::JSON::Object::Ptr &topologyResponse, const std::string &timezoneStr = "");
 	};
 } // namespace OpenWifi

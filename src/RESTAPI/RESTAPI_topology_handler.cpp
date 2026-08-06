@@ -4,6 +4,7 @@
  * Portions copyright (c) Telecom Infra Project (TIP), BSD-3-Clause
  */
 #include <list>
+#include <unordered_map>
 #include <unordered_set>
 #include "framework/utils.h"
 #include "sdks/SDK_gw.h"
@@ -198,7 +199,7 @@ namespace OpenWifi {
 
 		FilterTopologyNodes(subscriberDevices, topologyResponse);
 		FilterTopologyEdges(subscriberDevices, topologyResponse);
-		TagBlockedClients(gatewaySerial, topologyResponse);
+		TagBlockedClients(gatewaySerial, topologyResponse, context.timezone);
 		topologyResponse->set("timezone", context.timezone);
 	}
 
@@ -328,9 +329,8 @@ namespace OpenWifi {
 		]
 		}
 	*/
-	void RESTAPI_topology_handler::TagBlockedClients(const std::string &gatewaySerial, Poco::JSON::Object::Ptr &topologyResponse) {
+	void RESTAPI_topology_handler::TagBlockedClients(const std::string &gatewaySerial, Poco::JSON::Object::Ptr &topologyResponse, const std::string &timezoneStr) {
 
-		std::list<std::string> blockedMacs;
 		Poco::JSON::Object::Ptr deviceObj;
 		Poco::Net::HTTPServerResponse::HTTPStatus status = Poco::Net::HTTPServerResponse::HTTP_INTERNAL_SERVER_ERROR;
 
@@ -341,14 +341,15 @@ namespace OpenWifi {
 			config = deviceObj->getObject("configuration");
 		}
 
-		if (!config || !RESTAPI::ParentalControl::GetBlockedClients(config, blockedMacs)) {
+		std::map<std::string, std::string> blockedMacMap;
+		if (!config || !RESTAPI::ParentalControl::GetBlockedClients(config, blockedMacMap, timezoneStr)) {
 			Logger().debug(fmt::format("[GET-TOPOLOGY] Failed to fetch config for {}.", gatewaySerial));
 		}
 
-		std::unordered_set<std::string> blockedMacSet;
-		blockedMacSet.reserve(blockedMacs.size());
-		for (const auto &macNorm : blockedMacs) {
-			blockedMacSet.insert(Utils::SerialToMAC(macNorm));
+		std::unordered_map<std::string, std::string> blockedMacSet;
+		blockedMacSet.reserve(blockedMacMap.size());
+		for (const auto &[macNorm, untilStr] : blockedMacMap) {
+			blockedMacSet[Utils::SerialToMAC(macNorm)] = untilStr;
 		}
 
 		if (auto historicalDevices = topologyResponse->getArray("historicalDevices")) {
@@ -364,7 +365,14 @@ namespace OpenWifi {
 				Poco::toLowerInPlace(normalizedStation);
 				auto entry = Poco::makeShared<Poco::JSON::Object>();
 				entry->set("station", station);
-				entry->set("blocked", blockedMacSet.count(normalizedStation) ? "1" : "0");
+				const auto it = blockedMacSet.find(normalizedStation);
+				if (it != blockedMacSet.end()) {
+					entry->set("blocked", "1");
+					entry->set("blocked_until", it->second);
+				} else {
+					entry->set("blocked", "0");
+					entry->set("blocked_until", "");
+				}
 				historicalClientsWithFlags->add(entry);
 			}
 			topologyResponse->set("historicalClients", historicalClientsWithFlags);
@@ -395,7 +403,14 @@ namespace OpenWifi {
 						const auto station = client->getValue<std::string>("station");
 						std::string normalizedStation = station;
 						Poco::toLowerInPlace(normalizedStation);
-						client->set("blocked", blockedMacSet.count(normalizedStation) ? "1" : "0");
+						const auto it = blockedMacSet.find(normalizedStation);
+						if (it != blockedMacSet.end()) {
+							client->set("blocked", "1");
+							client->set("blocked_until", it->second);
+						} else {
+							client->set("blocked", "0");
+							client->set("blocked_until", "");
+						}
 					}
 				}
 			}

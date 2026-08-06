@@ -685,7 +685,8 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 		// Evaluates both date-bounded client-access rules and recurring UTC schedule
 		// rules. Schedule start is inclusive and stop is exclusive. Overnight
 		// schedules (startTime > stopTime) continue into the following weekday.
-		bool IsRuleActive(int nowUtcWeekday, const std::string &nowDateStr, const std::string &nowTimeStr, const FirewallRuleInfo &rule) {
+		bool IsRuleActive(int nowUtcWeekday, const std::string &nowDateStr, const std::string &nowTimeStr, const FirewallRuleInfo &rule, const Poco::DateTime &nowUtc, int64_t &outStopEpochSec) {
+			outStopEpochSec = 0;
 			if (!rule.hasSection || !rule.hasEnabled || !rule.enabled) {
 				return false;
 			}
@@ -702,12 +703,39 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 				if (start == stop) {
 					return false;
 				}
+				bool active = false;
+				std::string stopStr;
 				if (start < stop) {
-					return rule.weekdays.count(nowUtcWeekday) && nowTimeStr >= start && nowTimeStr < stop;
+					if (rule.weekdays.count(nowUtcWeekday) && nowTimeStr >= start && nowTimeStr < stop) {
+						active = true;
+						stopStr = nowDateStr + " " + stop;
+					}
 				} else {
 					const int previousWeekday = (nowUtcWeekday + 6) % 7;
-					return (rule.weekdays.count(nowUtcWeekday) && nowTimeStr >= start) || (rule.weekdays.count(previousWeekday) && nowTimeStr < stop);
+					if (rule.weekdays.count(nowUtcWeekday) && nowTimeStr >= start) {
+						active = true;
+						Poco::DateTime nextDay = nowUtc + Poco::Timespan(86400, 0);
+						stopStr = Poco::DateTimeFormatter::format(nextDay, "%Y-%m-%d") + " " + stop;
+					} else if (rule.weekdays.count(previousWeekday) && nowTimeStr < stop) {
+						active = true;
+						stopStr = nowDateStr + " " + stop;
+					}
 				}
+				if (!active) {
+					return false;
+				}
+
+				Poco::DateTime stopDt;
+				int tz = 0;
+				if (!Poco::DateTimeParser::tryParse("%Y-%m-%d %H:%M:%S", stopStr, stopDt, tz)) {
+					return false;
+				}
+
+				if (stopDt <= nowUtc) {
+					return false;
+				}
+				outStopEpochSec = stopDt.timestamp().epochTime();
+				return true;
 			}
 
 			if (!rule.isClientAccessRule) {
@@ -715,6 +743,7 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 			}
 
 			if (!rule.hasClientAccessBoundary) {
+				outStopEpochSec = -1; // Permanent block
 				return true;
 			}
 
@@ -741,13 +770,24 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 				return false;
 			}
 
+			Poco::DateTime stopDt;
+			int tz = 0;
+			if (!Poco::DateTimeParser::tryParse("%Y-%m-%d %H:%M:%S", stopStr, stopDt, tz)) {
+				return false;
+			}
+
+			if (stopDt <= nowUtc) {
+				return false;
+			}
+			outStopEpochSec = stopDt.timestamp().epochTime();
 			return true;
 		}
 	} // namespace
 
 	bool GetBlockedClients(const Poco::JSON::Object::Ptr &config,
-						   std::list<std::string> &blockedMacs) {
-		blockedMacs.clear();
+						   std::map<std::string, std::string> &blockedMacsWithUntil,
+						   const std::string &timezoneStr) {
+		blockedMacsWithUntil.clear();
 		if (!config || !config->has("config-raw") || !config->isArray("config-raw")) {
 			return config != nullptr;
 		}
@@ -875,21 +915,64 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 			}
 		}
 
-		std::set<std::string> activeBlockedMacs;
+		std::map<std::string, int64_t> macStopEpochMap;
 		for (const auto &[section, rule] : rules) {
-			if (IsRuleActive(nowUtcWeekday, nowDateStr, nowTimeStr, rule)) {
+			int64_t stopEpoch = 0;
+			if (IsRuleActive(nowUtcWeekday, nowDateStr, nowTimeStr, rule, nowUtc, stopEpoch)) {
 				for (const auto &mac : rule.macs) {
-					activeBlockedMacs.insert(mac);
+					auto it = macStopEpochMap.find(mac);
+					if (it == macStopEpochMap.end()) {
+						macStopEpochMap[mac] = stopEpoch;
+					} else if (stopEpoch == -1 || (it->second != -1 && stopEpoch > it->second)) {
+						macStopEpochMap[mac] = stopEpoch;
+					}
 				}
 			}
 		}
 
 		auto &logger = Poco::Logger::get("ParentalControl");
-		for (const auto &mac : activeBlockedMacs) {
-			blockedMacs.push_back(mac);
-			logger.debug(fmt::format("Active blocked client MAC found: {}", Utils::SerialToMAC(mac)));
+		for (const auto &[mac, stopEpoch] : macStopEpochMap) {
+			std::string untilStr;
+			if (stopEpoch == -1) {
+				untilStr = "indefinite";
+			} else {
+				bool converted = false;
+				if (!timezoneStr.empty()) {
+					try {
+						const auto *zone = date::locate_zone(timezoneStr);
+						auto sysTp = std::chrono::system_clock::from_time_t(static_cast<std::time_t>(stopEpoch));
+						auto localTp = date::make_zoned(zone, sysTp).get_local_time();
+						auto localSec = date::floor<std::chrono::seconds>(localTp);
+						untilStr = date::format("%Y-%m-%d %H:%M:%S", localSec);
+						converted = true;
+					} catch (const std::exception &e) {
+						logger.warning(fmt::format("Failed to format blocked_until for timezone [{}]: {}", timezoneStr, e.what()));
+					} catch (...) {
+						logger.warning(fmt::format("Failed to format blocked_until for timezone [{}]: unknown error", timezoneStr));
+					}
+				}
+				if (!converted) {
+					Poco::DateTime stopDt(Poco::Timestamp::fromEpochTime(stopEpoch));
+					untilStr = Poco::DateTimeFormatter::format(stopDt, "%Y-%m-%d %H:%M:%S");
+				}
+			}
+			blockedMacsWithUntil[mac] = untilStr;
+			logger.debug(fmt::format("Active blocked client MAC found: {} (blocked_until={})", Utils::SerialToMAC(mac), untilStr));
 		}
 
+		return true;
+	}
+
+	bool GetBlockedClients(const Poco::JSON::Object::Ptr &config,
+						   std::list<std::string> &blockedMacs) {
+		std::map<std::string, std::string> blockedMacsWithUntil;
+		if (!GetBlockedClients(config, blockedMacsWithUntil)) {
+			return false;
+		}
+		blockedMacs.clear();
+		for (const auto &[mac, until] : blockedMacsWithUntil) {
+			blockedMacs.push_back(mac);
+		}
 		return true;
 	}
 
