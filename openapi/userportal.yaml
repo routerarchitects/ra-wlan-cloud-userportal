@@ -266,6 +266,84 @@ components:
           example: "Asia/Kolkata"
       additionalProperties: true
 
+    SubscriberLocationResponse:
+      type: object
+      description: Location object currently linked to the authenticated subscriber's venue. The object is returned from OWProv without response-field normalization by UserPortal.
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Location UUID.
+        name:
+          type: string
+          description: Location name.
+        description:
+          type: string
+          description: Location description.
+        created:
+          type: integer
+          format: int64
+          description: Location creation timestamp supplied by OWProv.
+        modified:
+          type: integer
+          format: int64
+          description: Location modification timestamp supplied by OWProv.
+        notes:
+          type: array
+          items: {}
+        tags:
+          type: array
+          items:
+            type: integer
+            format: int64
+        type:
+          type: string
+          enum:
+            - SERVICE
+            - EQUIPMENT
+            - AUTO
+            - MANUAL
+            - SPECIAL
+            - UNKNOWN
+            - CORPORATE
+        buildingName:
+          type: string
+        addressLines:
+          type: array
+          items:
+            type: string
+        city:
+          type: string
+        state:
+          type: string
+        postal:
+          type: string
+        country:
+          type: string
+        phones:
+          type: array
+          items:
+            type: string
+        mobiles:
+          type: array
+          items:
+            type: string
+        geoCode:
+          type: string
+        inUse:
+          type: array
+          items:
+            type: string
+        entity:
+          type: string
+        managementPolicy:
+          type: string
+        timezone:
+          type: string
+          description: IANA timezone configured on the location.
+          example: "Asia/Kolkata"
+      additionalProperties: true
+
     TopologyEmptyResponse:
       type: object
       maxProperties: 0
@@ -1304,11 +1382,32 @@ paths:
           $ref: '#/components/responses/InternalError'
 
   /subscriber/location:
+    get:
+      tags:
+        - Subscriber Location
+      summary: Retrieve location currently linked to the subscriber's venue
+      description: Retrieves the OWProv Location object currently linked to the authenticated subscriber's venue. UserPortal resolves the subscriber venue and its linked Location, then returns the Location response from OWProv. Returns HTTP 404 when no subscriber venue exists or when the venue has no linked Location.
+      operationId: getSubscriberLocation
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Subscriber Location retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriberLocationResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
     post:
       tags:
         - Subscriber Location
       summary: Create and link a location to the subscriber's venue
-      description: Creates a location object containing location parameters (such as optional name and required IANA timezone) and links it to the subscriber's venue. Returns HTTP 400 (SubscriberLocationAlreadyConfigured) if a location is already linked to the venue.
+      description: Creates an OWProv Location object containing the supplied location parameters, requires an IANA timezone, and links the new Location to the authenticated subscriber's venue. Returns HTTP 400 (SubscriberLocationAlreadyConfigured) if a Location is already linked to the venue.
       operationId: createSubscriberLocation
       security:
         - bearerAuth: []

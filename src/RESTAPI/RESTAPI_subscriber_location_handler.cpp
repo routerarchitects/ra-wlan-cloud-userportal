@@ -11,6 +11,45 @@
 
 namespace OpenWifi {
 
+	void RESTAPI_subscriber_location_handler::DoGet() {
+		if (UserInfo_.userinfo.id.empty()) {
+			return UnAuthorized(RESTAPI::Errors::InvalidSubscriberId);
+		}
+
+		Poco::Net::HTTPServerResponse::HTTPStatus callStatus = Poco::Net::HTTPServerResponse::HTTP_INTERNAL_SERVER_ERROR;
+		auto callResponse = Poco::makeShared<Poco::JSON::Object>();
+		ProvObjects::VenueList venueList;
+
+		if (!SDK::Prov::Venue::GetVenues(nullptr, UserInfo_.userinfo.id, venueList, callStatus, callResponse)) {
+			if (callStatus != Poco::Net::HTTPServerResponse::HTTP_OK) {
+				return ForwardErrorResponse(this, callStatus, callResponse);
+			}
+			return InternalError(RESTAPI::Errors::InvalidJSONDocument);
+		}
+
+		if (venueList.venues.empty()) {
+			return NotFound();
+		}
+
+		const auto &venue = venueList.venues[0];
+		if (venue.location.empty()) {
+			return NotFound();
+		}
+
+		ProvObjects::Location location;
+		callStatus = Poco::Net::HTTPServerResponse::HTTP_INTERNAL_SERVER_ERROR;
+		callResponse = Poco::makeShared<Poco::JSON::Object>();
+
+		if (!SDK::Prov::Location::Get(nullptr, venue.location, location, callStatus, callResponse)) {
+			if (callStatus != Poco::Net::HTTPServerResponse::HTTP_OK) {
+				return ForwardErrorResponse(this, callStatus, callResponse);
+			}
+			return InternalError(RESTAPI::Errors::InvalidJSONDocument);
+		}
+
+		return ReturnObject(*callResponse);
+	}
+
 	void RESTAPI_subscriber_location_handler::DoPost() {
 		if (UserInfo_.userinfo.id.empty()) {
 			return UnAuthorized(RESTAPI::Errors::InvalidSubscriberId);

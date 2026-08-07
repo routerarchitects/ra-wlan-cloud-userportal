@@ -15,14 +15,15 @@ namespace OpenWifi {
 											RESTAPI_GenericServerAccounting &Server, uint64_t TransactionId,
 											bool Internal)
 			: RESTAPIHandler(bindings, L,
-							 std::vector<std::string>{Poco::Net::HTTPRequest::HTTP_POST,
+							 std::vector<std::string>{Poco::Net::HTTPRequest::HTTP_GET,
+													  Poco::Net::HTTPRequest::HTTP_POST,
 													  Poco::Net::HTTPRequest::HTTP_DELETE,
 													  Poco::Net::HTTPRequest::HTTP_OPTIONS},
 							 Server, TransactionId, Internal, true, false, RateLimit{}, true) {}
 
 		static auto PathName() { return std::list<std::string>{"/api/v1/subscriber/location"}; };
 
-		void DoGet() final {};
+		void DoGet() final;
 		void DoPost() final;
 		void DoPut() final {};
 		void DoDelete() final;
