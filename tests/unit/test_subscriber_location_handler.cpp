@@ -5,6 +5,7 @@
  */
 
 #include "test_parental_control_test_helpers.h"
+#include "RESTObjects/RESTAPI_ProvObjects.h"
 #include "RESTAPI/RESTAPI_subscriber_location_handler.h"
 
 namespace {
@@ -107,7 +108,7 @@ void Run(const std::string &method, const std::string &sub,
 }
 
 // ---- GET ------------------------------------------------------------------
-void TestGetNoAuth()       { Run("GET","",    HTTP::HTTP_UNAUTHORIZED); }
+void TestGetNoAuth()       { Run("GET","",    HTTP::HTTP_FORBIDDEN); }
 void TestGetVenuesFailure() { g.getVenuesOk=false; Run("GET",kSubscriber, HTTP::HTTP_INTERNAL_SERVER_ERROR); }
 void TestGetNoLocation()   { Run("GET",kSubscriber, HTTP::HTTP_NOT_FOUND); }
 void TestGetOk() {
@@ -120,7 +121,7 @@ void TestGetOk() {
 }
 
 // ---- POST -----------------------------------------------------------------
-void TestPostNoAuth()    { Run("POST","", HTTP::HTTP_UNAUTHORIZED); }
+void TestPostNoAuth()    { Run("POST","", HTTP::HTTP_FORBIDDEN); }
 void TestPostNoTz()      { Run("POST",kSubscriber, HTTP::HTTP_BAD_REQUEST,
     [](Handler &h){ h.setBody(Body({{"name","Home"}})); },
     [](const FakeResponse&){ ExpectEq(g.createCalls,0,"no create"); }); }
@@ -146,7 +147,7 @@ void TestPostOk() { Run("POST",kSubscriber, HTTP::HTTP_OK,
         ExpectEq(g.capturedTz,kGoodTz,"tz forwarded"); }); }
 
 // ---- PUT ------------------------------------------------------------------
-void TestPutNoAuth()    { Run("PUT","", HTTP::HTTP_UNAUTHORIZED); }
+void TestPutNoAuth()    { Run("PUT","", HTTP::HTTP_FORBIDDEN); }
 void TestPutEmptyBody() { g.venueLocId=kLocationId; Run("PUT",kSubscriber, HTTP::HTTP_BAD_REQUEST,
     [](Handler &h){ h.setBody(Poco::JSON::Object::Ptr(new Poco::JSON::Object())); },
     [](const FakeResponse&){ ExpectEq(g.putCalls,0,"no put"); }); }
@@ -170,7 +171,7 @@ void TestPutOk()        { g.venueLocId=kLocationId; Run("PUT",kSubscriber, HTTP:
         ExpectEq(g.capturedTz,kGoodTz,"tz forwarded"); }); }
 
 // ---- DELETE ---------------------------------------------------------------
-void TestDeleteNoAuth()    { Run("DELETE","", HTTP::HTTP_UNAUTHORIZED); }
+void TestDeleteNoAuth()    { Run("DELETE","", HTTP::HTTP_FORBIDDEN); }
 void TestDeleteNoLocation(){ Run("DELETE",kSubscriber, HTTP::HTTP_NOT_FOUND, nullptr,
     [](const FakeResponse&){ ExpectEq(g.clearCalls+g.deleteCalls,0,"no sdk calls"); }); }
 void TestDeleteOk()        { g.venueLocId=kLocationId; Run("DELETE",kSubscriber, HTTP::HTTP_OK, nullptr,
