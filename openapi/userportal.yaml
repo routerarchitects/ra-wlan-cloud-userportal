@@ -259,12 +259,48 @@ components:
           type: string
           description: Optional name for the subscriber location.
           example: "Home"
+        description:
+          type: string
+        type:
+          type: string
+          enum:
+            - SERVICE
+            - EQUIPMENT
+            - AUTO
+            - MANUAL
+            - SPECIAL
+            - UNKNOWN
+            - CORPORATE
+        buildingName:
+          type: string
+        addressLines:
+          type: array
+          items:
+            type: string
+        city:
+          type: string
+        state:
+          type: string
+        postal:
+          type: string
+        country:
+          type: string
+        phones:
+          type: array
+          items:
+            type: string
+        mobiles:
+          type: array
+          items:
+            type: string
+        geoCode:
+          type: string
         timezone:
           type: string
           minLength: 1
           description: "Required IANA timezone identifier to configure on the location linked to the subscriber's venue."
           example: "Asia/Kolkata"
-      additionalProperties: true
+      additionalProperties: false
 
     SubscriberLocationResponse:
       type: object
@@ -398,7 +434,7 @@ components:
           minLength: 1
           description: Optional IANA timezone identifier to update on the location linked to the subscriber's venue.
           example: "Asia/Kolkata"
-      additionalProperties: true
+      additionalProperties: false
 
     TopologyEmptyResponse:
       type: object

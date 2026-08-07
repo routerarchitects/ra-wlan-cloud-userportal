@@ -66,7 +66,7 @@ set(FETCHCONTENT_UPDATES_DISCONNECTED ON CACHE BOOL "" FORCE)
 FetchContent_Declare(
     date
     GIT_REPOSITORY https://github.com/HowardHinnant/date.git
-    GIT_TAG        v3.0.1
+    GIT_TAG        6e921e1b1d21e84a5c82416ba7ecd98e33a436d0 # v3.0.1
 )
 
 FetchContent_MakeAvailable(date)
@@ -244,4 +244,19 @@ if(BUILD_TESTING)
     )
     target_link_options(test_group_schedules_handlers PRIVATE "-Wl,-rpath,/usr/local/lib")
     add_test(NAME test_group_schedules_handlers COMMAND test_group_schedules_handlers)
+
+    # test_subscriber_location_handler
+    add_executable(test_subscriber_location_handler tests/unit/test_subscriber_location_handler.cpp)
+    target_include_directories(test_subscriber_location_handler PRIVATE src)
+    target_link_libraries(test_subscriber_location_handler PRIVATE
+        ${Poco_LIBRARIES}
+        ${MySQL_LIBRARIES}
+        ${ZLIB_LIBRARIES}
+        CppKafka::cppkafka
+        resolv
+        fmt::fmt
+        date::date-tz
+    )
+    target_link_options(test_subscriber_location_handler PRIVATE "-Wl,-rpath,/usr/local/lib")
+    add_test(NAME test_subscriber_location_handler COMMAND test_subscriber_location_handler)
 endif()
