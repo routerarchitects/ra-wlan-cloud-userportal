@@ -12,7 +12,7 @@ namespace {
 const std::string kSubscriber  = "subscriber-1";
 const std::string kVenueId     = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const std::string kLocationId  = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
-const std::string kGoodTz      = "America/New_York";
+const std::string kGoodTz      = "UTC";
 const std::string kBadTz       = "Not/A_Timezone";
 
 struct State {
