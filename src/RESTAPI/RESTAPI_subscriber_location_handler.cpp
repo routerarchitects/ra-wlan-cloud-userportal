@@ -111,6 +111,77 @@ namespace OpenWifi {
 		return OK();
 	}
 
+	void RESTAPI_subscriber_location_handler::DoPut() {
+		if (UserInfo_.userinfo.id.empty()) {
+			return UnAuthorized(RESTAPI::Errors::InvalidSubscriberId);
+		}
+
+		if (!ParsedBody_) {
+			return BadRequest(RESTAPI::Errors::InvalidJSONDocument);
+		}
+
+		if (ParsedBody_->size() == 0) {
+			return BadRequest(RESTAPI::Errors::MissingOrInvalidParameters);
+		}
+
+		if (ParsedBody_->has("entity") ||
+			ParsedBody_->has("inUse") ||
+			ParsedBody_->has("managementPolicy")) {
+			return BadRequest(RESTAPI::Errors::MissingOrInvalidParameters);
+		}
+
+		if (ParsedBody_->has("timezone")) {
+			if (ParsedBody_->isNull("timezone") ||
+				!ParsedBody_->get("timezone").isString()) {
+				return BadRequest(RESTAPI::Errors::MissingOrInvalidParameters);
+			}
+
+			std::string timezone =
+				ParsedBody_->getValue<std::string>("timezone");
+			Poco::trimInPlace(timezone);
+
+			if (timezone.empty()) {
+				return BadRequest(RESTAPI::Errors::MissingOrInvalidParameters);
+			}
+
+			try {
+				date::locate_zone(timezone);
+			} catch (...) {
+				return BadRequest(RESTAPI::Errors::MissingOrInvalidParameters);
+			}
+
+			ParsedBody_->set("timezone", timezone);
+		}
+
+		Poco::Net::HTTPServerResponse::HTTPStatus callStatus = Poco::Net::HTTPServerResponse::HTTP_INTERNAL_SERVER_ERROR;
+		auto callResponse = Poco::makeShared<Poco::JSON::Object>();
+		ProvObjects::VenueList venueList;
+
+		if (!SDK::Prov::Venue::GetVenues(nullptr, UserInfo_.userinfo.id, venueList, callStatus, callResponse)) {
+			if (callStatus != Poco::Net::HTTPServerResponse::HTTP_OK) {
+				return ForwardErrorResponse(this, callStatus, callResponse);
+			}
+			return InternalError(RESTAPI::Errors::InvalidJSONDocument);
+		}
+
+		if (venueList.venues.empty()) {
+			return NotFound();
+		}
+
+		const auto &venue = venueList.venues[0];
+		if (venue.location.empty()) {
+			return NotFound();
+		}
+
+		const std::string locationId = venue.location;
+
+		if (!SDK::Prov::Location::Put(nullptr, locationId, ParsedBody_, callStatus, callResponse)) {
+			return ForwardErrorResponse(this, callStatus, callResponse);
+		}
+
+		return ReturnObject(*callResponse);
+	}
+
 	void RESTAPI_subscriber_location_handler::DoDelete() {
 		if (UserInfo_.userinfo.id.empty()) {
 			return UnAuthorized(RESTAPI::Errors::InvalidSubscriberId);

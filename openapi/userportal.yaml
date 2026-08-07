@@ -344,6 +344,62 @@ components:
           example: "Asia/Kolkata"
       additionalProperties: true
 
+    SubscriberLocationUpdateRequest:
+      type: object
+      minProperties: 1
+      description: >
+        Partial update for the OWProv Location currently linked to the authenticated
+        subscriber's venue. Only supplied properties are updated. Internal Location
+        relationship fields such as entity, inUse, and managementPolicy cannot be
+        changed through UserPortal.
+      properties:
+        name:
+          type: string
+          description: Updated name for the subscriber location.
+          example: "My Home Location"
+        description:
+          type: string
+        type:
+          type: string
+          enum:
+            - SERVICE
+            - EQUIPMENT
+            - AUTO
+            - MANUAL
+            - SPECIAL
+            - UNKNOWN
+            - CORPORATE
+        buildingName:
+          type: string
+        addressLines:
+          type: array
+          items:
+            type: string
+        city:
+          type: string
+        state:
+          type: string
+        postal:
+          type: string
+        country:
+          type: string
+        phones:
+          type: array
+          items:
+            type: string
+        mobiles:
+          type: array
+          items:
+            type: string
+        geoCode:
+          type: string
+        timezone:
+          type: string
+          minLength: 1
+          description: Optional IANA timezone identifier to update on the location linked to the subscriber's venue.
+          example: "Asia/Kolkata"
+      additionalProperties: true
+
     TopologyEmptyResponse:
       type: object
       maxProperties: 0
@@ -1424,6 +1480,39 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/Success'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    put:
+      tags:
+        - Subscriber Location
+      summary: Update location currently linked to the subscriber's venue
+      description: Updates the OWProv Location object currently linked to the authenticated subscriber's venue. UserPortal resolves the subscriber venue and updates its linked Location. Returns HTTP 404 when no subscriber venue exists or when the venue has no linked Location.
+      operationId: updateSubscriberLocation
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        description: Location update parameters.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubscriberLocationUpdateRequest'
+            example:
+              name: "My Home Location"
+              timezone: "Asia/Kolkata"
+      responses:
+        '200':
+          description: Subscriber Location updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriberLocationResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':

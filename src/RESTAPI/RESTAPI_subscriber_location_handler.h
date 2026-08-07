@@ -17,6 +17,7 @@ namespace OpenWifi {
 			: RESTAPIHandler(bindings, L,
 							 std::vector<std::string>{Poco::Net::HTTPRequest::HTTP_GET,
 													  Poco::Net::HTTPRequest::HTTP_POST,
+													  Poco::Net::HTTPRequest::HTTP_PUT,
 													  Poco::Net::HTTPRequest::HTTP_DELETE,
 													  Poco::Net::HTTPRequest::HTTP_OPTIONS},
 							 Server, TransactionId, Internal, true, false, RateLimit{}, true) {}
@@ -25,7 +26,7 @@ namespace OpenWifi {
 
 		void DoGet() final;
 		void DoPost() final;
-		void DoPut() final {};
+		void DoPut() final;
 		void DoDelete() final;
 	};
 } // namespace OpenWifi
