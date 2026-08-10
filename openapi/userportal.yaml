@@ -483,7 +483,7 @@ components:
           description: 'Indicates whether topology currently reports the client as blocked ("1") or not blocked ("0"). A client is reported as blocked when it matches an active permanent or timed client-access rule, or an active recurring parental-control schedule rule.'
         blocked_until:
           type: string
-          description: 'Expiration timestamp of the longest currently active blocking rule in YYYY-MM-DD HH:MM:SS format in the subscriber venue local timezone (e.g. "2026-08-06 17:29:48"), "indefinite" when any active permanent block applies, or empty string "" when not blocked.'
+          description: 'Expiration timestamp of the longest currently active blocking rule in YYYY-MM-DD HH:MM:SS format in the subscriber venue local timezone (e.g. "2026-08-06 17:29:48"), "indefinite" when any active permanent block applies, or omitted when not blocked.'
           example: "2026-08-06 17:29:48"
         station:
           type: string
@@ -543,7 +543,7 @@ components:
           description: 'Indicates whether topology currently reports the client as blocked ("1") or not blocked ("0"). A client is reported as blocked when it matches an active permanent or timed client-access rule, or an active recurring parental-control schedule rule.'
         blocked_until:
           type: string
-          description: 'Expiration timestamp of the longest currently active blocking rule in YYYY-MM-DD HH:MM:SS format in the subscriber venue local timezone (e.g. "2026-08-06 17:29:48"), "indefinite" when any active permanent block applies, or empty string "" when not blocked.'
+          description: 'Expiration timestamp of the longest currently active blocking rule in YYYY-MM-DD HH:MM:SS format in the subscriber venue local timezone (e.g. "2026-08-06 17:29:48"), "indefinite" when any active permanent block applies, or omitted when not blocked.'
           example: "2026-08-06 17:29:48"
         connected:
           type: integer

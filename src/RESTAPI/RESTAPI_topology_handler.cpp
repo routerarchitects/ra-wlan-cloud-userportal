@@ -16,6 +16,7 @@
 #include "framework/ow_constants.h"
 #include "sdks/SDK_nw_topology.h"
 #include "sdks/SDK_prov.h"
+#include <date/tz.h>
 
 namespace OpenWifi {
 	bool RESTAPI_topology_handler::FetchSubscriberDevices(
@@ -144,6 +145,13 @@ namespace OpenWifi {
 		if (SDK::Prov::Location::Get(nullptr, venue.location, location, callStatus, callResponse)) {
 			if (location.timezone.empty()) {
 				Logger().debug(fmt::format("[GET-TOPOLOGY] Location {} has no timezone configured for subscriber {}.", venue.location, UserInfo_.userinfo.id));
+				BadRequest(RESTAPI::Errors::TimezoneRequired);
+				return false;
+			}
+			try {
+				date::locate_zone(location.timezone);
+			} catch (...) {
+				Logger().debug(fmt::format("[GET-TOPOLOGY] Location {} has invalid timezone [{}] for subscriber {}.", venue.location, location.timezone, UserInfo_.userinfo.id));
 				BadRequest(RESTAPI::Errors::TimezoneRequired);
 				return false;
 			}
@@ -371,7 +379,6 @@ namespace OpenWifi {
 					entry->set("blocked_until", it->second);
 				} else {
 					entry->set("blocked", "0");
-					entry->set("blocked_until", "");
 				}
 				historicalClientsWithFlags->add(entry);
 			}
@@ -409,7 +416,7 @@ namespace OpenWifi {
 							client->set("blocked_until", it->second);
 						} else {
 							client->set("blocked", "0");
-							client->set("blocked_until", "");
+							client->remove("blocked_until");
 						}
 					}
 				}
