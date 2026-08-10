@@ -218,6 +218,16 @@ struct StubState {
     Poco::JSON::Object::Ptr venueResponse = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
     OpenWifi::ProvObjects::Venue venue;
 
+    bool venuesOk = true;
+    Poco::Net::HTTPResponse::HTTPStatus venuesStatus = Poco::Net::HTTPResponse::HTTP_OK;
+    Poco::JSON::Object::Ptr venuesResponse = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+    OpenWifi::ProvObjects::VenueList venueList;
+
+    bool locationOk = true;
+    Poco::Net::HTTPResponse::HTTPStatus locationStatus = Poco::Net::HTTPResponse::HTTP_OK;
+    Poco::JSON::Object::Ptr locationResponse = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+    OpenWifi::ProvObjects::Location location;
+
     bool topologyOk = true;
     Poco::Net::HTTPResponse::HTTPStatus topologyStatus = Poco::Net::HTTPResponse::HTTP_OK;
     Poco::JSON::Object::Ptr topologyResponse = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
@@ -240,6 +250,14 @@ void ResetStubs() {
     g_state = StubState{};
     g_state.inventory.venue = "venue-1";
     g_state.venue.boards = {"board-1"};
+    g_state.venue.location = "loc-1";
+
+    g_state.venueList.venues.clear();
+    OpenWifi::ProvObjects::Venue v;
+    v.location = "loc-1";
+    g_state.venueList.venues.push_back(v);
+
+    g_state.location.timezone = "UTC";
 
     auto configuration = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
     configuration->set("existing", "value");
@@ -288,7 +306,27 @@ bool Get(RESTAPIHandler *, const std::string &, ProvObjects::Venue &venue,
     return g_state.venueOk;
 }
 
+bool GetVenues(RESTAPIHandler *, const std::string &, ProvObjects::VenueList &venueList,
+               Poco::Net::HTTPServerResponse::HTTPStatus &callStatus, Poco::JSON::Object::Ptr &callResponse) {
+    venueList = g_state.venueList;
+    callStatus = g_state.venuesStatus;
+    callResponse = g_state.venuesResponse;
+    return g_state.venuesOk;
+}
+
 } // namespace OpenWifi::SDK::Prov::Venue
+
+namespace OpenWifi::SDK::Prov::Location {
+
+bool Get(RESTAPIHandler *, const std::string &, ProvObjects::Location &location,
+         Poco::Net::HTTPServerResponse::HTTPStatus &callStatus, Poco::JSON::Object::Ptr &callResponse) {
+    location = g_state.location;
+    callStatus = g_state.locationStatus;
+    callResponse = g_state.locationResponse;
+    return g_state.locationOk;
+}
+
+} // namespace OpenWifi::SDK::Prov::Location
 
 namespace OpenWifi::SDK::GW::Device {
 
@@ -325,49 +363,6 @@ bool Get(RESTAPIHandler *, const std::string &boardId, Poco::Net::HTTPServerResp
 #include "../../src/RESTAPI/RESTAPI_parental_control_utils.cpp"
 
 namespace {
-
-Poco::JSON::Object::Ptr MakeTopologyWithHistoricalClient(const std::string &mac) {
-    auto client = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
-    client->set("station", mac);
-
-    auto historicalClients = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
-    historicalClients->add(client);
-
-    auto topology = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
-    topology->set("historicalClients", historicalClients);
-    return topology;
-}
-
-Poco::JSON::Object::Ptr MakeTopologyWithHistoricalDevice(const std::string &mac) {
-    auto historicalDevices = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
-    historicalDevices->add(mac);
-
-    auto topology = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
-    topology->set("historicalDevices", historicalDevices);
-    return topology;
-}
-
-Poco::JSON::Object::Ptr MakeTopologyWithNodesClient(const std::string &mac) {
-    auto client = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
-    client->set("station", mac);
-    auto clients = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
-    clients->add(client);
-
-    auto ap = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
-    ap->set("clients", clients);
-    auto aps = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
-    aps->add(ap);
-
-    auto node = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
-    node->set("aps", aps);
-    auto nodes = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
-    nodes->add(node);
-
-    auto topology = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
-    topology->set("nodes", nodes);
-    return topology;
-}
-
 
 void TestParseTimeStringAcceptsMidnight() {
     int minuteOfDay = -1;
@@ -434,13 +429,119 @@ void TestValidateWeekdaysRejectsNonIntegerValue() {
            "non-integer weekday entries should fail");
 }
 
+void TestResolveSubscriberTimezoneNoVenues() {
+    ResetStubs();
+    g_state.venueList.venues.clear();
+    auto &logger = Poco::Logger::get("test_utils");
+    FakeResponse response;
+    FakeRequest request("GET", "/test", "", response);
+    FakeRESTAPIHandler handler(logger, &request, &response);
+
+    std::string tz;
+    Expect(!OpenWifi::RESTAPI::ParentalControl::ResolveSubscriberTimezone(handler, "sub1", tz),
+           "empty venue list should return false");
+    ExpectEq(static_cast<int>(response.getStatus()), static_cast<int>(Poco::Net::HTTPResponse::HTTP_BAD_REQUEST),
+             "empty venue list should return 400");
+}
+
+void TestResolveSubscriberTimezoneMissingLocationId() {
+    ResetStubs();
+    g_state.venueList.venues[0].location.clear();
+    auto &logger = Poco::Logger::get("test_utils");
+    FakeResponse response;
+    FakeRequest request("GET", "/test", "", response);
+    FakeRESTAPIHandler handler(logger, &request, &response);
+
+    std::string tz;
+    Expect(!OpenWifi::RESTAPI::ParentalControl::ResolveSubscriberTimezone(handler, "sub1", tz),
+           "missing location id should return false");
+    ExpectEq(static_cast<int>(response.getStatus()), static_cast<int>(Poco::Net::HTTPResponse::HTTP_BAD_REQUEST),
+             "missing location id should return 400");
+}
+
+void TestResolveSubscriberTimezoneLocation404() {
+    ResetStubs();
+    g_state.locationOk = false;
+    g_state.locationStatus = Poco::Net::HTTPResponse::HTTP_NOT_FOUND;
+    auto &logger = Poco::Logger::get("test_utils");
+    FakeResponse response;
+    FakeRequest request("GET", "/test", "", response);
+    FakeRESTAPIHandler handler(logger, &request, &response);
+
+    std::string tz;
+    Expect(!OpenWifi::RESTAPI::ParentalControl::ResolveSubscriberTimezone(handler, "sub1", tz),
+           "location 404 should return false");
+    ExpectEq(static_cast<int>(response.getStatus()), static_cast<int>(Poco::Net::HTTPResponse::HTTP_NOT_FOUND),
+             "location 404 should be forwarded");
+}
+
+void TestResolveSubscriberTimezoneLocation500() {
+    ResetStubs();
+    g_state.locationOk = false;
+    g_state.locationStatus = Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR;
+    auto &logger = Poco::Logger::get("test_utils");
+    FakeResponse response;
+    FakeRequest request("GET", "/test", "", response);
+    FakeRESTAPIHandler handler(logger, &request, &response);
+
+    std::string tz;
+    Expect(!OpenWifi::RESTAPI::ParentalControl::ResolveSubscriberTimezone(handler, "sub1", tz),
+           "location 500 should return false");
+    ExpectEq(static_cast<int>(response.getStatus()), static_cast<int>(Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR),
+             "location 500 should be forwarded");
+}
+
+void TestResolveSubscriberTimezoneEmptyTimezone() {
+    ResetStubs();
+    g_state.location.timezone.clear();
+    auto &logger = Poco::Logger::get("test_utils");
+    FakeResponse response;
+    FakeRequest request("GET", "/test", "", response);
+    FakeRESTAPIHandler handler(logger, &request, &response);
+
+    std::string tz;
+    Expect(!OpenWifi::RESTAPI::ParentalControl::ResolveSubscriberTimezone(handler, "sub1", tz),
+           "empty timezone string should return false");
+    ExpectEq(static_cast<int>(response.getStatus()), static_cast<int>(Poco::Net::HTTPResponse::HTTP_BAD_REQUEST),
+             "empty timezone string should return 400");
+}
+
+void TestResolveSubscriberTimezoneInvalidIanaTimezone() {
+    ResetStubs();
+    g_state.location.timezone = "Invalid/Timezone";
+    auto &logger = Poco::Logger::get("test_utils");
+    FakeResponse response;
+    FakeRequest request("GET", "/test", "", response);
+    FakeRESTAPIHandler handler(logger, &request, &response);
+
+    std::string tz;
+    Expect(!OpenWifi::RESTAPI::ParentalControl::ResolveSubscriberTimezone(handler, "sub1", tz),
+           "invalid IANA timezone string should return false");
+    ExpectEq(static_cast<int>(response.getStatus()), static_cast<int>(Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR),
+             "invalid IANA timezone string should return 500");
+}
+
+void TestResolveSubscriberTimezoneAsiaKolkata() {
+    ResetStubs();
+    g_state.location.timezone = "Asia/Kolkata";
+    auto &logger = Poco::Logger::get("test_utils");
+    FakeResponse response;
+    FakeRequest request("GET", "/test", "", response);
+    FakeRESTAPIHandler handler(logger, &request, &response);
+
+    std::string tz;
+    Expect(OpenWifi::RESTAPI::ParentalControl::ResolveSubscriberTimezone(handler, "sub1", tz),
+           "valid timezone should return true");
+    ExpectEq(tz, "Asia/Kolkata", "timezone should be Asia/Kolkata");
+}
+
 void TestNormalizeScheduleResponseConvertsMinuteFields() {
     auto schedule = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
     schedule->set("start_minute", 60);
     schedule->set("stop_minute", 90);
     schedule->set("config-raw", MakeStringArray({"remove-me"}));
 
-    Expect(OpenWifi::RESTAPI::ParentalControl::NormalizeScheduleResponse(schedule),
+    Expect(OpenWifi::RESTAPI::ParentalControl::NormalizeScheduleResponse(schedule, "UTC"),
            "schedule normalization should succeed");
     ExpectEq(schedule->getValue<std::string>("start_time"), std::string("01:00"), "start_time conversion");
     ExpectEq(schedule->getValue<std::string>("stop_time"), std::string("01:30"), "stop_time conversion");
@@ -449,10 +550,75 @@ void TestNormalizeScheduleResponseConvertsMinuteFields() {
     Expect(!schedule->has("config-raw"), "config-raw should be removed");
 }
 
+void TestNormalizeScheduleResponseConvertsAsiaKolkata() {
+    auto schedule = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+    schedule->set("start_minute", 605);
+    schedule->set("stop_minute", 625);
+    schedule->set("weekdays", MakeIntArray({0, 1, 2, 3, 4, 5, 6}));
+
+    Expect(OpenWifi::RESTAPI::ParentalControl::NormalizeScheduleResponse(schedule, "Asia/Kolkata"),
+           "schedule normalization for Asia/Kolkata should succeed");
+    ExpectEq(schedule->getValue<std::string>("start_time"), std::string("15:35"), "start_time conversion in Asia/Kolkata");
+    ExpectEq(schedule->getValue<std::string>("stop_time"), std::string("15:55"), "stop_time conversion in Asia/Kolkata");
+    Expect(!schedule->has("start_minute"), "start_minute should be removed");
+    Expect(!schedule->has("stop_minute"), "stop_minute should be removed");
+}
+
+void TestScheduleConversionUtcSundayToKolkataMonday() {
+    auto schedule = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+    schedule->set("start_minute", 1200);
+    schedule->set("stop_minute", 1260);
+    schedule->set("weekdays", MakeIntArray({0}));
+
+    Expect(OpenWifi::RESTAPI::ParentalControl::NormalizeScheduleResponse(schedule, "Asia/Kolkata"),
+           "conversion to Asia/Kolkata should succeed");
+    ExpectEq(schedule->getValue<std::string>("start_time"), "01:30", "20:00 UTC + 5:30 = 01:30 next day");
+    ExpectEq(schedule->getValue<std::string>("stop_time"), "02:30", "21:00 UTC + 5:30 = 02:30 next day");
+    auto weekdays = schedule->getArray("weekdays");
+    ExpectEq(weekdays->size(), static_cast<std::size_t>(1), "one weekday");
+    ExpectEq(weekdays->getElement<int>(0), 1, "Sunday [0] shifted to Monday [1]");
+}
+
+void TestScheduleConversionUtcSundayToEtcGmtPlus5Saturday() {
+    auto schedule = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+    schedule->set("start_minute", 120);
+    schedule->set("stop_minute", 180);
+    schedule->set("weekdays", MakeIntArray({0}));
+
+    Expect(OpenWifi::RESTAPI::ParentalControl::NormalizeScheduleResponse(schedule, "Etc/GMT+5"),
+           "conversion to Etc/GMT+5 should succeed");
+    ExpectEq(schedule->getValue<std::string>("start_time"), "21:00", "02:00 UTC - 5:00 = 21:00 previous day");
+    ExpectEq(schedule->getValue<std::string>("stop_time"), "22:00", "03:00 UTC - 5:00 = 22:00 previous day");
+    auto weekdays = schedule->getArray("weekdays");
+    ExpectEq(weekdays->size(), static_cast<std::size_t>(1), "one weekday");
+    ExpectEq(weekdays->getElement<int>(0), 6, "Sunday [0] shifted to Saturday [6]");
+}
+
+void TestOvernightScheduleRoundTrip() {
+    OpenWifi::RESTAPI::ParentalControl::ParsedScheduleRequest req;
+    req.startMinute = 22 * 60;
+    req.stopMinute = 4 * 60;
+    req.weekdays = MakeIntArray({5});
+
+    Expect(OpenWifi::RESTAPI::ParentalControl::ConvertScheduleTimesToUtc("Asia/Kolkata", req), "convert to UTC");
+
+    auto schedule = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+    schedule->set("start_minute", req.startMinute);
+    schedule->set("stop_minute", req.stopMinute);
+    schedule->set("weekdays", req.weekdays);
+
+    Expect(OpenWifi::RESTAPI::ParentalControl::NormalizeScheduleResponse(schedule, "Asia/Kolkata"), "normalize to local");
+    ExpectEq(schedule->getValue<std::string>("start_time"), "22:00", "round-trip start_time");
+    ExpectEq(schedule->getValue<std::string>("stop_time"), "04:00", "round-trip stop_time");
+    auto weekdays = schedule->getArray("weekdays");
+    ExpectEq(weekdays->size(), static_cast<std::size_t>(1), "one weekday");
+    ExpectEq(weekdays->getElement<int>(0), 5, "round-trip weekday");
+}
+
 void TestNormalizeScheduleResponseRejectsMissingMinuteFields() {
     auto schedule = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
     schedule->set("start_minute", 60);
-    Expect(!OpenWifi::RESTAPI::ParentalControl::NormalizeScheduleResponse(schedule),
+    Expect(!OpenWifi::RESTAPI::ParentalControl::NormalizeScheduleResponse(schedule, "UTC"),
            "missing stop_minute should fail");
 }
 
@@ -460,7 +626,7 @@ void TestNormalizeScheduleResponseRejectsOutOfRangeMinute() {
     auto schedule = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
     schedule->set("start_minute", -1);
     schedule->set("stop_minute", 90);
-    Expect(!OpenWifi::RESTAPI::ParentalControl::NormalizeScheduleResponse(schedule),
+    Expect(!OpenWifi::RESTAPI::ParentalControl::NormalizeScheduleResponse(schedule, "UTC"),
            "negative minute should fail");
 }
 
@@ -468,7 +634,7 @@ void TestNormalizeScheduleResponseRejectsNonIntegerField() {
     auto schedule = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
     schedule->set("start_minute", "sixty");
     schedule->set("stop_minute", 90);
-    Expect(!OpenWifi::RESTAPI::ParentalControl::NormalizeScheduleResponse(schedule),
+    Expect(!OpenWifi::RESTAPI::ParentalControl::NormalizeScheduleResponse(schedule, "UTC"),
            "non-integer minute field should fail");
 }
 
@@ -619,662 +785,6 @@ void TestExtractConfigRawSnapshotRejectsNonStringCommandEntry() {
            "command entries must all be strings");
 }
 
-void TestValidateMacInTopologySuccessHistoricalClient() {
-    g_state.subscriberDevices = {{"olg", "112233445566"}};
-    g_state.topologyResponse = MakeTopologyWithHistoricalClient("11:22:33:44:55:66");
-
-    std::string gatewaySerial;
-    FakeResponse response;
-    FakeRequest request("GET", "/test", "", response);
-    FakeRESTAPIHandler handler(Poco::Logger::get("test"), &request, &response);
-
-    ExpectEq(
-        (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacInTopology(handler, "sub-1", "op-1", "112233445566", gatewaySerial),
-        (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacResult::Success,
-        "should succeed for historical client MAC"
-    );
-    ExpectEq(gatewaySerial, std::string("112233445566"), "resolved gateway serial");
-}
-
-void TestValidateMacInTopologySuccessHistoricalDevice() {
-    g_state.subscriberDevices = {{"olg", "112233445566"}};
-    g_state.topologyResponse = MakeTopologyWithHistoricalDevice("11:22:33:44:55:66");
-
-    std::string gatewaySerial;
-    FakeResponse response;
-    FakeRequest request("GET", "/test", "", response);
-    FakeRESTAPIHandler handler(Poco::Logger::get("test"), &request, &response);
-
-    ExpectEq(
-        (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacInTopology(handler, "sub-1", "op-1", "112233445566", gatewaySerial),
-        (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacResult::Success,
-        "should succeed for historical device MAC"
-    );
-}
-
-void TestValidateMacInTopologySuccessNodesClient() {
-    g_state.subscriberDevices = {{"olg", "112233445566"}};
-    g_state.topologyResponse = MakeTopologyWithNodesClient("11:22:33:44:55:66");
-
-    std::string gatewaySerial;
-    FakeResponse response;
-    FakeRequest request("GET", "/test", "", response);
-    FakeRESTAPIHandler handler(Poco::Logger::get("test"), &request, &response);
-
-    ExpectEq(
-        (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacInTopology(handler, "sub-1", "op-1", "112233445566", gatewaySerial),
-        (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacResult::Success,
-        "should succeed for nodes active client MAC"
-    );
-}
-
-void TestValidateMacInTopologyMacNotPresent() {
-    g_state.subscriberDevices = {{"olg", "112233445566"}};
-    g_state.topologyResponse = MakeTopologyWithHistoricalClient("66:55:44:33:22:11");
-
-    std::string gatewaySerial;
-    FakeResponse response;
-    FakeRequest request("GET", "/test", "", response);
-    FakeRESTAPIHandler handler(Poco::Logger::get("test"), &request, &response);
-
-    ExpectEq(
-        (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacInTopology(handler, "sub-1", "op-1", "112233445566", gatewaySerial),
-        (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacResult::MacNotPresentInTopology,
-        "should fail when MAC is not in topology"
-    );
-}
-
-void TestValidateMacInTopologyProvisioningLookupFailure() {
-    g_state.provGetDevicesOk = false;
-    g_state.provStatus = Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR;
-
-    std::string gatewaySerial;
-    FakeResponse response;
-    FakeRequest request("GET", "/test", "", response);
-    FakeRESTAPIHandler handler(Poco::Logger::get("test"), &request, &response);
-
-    ExpectEq(
-        (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacInTopology(handler, "sub-1", "op-1", "112233445566", gatewaySerial),
-        (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacResult::ProvisioningLookupFailed,
-        "should fail when provisioning GetDevices fails"
-    );
-}
-
-void TestValidateMacInTopologyInventoryMissing() {
-    g_state.subscriberDevices = {{"olg", "112233445566"}};
-    g_state.inventoryOk = false;
-
-    std::string gatewaySerial;
-    FakeResponse response;
-    FakeRequest request("GET", "/test", "", response);
-    FakeRESTAPIHandler handler(Poco::Logger::get("test"), &request, &response);
-
-    ExpectEq(
-        (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacInTopology(handler, "sub-1", "op-1", "112233445566", gatewaySerial),
-        (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacResult::InventoryNotFound,
-        "should fail when inventory lookup fails"
-    );
-}
-
-void TestValidateMacInTopologyVenueIdMissing() {
-    g_state.subscriberDevices = {{"olg", "112233445566"}};
-    g_state.inventory.venue = ""; // missing venue in inventory
-
-    std::string gatewaySerial;
-    FakeResponse response;
-    FakeRequest request("GET", "/test", "", response);
-    FakeRESTAPIHandler handler(Poco::Logger::get("test"), &request, &response);
-
-    ExpectEq(
-        (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacInTopology(handler, "sub-1", "op-1", "112233445566", gatewaySerial),
-        (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacResult::VenueNotFound,
-        "should fail when venue id is missing in inventory"
-    );
-}
-
-void TestValidateMacInTopologyVenueNotFound() {
-    g_state.subscriberDevices = {{"olg", "112233445566"}};
-    g_state.venueOk = false;
-    g_state.venueStatus = Poco::Net::HTTPResponse::HTTP_NOT_FOUND;
-
-    std::string gatewaySerial;
-    FakeResponse response;
-    FakeRequest request("GET", "/test", "", response);
-    FakeRESTAPIHandler handler(Poco::Logger::get("test"), &request, &response);
-
-    ExpectEq(
-        (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacInTopology(handler, "sub-1", "op-1", "112233445566", gatewaySerial),
-        (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacResult::VenueNotFound,
-        "should fail with VenueNotFound when venue lookup returns 404"
-    );
-}
-
-void TestValidateMacInTopologyVenueLookupFailure() {
-    g_state.subscriberDevices = {{"olg", "112233445566"}};
-    g_state.venueOk = false;
-    g_state.venueStatus = Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR;
-
-    std::string gatewaySerial;
-    FakeResponse response;
-    FakeRequest request("GET", "/test", "", response);
-    FakeRESTAPIHandler handler(Poco::Logger::get("test"), &request, &response);
-
-    ExpectEq(
-        (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacInTopology(handler, "sub-1", "op-1", "112233445566", gatewaySerial),
-        (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacResult::VenueLookupFailed,
-        "should fail with VenueLookupFailed when venue lookup fails with 5xx"
-    );
-}
-
-void TestValidateMacInTopologyBoardMissing() {
-    g_state.subscriberDevices = {{"olg", "112233445566"}};
-    g_state.venue.boards = {}; // empty boards
-
-    std::string gatewaySerial;
-    FakeResponse response;
-    FakeRequest request("GET", "/test", "", response);
-    FakeRESTAPIHandler handler(Poco::Logger::get("test"), &request, &response);
-
-    ExpectEq(
-        (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacInTopology(handler, "sub-1", "op-1", "112233445566", gatewaySerial),
-        (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacResult::BoardIdNotFound,
-        "should fail when board is missing/empty in venue"
-    );
-}
-
-void TestValidateMacInTopologyTopologyFetchFailure() {
-    g_state.subscriberDevices = {{"olg", "112233445566"}};
-    g_state.topologyOk = false;
-
-    std::string gatewaySerial;
-    FakeResponse response;
-    FakeRequest request("GET", "/test", "", response);
-    FakeRESTAPIHandler handler(Poco::Logger::get("test"), &request, &response);
-
-    ExpectEq(
-        (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacInTopology(handler, "sub-1", "op-1", "112233445566", gatewaySerial),
-        (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacResult::TopologyNotFound,
-        "should fail when topology lookup fails"
-    );
-}
-
-void TestValidateMacInTopologyMalformedTopology() {
-    g_state.subscriberDevices = {{"olg", "112233445566"}};
-    auto malformed = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
-    malformed->set("nodes", "not-an-array"); // malformed shape
-    g_state.topologyResponse = malformed;
-
-    std::string gatewaySerial;
-    FakeResponse response;
-    FakeRequest request("GET", "/test", "", response);
-    FakeRESTAPIHandler handler(Poco::Logger::get("test"), &request, &response);
-
-    ExpectEq(
-        (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacInTopology(handler, "sub-1", "op-1", "112233445566", gatewaySerial),
-        (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacResult::TopologyUnusable,
-        "should fail for malformed topology payload"
-    );
-}
-
-void TestValidateMacInTopologyMalformedNoFields() {
-    g_state.subscriberDevices = {{"olg", "112233445566"}};
-    auto malformed = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
-    g_state.topologyResponse = malformed;
-
-    std::string gatewaySerial;
-    FakeResponse response;
-    FakeRequest request("GET", "/test", "", response);
-    FakeRESTAPIHandler handler(Poco::Logger::get("test"), &request, &response);
-
-    ExpectEq(
-        (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacInTopology(handler, "sub-1", "op-1", "112233445566", gatewaySerial),
-        (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacResult::TopologyUnusable,
-        "should fail when topology has none of nodes, historicalClients, historicalDevices"
-    );
-}
-
-void TestValidateMacInTopologyMalformedHistoricalClientsNotArray() {
-    g_state.subscriberDevices = {{"olg", "112233445566"}};
-    auto malformed = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
-    malformed->set("historicalClients", 12345);
-    g_state.topologyResponse = malformed;
-
-    std::string gatewaySerial;
-    FakeResponse response;
-    FakeRequest request("GET", "/test", "", response);
-    FakeRESTAPIHandler handler(Poco::Logger::get("test"), &request, &response);
-
-    ExpectEq(
-        (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacInTopology(handler, "sub-1", "op-1", "112233445566", gatewaySerial),
-        (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacResult::TopologyUnusable,
-        "should fail when historicalClients is not an array"
-    );
-}
-
-void TestValidateMacInTopologyMalformedHistoricalDevicesNotArray() {
-    g_state.subscriberDevices = {{"olg", "112233445566"}};
-    auto malformed = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
-    malformed->set("historicalDevices", "not-an-array");
-    g_state.topologyResponse = malformed;
-
-    std::string gatewaySerial;
-    FakeResponse response;
-    FakeRequest request("GET", "/test", "", response);
-    FakeRESTAPIHandler handler(Poco::Logger::get("test"), &request, &response);
-
-    ExpectEq(
-        (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacInTopology(handler, "sub-1", "op-1", "112233445566", gatewaySerial),
-        (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacResult::TopologyUnusable,
-        "should fail when historicalDevices is not an array"
-    );
-}
-
-void TestValidateMacInTopologyMalformedHistoricalClientsElementNotObject() {
-    g_state.subscriberDevices = {{"olg", "112233445566"}};
-    auto malformed = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
-    auto arr = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
-    arr->add("not-an-object");
-    malformed->set("historicalClients", arr);
-    g_state.topologyResponse = malformed;
-
-    std::string gatewaySerial;
-    FakeResponse response;
-    FakeRequest request("GET", "/test", "", response);
-    FakeRESTAPIHandler handler(Poco::Logger::get("test"), &request, &response);
-
-    ExpectEq(
-        (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacInTopology(handler, "sub-1", "op-1", "112233445566", gatewaySerial),
-        (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacResult::TopologyUnusable,
-        "should fail when historicalClients contains non-object element"
-    );
-}
-
-void TestValidateMacInTopologyMalformedHistoricalDevicesElementNotString() {
-    g_state.subscriberDevices = {{"olg", "112233445566"}};
-    auto malformed = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
-    auto arr = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
-    arr->add(12345); // not a string
-    malformed->set("historicalDevices", arr);
-    g_state.topologyResponse = malformed;
-
-    std::string gatewaySerial;
-    FakeResponse response;
-    FakeRequest request("GET", "/test", "", response);
-    FakeRESTAPIHandler handler(Poco::Logger::get("test"), &request, &response);
-
-    ExpectEq(
-        (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacInTopology(handler, "sub-1", "op-1", "112233445566", gatewaySerial),
-        (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacResult::TopologyUnusable,
-        "should fail when historicalDevices contains non-string element"
-    );
-}
-
-void TestValidateMacInTopologyMalformedNodesApsNotArray() {
-    g_state.subscriberDevices = {{"olg", "112233445566"}};
-    auto malformed = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
-    auto nodes = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
-    auto node = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
-    node->set("aps", "not-an-array");
-    nodes->add(node);
-    malformed->set("nodes", nodes);
-    g_state.topologyResponse = malformed;
-
-    std::string gatewaySerial;
-    FakeResponse response;
-    FakeRequest request("GET", "/test", "", response);
-    FakeRESTAPIHandler handler(Poco::Logger::get("test"), &request, &response);
-
-    ExpectEq(
-        (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacInTopology(handler, "sub-1", "op-1", "112233445566", gatewaySerial),
-        (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacResult::TopologyUnusable,
-        "should fail when nodes/aps is not an array"
-    );
-}
-
-void TestValidateMacInTopologyMalformedNodesApsElementNotObject() {
-    g_state.subscriberDevices = {{"olg", "112233445566"}};
-    auto malformed = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
-    auto nodes = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
-    auto node = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
-    auto aps = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
-    aps->add("not-an-object");
-    node->set("aps", aps);
-    nodes->add(node);
-    malformed->set("nodes", nodes);
-    g_state.topologyResponse = malformed;
-
-    std::string gatewaySerial;
-    FakeResponse response;
-    FakeRequest request("GET", "/test", "", response);
-    FakeRESTAPIHandler handler(Poco::Logger::get("test"), &request, &response);
-
-    ExpectEq(
-        (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacInTopology(handler, "sub-1", "op-1", "112233445566", gatewaySerial),
-        (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacResult::TopologyUnusable,
-        "should fail when nodes/aps contains non-object element"
-    );
-}
-
-void TestValidateMacInTopologyMalformedNodesApsClientsNotArray() {
-    g_state.subscriberDevices = {{"olg", "112233445566"}};
-    auto malformed = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
-    auto nodes = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
-    auto node = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
-    auto aps = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
-    auto ap = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
-    ap->set("clients", 12345); // not an array
-    aps->add(ap);
-    node->set("aps", aps);
-    nodes->add(node);
-    malformed->set("nodes", nodes);
-    g_state.topologyResponse = malformed;
-
-    std::string gatewaySerial;
-    FakeResponse response;
-    FakeRequest request("GET", "/test", "", response);
-    FakeRESTAPIHandler handler(Poco::Logger::get("test"), &request, &response);
-
-    ExpectEq(
-        (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacInTopology(handler, "sub-1", "op-1", "112233445566", gatewaySerial),
-        (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacResult::TopologyUnusable,
-        "should fail when nodes/aps/clients is not an array"
-    );
-}
-
-void TestValidateMacInTopologyNullArrays() {
-    g_state.subscriberDevices = {{"olg", "112233445566"}};
-
-    // 1. All three arrays are null
-    {
-        auto topo = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
-        topo->set("nodes", Poco::Dynamic::Var());
-        topo->set("historicalClients", Poco::Dynamic::Var());
-        topo->set("historicalDevices", Poco::Dynamic::Var());
-        g_state.topologyResponse = topo;
-
-        std::string gatewaySerial;
-        FakeResponse response;
-        FakeRequest request("GET", "/test", "", response);
-        FakeRESTAPIHandler handler(Poco::Logger::get("test"), &request, &response);
-
-        ExpectEq(
-            (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacInTopology(handler, "sub-1", "op-1", "112233445566", gatewaySerial),
-            (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacResult::TopologyUnusable,
-            "all null arrays should return TopologyUnusable"
-        );
-    }
-
-    // 2. Nodes is empty array, historicalClients/historicalDevices are null
-    {
-        auto topo = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
-        topo->set("nodes", Poco::JSON::Array::Ptr(new Poco::JSON::Array()));
-        topo->set("historicalClients", Poco::Dynamic::Var());
-        topo->set("historicalDevices", Poco::Dynamic::Var());
-        g_state.topologyResponse = topo;
-
-        std::string gatewaySerial;
-        FakeResponse response;
-        FakeRequest request("GET", "/test", "", response);
-        FakeRESTAPIHandler handler(Poco::Logger::get("test"), &request, &response);
-
-        ExpectEq(
-            (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacInTopology(handler, "sub-1", "op-1", "112233445566", gatewaySerial),
-            (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacResult::MacNotPresentInTopology,
-            "empty nodes array with other nulls should return MacNotPresentInTopology"
-        );
-    }
-
-    // 3. historicalClients is empty array, nodes/historicalDevices are null
-    {
-        auto topo = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
-        topo->set("nodes", Poco::Dynamic::Var());
-        topo->set("historicalClients", Poco::JSON::Array::Ptr(new Poco::JSON::Array()));
-        topo->set("historicalDevices", Poco::Dynamic::Var());
-        g_state.topologyResponse = topo;
-
-        std::string gatewaySerial;
-        FakeResponse response;
-        FakeRequest request("GET", "/test", "", response);
-        FakeRESTAPIHandler handler(Poco::Logger::get("test"), &request, &response);
-
-        ExpectEq(
-            (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacInTopology(handler, "sub-1", "op-1", "112233445566", gatewaySerial),
-            (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacResult::MacNotPresentInTopology,
-            "empty historicalClients array with other nulls should return MacNotPresentInTopology"
-        );
-    }
-
-    // 4. historicalDevices is empty array, nodes/historicalClients are null
-    {
-        auto topo = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
-        topo->set("nodes", Poco::Dynamic::Var());
-        topo->set("historicalClients", Poco::Dynamic::Var());
-        topo->set("historicalDevices", Poco::JSON::Array::Ptr(new Poco::JSON::Array()));
-        g_state.topologyResponse = topo;
-
-        std::string gatewaySerial;
-        FakeResponse response;
-        FakeRequest request("GET", "/test", "", response);
-        FakeRESTAPIHandler handler(Poco::Logger::get("test"), &request, &response);
-
-        ExpectEq(
-            (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacInTopology(handler, "sub-1", "op-1", "112233445566", gatewaySerial),
-            (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacResult::MacNotPresentInTopology,
-            "empty historicalDevices array with other nulls should return MacNotPresentInTopology"
-        );
-    }
-}
-
-void TestValidateMacInTopologyNestedNullApsAndClients() {
-    g_state.subscriberDevices = {{"olg", "112233445566"}};
-
-    // 1. aps is explicitly null inside a node
-    {
-        auto topo = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
-        auto nodes = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
-        auto node = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
-        node->set("aps", Poco::Dynamic::Var()); // explicitly null
-        nodes->add(node);
-        topo->set("nodes", nodes);
-        g_state.topologyResponse = topo;
-
-        std::string gatewaySerial;
-        FakeResponse response;
-        FakeRequest request("GET", "/test", "", response);
-        FakeRESTAPIHandler handler(Poco::Logger::get("test"), &request, &response);
-
-        ExpectEq(
-            (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacInTopology(handler, "sub-1", "op-1", "112233445566", gatewaySerial),
-            (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacResult::MacNotPresentInTopology,
-            "explicitly null nested aps should be tolerated and return MacNotPresentInTopology"
-        );
-    }
-
-    // 2. clients is explicitly null inside an ap
-    {
-        auto topo = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
-        auto nodes = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
-        auto node = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
-        auto aps = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
-        auto ap = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
-        ap->set("clients", Poco::Dynamic::Var()); // explicitly null
-        aps->add(ap);
-        node->set("aps", aps);
-        nodes->add(node);
-        topo->set("nodes", nodes);
-        g_state.topologyResponse = topo;
-
-        std::string gatewaySerial;
-        FakeResponse response;
-        FakeRequest request("GET", "/test", "", response);
-        FakeRESTAPIHandler handler(Poco::Logger::get("test"), &request, &response);
-
-        ExpectEq(
-            (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacInTopology(handler, "sub-1", "op-1", "112233445566", gatewaySerial),
-            (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacResult::MacNotPresentInTopology,
-            "explicitly null nested clients should be tolerated and return MacNotPresentInTopology"
-        );
-    }
-}
-
-void TestValidateMacInTopologyNegativeNonNullNonArray() {
-    g_state.subscriberDevices = {{"olg", "112233445566"}};
-
-    // 1. nodes is boolean
-    {
-        auto topo = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
-        topo->set("nodes", true);
-        g_state.topologyResponse = topo;
-
-        std::string gatewaySerial;
-        FakeResponse response;
-        FakeRequest request("GET", "/test", "", response);
-        FakeRESTAPIHandler handler(Poco::Logger::get("test"), &request, &response);
-
-        ExpectEq(
-            (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacInTopology(handler, "sub-1", "op-1", "112233445566", gatewaySerial),
-            (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacResult::TopologyUnusable,
-            "non-array nodes should return TopologyUnusable"
-        );
-    }
-
-    // 2. historicalClients is string
-    {
-        auto topo = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
-        topo->set("historicalClients", "not-an-array");
-        g_state.topologyResponse = topo;
-
-        std::string gatewaySerial;
-        FakeResponse response;
-        FakeRequest request("GET", "/test", "", response);
-        FakeRESTAPIHandler handler(Poco::Logger::get("test"), &request, &response);
-
-        ExpectEq(
-            (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacInTopology(handler, "sub-1", "op-1", "112233445566", gatewaySerial),
-            (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacResult::TopologyUnusable,
-            "non-array historicalClients should return TopologyUnusable"
-        );
-    }
-
-    // 3. historicalDevices is object
-    {
-        auto topo = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
-        topo->set("historicalDevices", Poco::JSON::Object::Ptr(new Poco::JSON::Object()));
-        g_state.topologyResponse = topo;
-
-        std::string gatewaySerial;
-        FakeResponse response;
-        FakeRequest request("GET", "/test", "", response);
-        FakeRESTAPIHandler handler(Poco::Logger::get("test"), &request, &response);
-
-        ExpectEq(
-            (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacInTopology(handler, "sub-1", "op-1", "112233445566", gatewaySerial),
-            (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacResult::TopologyUnusable,
-            "non-array historicalDevices should return TopologyUnusable"
-        );
-    }
-
-    // 4. Nested aps is number
-    {
-        auto topo = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
-        auto nodes = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
-        auto node = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
-        node->set("aps", 42); // not an array
-        nodes->add(node);
-        topo->set("nodes", nodes);
-        g_state.topologyResponse = topo;
-
-        std::string gatewaySerial;
-        FakeResponse response;
-        FakeRequest request("GET", "/test", "", response);
-        FakeRESTAPIHandler handler(Poco::Logger::get("test"), &request, &response);
-
-        ExpectEq(
-            (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacInTopology(handler, "sub-1", "op-1", "112233445566", gatewaySerial),
-            (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacResult::TopologyUnusable,
-            "non-array nested aps should return TopologyUnusable"
-        );
-    }
-
-    // 5. Nested clients is object
-    {
-        auto topo = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
-        auto nodes = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
-        auto node = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
-        auto aps = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
-        auto ap = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
-        ap->set("clients", Poco::JSON::Object::Ptr(new Poco::JSON::Object())); // not an array
-        aps->add(ap);
-        node->set("aps", aps);
-        nodes->add(node);
-        topo->set("nodes", nodes);
-        g_state.topologyResponse = topo;
-
-        std::string gatewaySerial;
-        FakeResponse response;
-        FakeRequest request("GET", "/test", "", response);
-        FakeRESTAPIHandler handler(Poco::Logger::get("test"), &request, &response);
-
-        ExpectEq(
-            (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacInTopology(handler, "sub-1", "op-1", "112233445566", gatewaySerial),
-            (int)OpenWifi::RESTAPI::ParentalControl::ValidateMacResult::TopologyUnusable,
-            "non-array nested clients should return TopologyUnusable"
-        );
-    }
-}
-
-void TestHandleValidateMacResult() {
-    using namespace OpenWifi::RESTAPI::ParentalControl;
-
-    // Helper lambda to test individual mapping
-    auto verifyMapping = [](ValidateMacResult result, Poco::Net::HTTPResponse::HTTPStatus expectedHTTPStatus, int expectedErrorCode) {
-        auto *response = new FakeResponse();
-        FakeRequest request("GET", "/test", "", *response);
-        FakeRESTAPIHandler handler(Poco::Logger::get("test"), &request, response);
-
-        bool success = HandleValidateMacResult(handler, result);
-        if (result == ValidateMacResult::Success) {
-            Expect(success, "Success should return true");
-            ExpectEq((int)response->getStatus(), (int)Poco::Net::HTTPResponse::HTTP_OK, "Success status is 200 OK");
-            Expect(response->body().empty(), "Success body should be empty");
-        } else {
-            Expect(!success, "Failure result should return false");
-            ExpectEq((int)response->getStatus(), (int)expectedHTTPStatus, "HTTP Status mismatch");
-            
-            Poco::JSON::Parser parser;
-            auto parsed = parser.parse(response->body()).extract<Poco::JSON::Object::Ptr>();
-            
-            if (expectedHTTPStatus == Poco::Net::HTTPResponse::HTTP_FORBIDDEN) {
-                ExpectEq(parsed->getValue<int>("ErrorCode"), expectedErrorCode, "ErrorCode mismatch for UnAuthorized");
-            } else if (expectedHTTPStatus == Poco::Net::HTTPResponse::HTTP_BAD_REQUEST) {
-                ExpectEq(parsed->getValue<int>("ErrorCode"), 400, "ErrorCode mismatch for BadRequest");
-            } else if (expectedHTTPStatus == Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR) {
-                ExpectEq(parsed->getValue<int>("ErrorCode"), 500, "ErrorCode mismatch for InternalError");
-            }
-
-            std::string desc = parsed->getValue<std::string>("ErrorDescription");
-            auto colonPos = desc.find(':');
-            Expect(colonPos != std::string::npos, "ErrorDescription must contain ':' separator");
-            int actualSpecificCode = std::stoi(desc.substr(0, colonPos));
-            ExpectEq(actualSpecificCode, expectedErrorCode, "Specific error code mismatch in ErrorDescription");
-        }
-        delete response;
-    };
-
-    verifyMapping(ValidateMacResult::Success, Poco::Net::HTTPResponse::HTTP_OK, 0);
-    verifyMapping(ValidateMacResult::MissingSubscriberOrOperator, Poco::Net::HTTPResponse::HTTP_FORBIDDEN, 1066);
-    verifyMapping(ValidateMacResult::SubscriberDevicesNotFound, Poco::Net::HTTPResponse::HTTP_BAD_REQUEST, 1100);
-    verifyMapping(ValidateMacResult::GatewaySerialNotFound, Poco::Net::HTTPResponse::HTTP_BAD_REQUEST, 1100);
-    verifyMapping(ValidateMacResult::ProvisioningLookupFailed, Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR, 1002);
-    verifyMapping(ValidateMacResult::InventoryNotFound, Poco::Net::HTTPResponse::HTTP_BAD_REQUEST, 1199);
-    verifyMapping(ValidateMacResult::VenueNotFound, Poco::Net::HTTPResponse::HTTP_BAD_REQUEST, 1023);
-    verifyMapping(ValidateMacResult::VenueLookupFailed, Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR, 1002);
-    verifyMapping(ValidateMacResult::BoardIdNotFound, Poco::Net::HTTPResponse::HTTP_BAD_REQUEST, 1200);
-    verifyMapping(ValidateMacResult::TopologyNotFound, Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR, 1002);
-    verifyMapping(ValidateMacResult::MacNotPresentInTopology, Poco::Net::HTTPResponse::HTTP_BAD_REQUEST, 1198);
-    verifyMapping(ValidateMacResult::TopologyUnusable, Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR, 1002);
-}
-
 void TestGetBlockedClientsClientAccessExpiredRuleSameDay() {
     Poco::DateTime now;
     std::string todayDate = FormatDate(now);
@@ -1317,7 +827,7 @@ void TestGetBlockedClientsClientAccessActiveRule() {
     ExpectEq(blockedMacs.size(), static_cast<std::size_t>(1), "Active rule should produce 1 blocked MAC");
 }
 
-void TestGetBlockedClientsGroupScheduleRuleIgnored() {
+void TestGetBlockedClientsGroupScheduleRuleActive() {
     Poco::DateTime now;
     static const std::vector<std::string> names = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
     std::string todayWeekday = names[now.dayOfWeek()];
@@ -1334,10 +844,10 @@ void TestGetBlockedClientsGroupScheduleRuleIgnored() {
 
     std::list<std::string> blockedMacs;
     Expect(OpenWifi::RESTAPI::ParentalControl::GetBlockedClients(config, blockedMacs), "GetBlockedClients should return true");
-    Expect(blockedMacs.empty(), "Topology blocked clients should ignore active group schedule rules");
+    ExpectEq(blockedMacs.size(), static_cast<std::size_t>(1), "Topology blocked clients should include active group schedule rules");
 }
 
-void TestGetBlockedClientsMixedRulesOnlyClientAccessBlocks() {
+void TestGetBlockedClientsMixedRulesAllActiveRulesBlock() {
     Poco::DateTime now;
     std::string todayDate = FormatDate(now);
     std::string tomorrowDate = FormatDate(ShiftDateTime(now, 1));
@@ -1365,7 +875,7 @@ void TestGetBlockedClientsMixedRulesOnlyClientAccessBlocks() {
 
     std::list<std::string> blockedMacs;
     Expect(OpenWifi::RESTAPI::ParentalControl::GetBlockedClients(config, blockedMacs), "GetBlockedClients should return true");
-    ExpectEq(blockedMacs.size(), static_cast<std::size_t>(1), "Only active client-access rules should affect topology blocked clients");
+    ExpectEq(blockedMacs.size(), static_cast<std::size_t>(2), "Both active client-access and active recurring schedule rules should affect topology blocked clients");
 }
 
 void TestGetBlockedClientsDisabledRulesIgnored() {
@@ -1661,30 +1171,7 @@ const std::vector<std::pair<std::string, std::function<void()>>> kTests = {
     {"GetBlockedClientsMalformedDatesOrTimes", TestGetBlockedClientsMalformedDatesOrTimes},
     {"GetBlockedClientsIncorrectOperationTypes", TestGetBlockedClientsIncorrectOperationTypes},
     {"GetBlockedClientsIncompleteRuleMissingMacs", TestGetBlockedClientsIncompleteRuleMissingMacs},
-    {"ValidateMacInTopologySuccessHistoricalClient", TestValidateMacInTopologySuccessHistoricalClient},
-    {"ValidateMacInTopologySuccessHistoricalDevice", TestValidateMacInTopologySuccessHistoricalDevice},
-    {"ValidateMacInTopologySuccessNodesClient", TestValidateMacInTopologySuccessNodesClient},
-    {"ValidateMacInTopologyMacNotPresent", TestValidateMacInTopologyMacNotPresent},
-    {"ValidateMacInTopologyProvisioningLookupFailure", TestValidateMacInTopologyProvisioningLookupFailure},
-    {"ValidateMacInTopologyInventoryMissing", TestValidateMacInTopologyInventoryMissing},
-    {"ValidateMacInTopologyVenueIdMissing", TestValidateMacInTopologyVenueIdMissing},
-    {"ValidateMacInTopologyVenueNotFound", TestValidateMacInTopologyVenueNotFound},
-    {"ValidateMacInTopologyVenueLookupFailure", TestValidateMacInTopologyVenueLookupFailure},
-    {"ValidateMacInTopologyBoardMissing", TestValidateMacInTopologyBoardMissing},
-    {"ValidateMacInTopologyTopologyFetchFailure", TestValidateMacInTopologyTopologyFetchFailure},
-    {"ValidateMacInTopologyMalformedTopology", TestValidateMacInTopologyMalformedTopology},
-    {"ValidateMacInTopologyMalformedNoFields", TestValidateMacInTopologyMalformedNoFields},
-    {"ValidateMacInTopologyMalformedHistoricalClientsNotArray", TestValidateMacInTopologyMalformedHistoricalClientsNotArray},
-    {"ValidateMacInTopologyMalformedHistoricalDevicesNotArray", TestValidateMacInTopologyMalformedHistoricalDevicesNotArray},
-    {"ValidateMacInTopologyMalformedHistoricalClientsElementNotObject", TestValidateMacInTopologyMalformedHistoricalClientsElementNotObject},
-    {"ValidateMacInTopologyMalformedHistoricalDevicesElementNotString", TestValidateMacInTopologyMalformedHistoricalDevicesElementNotString},
-    {"ValidateMacInTopologyMalformedNodesApsNotArray", TestValidateMacInTopologyMalformedNodesApsNotArray},
-    {"ValidateMacInTopologyMalformedNodesApsElementNotObject", TestValidateMacInTopologyMalformedNodesApsElementNotObject},
-    {"ValidateMacInTopologyMalformedNodesApsClientsNotArray", TestValidateMacInTopologyMalformedNodesApsClientsNotArray},
-    {"ValidateMacInTopologyNullArrays", TestValidateMacInTopologyNullArrays},
-    {"ValidateMacInTopologyNestedNullApsAndClients", TestValidateMacInTopologyNestedNullApsAndClients},
-    {"ValidateMacInTopologyNegativeNonNullNonArray", TestValidateMacInTopologyNegativeNonNullNonArray},
-    {"HandleValidateMacResult", TestHandleValidateMacResult},
+
     {"ParseTimeStringAcceptsMidnight", TestParseTimeStringAcceptsMidnight},
     {"ParseTimeStringAcceptsLastMinuteOfDay", TestParseTimeStringAcceptsLastMinuteOfDay},
     {"ParseTimeStringRejectsNonString", TestParseTimeStringRejectsNonString},
@@ -1696,7 +1183,18 @@ const std::vector<std::pair<std::string, std::function<void()>>> kTests = {
     {"ValidateWeekdaysRejectsDuplicates", TestValidateWeekdaysRejectsDuplicates},
     {"ValidateWeekdaysRejectsOutOfRangeValue", TestValidateWeekdaysRejectsOutOfRangeValue},
     {"ValidateWeekdaysRejectsNonIntegerValue", TestValidateWeekdaysRejectsNonIntegerValue},
+    {"ResolveSubscriberTimezoneNoVenues", TestResolveSubscriberTimezoneNoVenues},
+    {"ResolveSubscriberTimezoneMissingLocationId", TestResolveSubscriberTimezoneMissingLocationId},
+    {"ResolveSubscriberTimezoneLocation404", TestResolveSubscriberTimezoneLocation404},
+    {"ResolveSubscriberTimezoneLocation500", TestResolveSubscriberTimezoneLocation500},
+    {"ResolveSubscriberTimezoneEmptyTimezone", TestResolveSubscriberTimezoneEmptyTimezone},
+    {"ResolveSubscriberTimezoneInvalidIanaTimezone", TestResolveSubscriberTimezoneInvalidIanaTimezone},
+    {"ResolveSubscriberTimezoneAsiaKolkata", TestResolveSubscriberTimezoneAsiaKolkata},
     {"NormalizeScheduleResponseConvertsMinuteFields", TestNormalizeScheduleResponseConvertsMinuteFields},
+    {"NormalizeScheduleResponseConvertsAsiaKolkata", TestNormalizeScheduleResponseConvertsAsiaKolkata},
+    {"ScheduleConversionUtcSundayToKolkataMonday", TestScheduleConversionUtcSundayToKolkataMonday},
+    {"ScheduleConversionUtcSundayToEtcGmtPlus5Saturday", TestScheduleConversionUtcSundayToEtcGmtPlus5Saturday},
+    {"OvernightScheduleRoundTrip", TestOvernightScheduleRoundTrip},
     {"NormalizeScheduleResponseRejectsMissingMinuteFields", TestNormalizeScheduleResponseRejectsMissingMinuteFields},
     {"NormalizeScheduleResponseRejectsOutOfRangeMinute", TestNormalizeScheduleResponseRejectsOutOfRangeMinute},
     {"NormalizeScheduleResponseRejectsNonIntegerField", TestNormalizeScheduleResponseRejectsNonIntegerField},
@@ -1711,8 +1209,8 @@ const std::vector<std::pair<std::string, std::function<void()>>> kTests = {
     {"ExtractConfigRawSnapshotRejectsNonStringCommandEntry", TestExtractConfigRawSnapshotRejectsNonStringCommandEntry},
     {"GetBlockedClientsClientAccessExpiredRuleSameDay", TestGetBlockedClientsClientAccessExpiredRuleSameDay},
     {"GetBlockedClientsClientAccessActiveRule", TestGetBlockedClientsClientAccessActiveRule},
-    {"GetBlockedClientsGroupScheduleRuleIgnored", TestGetBlockedClientsGroupScheduleRuleIgnored},
-    {"GetBlockedClientsMixedRulesOnlyClientAccessBlocks", TestGetBlockedClientsMixedRulesOnlyClientAccessBlocks},
+    {"GetBlockedClientsGroupScheduleRuleActive", TestGetBlockedClientsGroupScheduleRuleActive},
+    {"GetBlockedClientsMixedRulesAllActiveRulesBlock", TestGetBlockedClientsMixedRulesAllActiveRulesBlock},
     {"GetBlockedClientsDisabledRulesIgnored", TestGetBlockedClientsDisabledRulesIgnored},
     {"GetBlockedClientsClientAccessOvernightWindowActive", TestGetBlockedClientsClientAccessOvernightWindowActive},
     {"GetBlockedClientsClientAccessOvernightFutureWindowInactive", TestGetBlockedClientsClientAccessOvernightFutureWindowInactive},

@@ -14,6 +14,7 @@ last_configure_payload = None
 VENUE_ID = "11111111-1111-4111-8111-111111111111"
 BOARD_ID = "22222222-2222-4222-8222-222222222222"
 ENTITY_ID = "33333333-3333-4333-8333-333333333333"
+LOCATION_ID = "44444444-4444-4444-8444-444444444444"
 NIL_UUID = "00000000-0000-0000-0000-000000000000"
 
 current_scenario = "normal"
@@ -44,8 +45,23 @@ def init_db():
             target_value TEXT,
             start_minute INTEGER,
             stop_minute INTEGER,
-            weekdays INTEGER[]
+            weekdays INTEGER[],
+            schedule_config_index INTEGER DEFAULT 1,
+            created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
         )
+    """)
+    cursor.execute("""
+        ALTER TABLE mock_schedules
+        ADD COLUMN IF NOT EXISTS schedule_config_index INTEGER DEFAULT 1
+    """)
+    cursor.execute("""
+        ALTER TABLE mock_schedules
+        ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    """)
+    cursor.execute("""
+        ALTER TABLE mock_schedules
+        ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
     """)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS mock_group_devices (
@@ -65,6 +81,26 @@ def init_db():
 
 # Let this throw an exception and crash the server if Postgres is not available
 db_conn = init_db()
+
+def serialize_schedule(row):
+    created_at = row[12].isoformat().replace("+00:00", "Z") if hasattr(row[12], "isoformat") else str(row[12]) if row[12] else "2026-08-05T12:00:00Z"
+    updated_at = row[13].isoformat().replace("+00:00", "Z") if hasattr(row[13], "isoformat") else str(row[13]) if row[13] else "2026-08-05T12:00:00Z"
+    return {
+        "id": str(row[0]),
+        "subscriber_id": row[1],
+        "name": row[2] if row[2] is not None else "",
+        "description": row[3] if row[3] is not None else "",
+        "enabled": row[4] if row[4] is not None else True,
+        "action_type": row[5] if row[5] is not None else "BLOCK",
+        "target_kind": row[6] if row[6] is not None else "INTERNET",
+        "target_value": row[7],
+        "start_minute": row[8] if row[8] is not None else 0,
+        "stop_minute": row[9] if row[9] is not None else 0,
+        "weekdays": row[10] if row[10] is not None else [],
+        "schedule_config_index": row[11] if row[11] is not None else 1,
+        "created_at": created_at,
+        "updated_at": updated_at
+    }
 
 class FakeHandler(http.server.BaseHTTPRequestHandler):
     def record_call(self, body=None):
@@ -97,6 +133,38 @@ class FakeHandler(http.server.BaseHTTPRequestHandler):
             }).encode())
             return
 
+        parsed_url = urlparse(self.path)
+        if parsed_url.path == "/api/v1/venue":
+            qs = parse_qs(parsed_url.query)
+            subscriber_id = qs.get("subscriberId", [""])[0]
+            if not subscriber_id:
+                self.send_response(400)
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "bad_request", "message": "missing subscriberId"}).encode())
+                return
+            if current_scenario == "venue-missing":
+                self.send_response(404)
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "not_found", "message": "venue not found"}).encode())
+                return
+            if current_scenario == "venue-fail":
+                self.send_response(500)
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "internal_error", "message": "venue lookup failed"}).encode())
+                return
+            self.send_response(200)
+            self.end_headers()
+            res = {
+                "venues": [
+                    {
+                        "id": VENUE_ID,
+                        "location": LOCATION_ID
+                    }
+                ]
+            }
+            self.wfile.write(json.dumps(res).encode())
+            return
+
         if "/api/v1/venue/" in self.path:
             if current_scenario == "venue-missing":
                 self.send_response(404)
@@ -127,7 +195,7 @@ class FakeHandler(http.server.BaseHTTPRequestHandler):
                 "managementPolicy": NIL_UUID,
                 "deviceConfiguration": [],
                 "contacts": [],
-                "location": "",
+                "location": LOCATION_ID,
                 "deviceRules": {
                     "rcOnly": "inherit",
                     "rrm": "inherit",
@@ -142,6 +210,35 @@ class FakeHandler(http.server.BaseHTTPRequestHandler):
                 "boards": [] if current_scenario == "board-missing" else [BOARD_ID]
             }
             self.wfile.write(json.dumps(res).encode())
+            return
+
+        if parsed_url.path.startswith("/api/v1/location/"):
+            loc_id = parsed_url.path.split("/")[-1]
+            if loc_id != LOCATION_ID:
+                self.send_response(404)
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "not_found", "message": "location not found"}).encode())
+                return
+            if current_scenario == "location-missing":
+                self.send_response(404)
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "not_found", "message": "location missing"}).encode())
+                return
+            if current_scenario == "location-fail":
+                self.send_response(500)
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "internal_error", "message": "location lookup failed"}).encode())
+                return
+
+            tz = "Asia/Kolkata"
+            if current_scenario == "timezone-missing":
+                tz = ""
+            elif current_scenario == "timezone-invalid":
+                tz = "Invalid/Timezone"
+
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(json.dumps({"id": LOCATION_ID, "timezone": tz}).encode())
             return
 
         if "/api/v1/topology" in self.path:
@@ -209,32 +306,63 @@ class FakeHandler(http.server.BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(json.dumps({"error":"not_found","message":"not found"}).encode())
                 return
-            parts = self.path.split("/")
+            parts = urlparse(self.path).path.split("/")
+            subscriber_id = parts[4]
             group_id = parts[6]
             cursor = db_conn.cursor()
-            cursor.execute("SELECT id FROM mock_groups WHERE id = %s", (group_id,))
+            cursor.execute("SELECT id FROM mock_groups WHERE id = %s AND subscriber_id = %s", (group_id, subscriber_id))
             if not cursor.fetchone():
                 self.send_response(404)
                 self.end_headers()
                 self.wfile.write(json.dumps({"error":"not_found","message":"group not found"}).encode())
                 return
 
-            if len(parts) > 8:
+            if len(parts) > 8 and parts[8]:
                 sid = parts[8]
-                cursor.execute("SELECT schedule_id FROM mock_group_schedules WHERE group_id = %s AND schedule_id = %s", (group_id, sid))
+                cursor.execute("""
+                    SELECT gs.schedule_id
+                    FROM mock_group_schedules gs
+                    JOIN mock_schedules s ON s.id = gs.schedule_id
+                    WHERE gs.group_id = %s AND gs.schedule_id = %s AND s.subscriber_id = %s
+                """, (group_id, sid, subscriber_id))
                 row = cursor.fetchone()
                 if row:
                     self.send_response(200)
                     self.end_headers()
-                    self.wfile.write(json.dumps({"id": str(row[0])}).encode())
+                    self.wfile.write(json.dumps({
+                        "subscriber_id": subscriber_id,
+                        "group_id": group_id,
+                        "schedule_id": sid,
+                        "created_at": "2026-08-05T12:00:00Z"
+                    }).encode())
                 else:
                     self.send_response(404)
                     self.end_headers()
                     self.wfile.write(json.dumps({"error":"not_found","message":"schedule not linked to group"}).encode())
             else:
-                cursor.execute("SELECT schedule_id FROM mock_group_schedules WHERE group_id = %s", (group_id,))
+                cursor.execute("""
+                    SELECT
+                        s.id,
+                        s.subscriber_id,
+                        s.name,
+                        s.description,
+                        s.enabled,
+                        s.action_type,
+                        s.target_kind,
+                        s.target_value,
+                        s.start_minute,
+                        s.stop_minute,
+                        s.weekdays,
+                        s.schedule_config_index,
+                        s.created_at,
+                        s.updated_at
+                    FROM mock_group_schedules gs
+                    JOIN mock_schedules s ON s.id = gs.schedule_id
+                    WHERE gs.group_id = %s
+                      AND s.subscriber_id = %s
+                """, (group_id, subscriber_id))
                 rows = cursor.fetchall()
-                schedules = [{"id": str(r[0])} for r in rows]
+                schedules = [serialize_schedule(r) for r in rows]
                 self.send_response(200)
                 self.end_headers()
                 self.wfile.write(json.dumps(schedules).encode())
@@ -346,52 +474,32 @@ class FakeHandler(http.server.BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps({"error":"not_found","message":"schedule not found"}).encode())
                 return
             
+            parts = urlparse(self.path).path.split("/")
+            subscriber_id = parts[4]
             cursor = db_conn.cursor()
             match = re.search(r'/schedules/([a-f0-9\-]+)', self.path)
             if match:
                 schedule_id = match.group(1)
                 cursor.execute("""
-                    SELECT id, name, description, enabled, action_type, target_kind, target_value, start_minute, stop_minute, weekdays 
-                    FROM mock_schedules WHERE id = %s
-                """, (schedule_id,))
+                    SELECT id, subscriber_id, name, description, enabled, action_type, target_kind, target_value, start_minute, stop_minute, weekdays, schedule_config_index, created_at, updated_at 
+                    FROM mock_schedules WHERE id = %s AND subscriber_id = %s
+                """, (schedule_id, subscriber_id))
                 row = cursor.fetchone()
                 if row:
                     self.send_response(200)
                     self.end_headers()
-                    self.wfile.write(json.dumps({
-                        "id": str(row[0]),
-                        "name": row[1],
-                        "description": row[2],
-                        "enabled": row[3],
-                        "action_type": row[4],
-                        "target_kind": row[5],
-                        "target_value": row[6],
-                        "start_minute": row[7],
-                        "stop_minute": row[8],
-                        "weekdays": row[9]
-                    }).encode())
+                    self.wfile.write(json.dumps(serialize_schedule(row)).encode())
                 else:
                     self.send_response(404)
                     self.end_headers()
                     self.wfile.write(json.dumps({"error":"not_found","message":"schedule not found"}).encode())
             else:
                 cursor.execute("""
-                    SELECT id, name, description, enabled, action_type, target_kind, target_value, start_minute, stop_minute, weekdays 
-                    FROM mock_schedules WHERE subscriber_id = 'sub1'
-                """)
+                    SELECT id, subscriber_id, name, description, enabled, action_type, target_kind, target_value, start_minute, stop_minute, weekdays, schedule_config_index, created_at, updated_at 
+                    FROM mock_schedules WHERE subscriber_id = %s
+                """, (subscriber_id,))
                 rows = cursor.fetchall()
-                schedules = [{
-                    "id": str(r[0]),
-                    "name": r[1],
-                    "description": r[2],
-                    "enabled": r[3],
-                    "action_type": r[4],
-                    "target_kind": r[5],
-                    "target_value": r[6],
-                    "start_minute": r[7],
-                    "stop_minute": r[8],
-                    "weekdays": r[9]
-                } for r in rows]
+                schedules = [serialize_schedule(r) for r in rows]
                 self.send_response(200)
                 self.end_headers()
                 self.wfile.write(json.dumps(schedules).encode())
@@ -657,33 +765,26 @@ class FakeHandler(http.server.BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps({"error":"conflict","message":"schedule conflict"}).encode())
                 return
                 
+            parts = urlparse(self.path).path.split("/")
+            subscriber_id = parts[4]
             req_data = json.loads(body.decode())
             new_id = str(uuid.uuid4())
             cursor = db_conn.cursor()
             cursor.execute("""
                 INSERT INTO mock_schedules (id, subscriber_id, name, description, enabled, action_type, target_kind, target_value, start_minute, stop_minute, weekdays)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id, subscriber_id, name, description, enabled, action_type, target_kind, target_value, start_minute, stop_minute, weekdays, schedule_config_index, created_at, updated_at
             """, (
-                new_id, "sub1", req_data.get("name"), req_data.get("description"),
+                new_id, subscriber_id, req_data.get("name"), req_data.get("description"),
                 req_data.get("enabled", True), req_data.get("action_type", "BLOCK"),
                 req_data.get("target_kind"), req_data.get("target_value"),
                 req_data.get("start_minute"), req_data.get("stop_minute"),
                 req_data.get("weekdays")
             ))
+            row = cursor.fetchone()
             self.send_response(200)
             self.end_headers()
-            self.wfile.write(json.dumps({
-                "id": new_id,
-                "name": req_data.get("name"),
-                "description": req_data.get("description"),
-                "enabled": req_data.get("enabled", True),
-                "action_type": req_data.get("action_type", "BLOCK"),
-                "target_kind": req_data.get("target_kind"),
-                "target_value": req_data.get("target_value"),
-                "start_minute": req_data.get("start_minute"),
-                "stop_minute": req_data.get("stop_minute"),
-                "weekdays": req_data.get("weekdays")
-            }).encode())
+            self.wfile.write(json.dumps(serialize_schedule(row)).encode())
             return
 
         self.send_response(404)
@@ -789,7 +890,8 @@ class FakeHandler(http.server.BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps({"error":"conflict","message":"schedule conflict"}).encode())
                 return
                 
-            # DB-backed PUT
+            parts = urlparse(self.path).path.split("/")
+            subscriber_id = parts[4]
             match = re.search(r'/schedules/([a-f0-9\-]+)', self.path)
             if match:
                 schedule_id = match.group(1)
@@ -797,28 +899,19 @@ class FakeHandler(http.server.BaseHTTPRequestHandler):
                 cursor = db_conn.cursor()
                 cursor.execute("""
                     UPDATE mock_schedules 
-                    SET name = %s, description = %s, enabled = %s, action_type = %s, target_kind = %s, target_value = %s, start_minute = %s, stop_minute = %s, weekdays = %s 
-                    WHERE id = %s
+                    SET name = %s, description = %s, enabled = %s, action_type = %s, target_kind = %s, target_value = %s, start_minute = %s, stop_minute = %s, weekdays = %s, updated_at = CURRENT_TIMESTAMP 
+                    WHERE id = %s AND subscriber_id = %s
+                    RETURNING id, subscriber_id, name, description, enabled, action_type, target_kind, target_value, start_minute, stop_minute, weekdays, schedule_config_index, created_at, updated_at
                 """, (
                     req_data.get("name"), req_data.get("description"),
                     req_data.get("enabled"), req_data.get("action_type"),
                     req_data.get("target_kind"), req_data.get("target_value"),
                     req_data.get("start_minute"), req_data.get("stop_minute"),
-                    req_data.get("weekdays"), schedule_id
+                    req_data.get("weekdays"), schedule_id, subscriber_id
                 ))
-                if cursor.rowcount > 0:
-                    resp_obj = {
-                        "id": schedule_id,
-                        "name": req_data.get("name"),
-                        "description": req_data.get("description"),
-                        "enabled": req_data.get("enabled"),
-                        "action_type": req_data.get("action_type"),
-                        "target_kind": req_data.get("target_kind"),
-                        "target_value": req_data.get("target_value"),
-                        "start_minute": req_data.get("start_minute"),
-                        "stop_minute": req_data.get("stop_minute"),
-                        "weekdays": req_data.get("weekdays")
-                    }
+                row = cursor.fetchone()
+                if row:
+                    resp_obj = serialize_schedule(row)
                     if current_scenario == "config-raw-null":
                         resp_obj["config-raw"] = None
                     elif current_scenario == "config-raw-malformed":

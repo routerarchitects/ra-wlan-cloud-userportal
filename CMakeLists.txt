@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.14)
 project(owsub VERSION 1.0.0)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -53,6 +53,25 @@ else()
     find_package(MySQL REQUIRED)
     find_package(Poco REQUIRED COMPONENTS JSON Crypto JWT Net Util NetSSL Data DataSQLite DataPostgreSQL DataMySQL)
 endif()
+
+# Howard Hinnant date/tz library for IANA timezone support
+include(FetchContent)
+
+set(_SAVED_BUILD_SHARED_LIBS "${BUILD_SHARED_LIBS}")
+set(BUILD_SHARED_LIBS OFF)
+set(BUILD_TZ_LIB ON CACHE BOOL "" FORCE)
+set(USE_SYSTEM_TZ_DB ON CACHE BOOL "" FORCE)
+set(FETCHCONTENT_UPDATES_DISCONNECTED ON CACHE BOOL "" FORCE)
+
+FetchContent_Declare(
+    date
+    GIT_REPOSITORY https://github.com/HowardHinnant/date.git
+    GIT_TAG        6e921e1b1d21e84a5c82416ba7ecd98e33a436d0 # v3.0.1
+)
+
+FetchContent_MakeAvailable(date)
+
+set(BUILD_SHARED_LIBS "${_SAVED_BUILD_SHARED_LIBS}")
 
 include_directories(/usr/local/include  /usr/local/opt/openssl/include src include/kafka /usr/local/opt/mysql-client/include)
 
@@ -152,6 +171,7 @@ add_executable(owsub
         src/RESTAPI/RESTAPI_group_devices_handler.cpp src/RESTAPI/RESTAPI_group_devices_handler.h
         src/RESTAPI/RESTAPI_group_schedules_list_handler.cpp src/RESTAPI/RESTAPI_group_schedules_list_handler.h
         src/RESTAPI/RESTAPI_group_schedules_handler.cpp src/RESTAPI/RESTAPI_group_schedules_handler.h
+        src/RESTAPI/RESTAPI_subscriber_location_handler.cpp src/RESTAPI/RESTAPI_subscriber_location_handler.h
         )
 
 target_link_libraries(owsub PUBLIC
@@ -160,7 +180,8 @@ target_link_libraries(owsub PUBLIC
         ${ZLIB_LIBRARIES}
         CppKafka::cppkafka
         resolv
-        fmt::fmt)
+        fmt::fmt
+        date::date-tz)
 
 include(CTest)
 
@@ -177,6 +198,7 @@ if(BUILD_TESTING)
         CppKafka::cppkafka
         resolv
         fmt::fmt
+        date::date-tz
     )
     target_link_options(test_parental_control_utils PRIVATE "-Wl,-rpath,/usr/local/lib")
     add_test(NAME test_parental_control_utils COMMAND test_parental_control_utils)
@@ -222,4 +244,19 @@ if(BUILD_TESTING)
     )
     target_link_options(test_group_schedules_handlers PRIVATE "-Wl,-rpath,/usr/local/lib")
     add_test(NAME test_group_schedules_handlers COMMAND test_group_schedules_handlers)
+
+    # test_subscriber_location_handler
+    add_executable(test_subscriber_location_handler tests/unit/test_subscriber_location_handler.cpp)
+    target_include_directories(test_subscriber_location_handler PRIVATE src)
+    target_link_libraries(test_subscriber_location_handler PRIVATE
+        ${Poco_LIBRARIES}
+        ${MySQL_LIBRARIES}
+        ${ZLIB_LIBRARIES}
+        CppKafka::cppkafka
+        resolv
+        fmt::fmt
+        date::date-tz
+    )
+    target_link_options(test_subscriber_location_handler PRIVATE "-Wl,-rpath,/usr/local/lib")
+    add_test(NAME test_subscriber_location_handler COMMAND test_subscriber_location_handler)
 endif()

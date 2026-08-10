@@ -25,6 +25,7 @@
 #include "RESTAPI/RESTAPI_group_devices_handler.h"
 #include "RESTAPI/RESTAPI_group_schedules_list_handler.h"
 #include "RESTAPI/RESTAPI_group_schedules_handler.h"
+#include "RESTAPI/RESTAPI_subscriber_location_handler.h"
 
 #include "framework/RESTAPI_SystemCommand.h"
 #include "framework/RESTAPI_WebSocketServer.h"
@@ -43,7 +44,8 @@ namespace OpenWifi {
 							  RESTAPI_webSocketServer, RESTAPI_groups_list_handler, RESTAPI_groups_handler,
 							  RESTAPI_schedules_list_handler, RESTAPI_schedules_handler,
 							  RESTAPI_group_devices_list_handler, RESTAPI_group_devices_handler,
-							  RESTAPI_group_schedules_list_handler, RESTAPI_group_schedules_handler>(Path, Bindings, L, S, TransactionId);
+							  RESTAPI_group_schedules_list_handler, RESTAPI_group_schedules_handler,
+							  RESTAPI_subscriber_location_handler>(Path, Bindings, L, S, TransactionId);
 	}
 
 	Poco::Net::HTTPRequestHandler *
@@ -57,7 +59,8 @@ namespace OpenWifi {
 								RESTAPI_stats_handler, RESTAPI_groups_list_handler, RESTAPI_groups_handler,
 								RESTAPI_schedules_list_handler, RESTAPI_schedules_handler,
 								RESTAPI_group_devices_list_handler, RESTAPI_group_devices_handler,
-								RESTAPI_group_schedules_list_handler, RESTAPI_group_schedules_handler>(Path, Bindings, L, S, TransactionId);
+								RESTAPI_group_schedules_list_handler, RESTAPI_group_schedules_handler,
+								RESTAPI_subscriber_location_handler>(Path, Bindings, L, S, TransactionId);
 	}
 
 } // namespace OpenWifi

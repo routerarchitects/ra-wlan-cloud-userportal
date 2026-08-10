@@ -159,6 +159,14 @@ namespace OpenWifi::ProvObjects {
 
     typedef std::vector<Venue> VenueVec;
 
+    struct VenueList {
+        VenueVec venues;
+
+        void to_json(Poco::JSON::Object &Obj) const;
+
+        bool from_json(const Poco::JSON::Object::Ptr &Obj);
+    };
+
     struct UserInfoDigest {
         std::string id;
         std::string loginId;
@@ -248,6 +256,7 @@ namespace OpenWifi::ProvObjects {
         Types::StringVec inUse;
         Types::UUID_t entity;
         Types::UUID_t managementPolicy;
+        std::string timezone;
 
         void to_json(Poco::JSON::Object &Obj) const;
 

@@ -4,6 +4,7 @@
  * Portions copyright (c) Telecom Infra Project (TIP), BSD-3-Clause
  */
 #include <list>
+#include <unordered_map>
 #include <unordered_set>
 #include "framework/utils.h"
 #include "sdks/SDK_gw.h"
@@ -15,6 +16,7 @@
 #include "framework/ow_constants.h"
 #include "sdks/SDK_nw_topology.h"
 #include "sdks/SDK_prov.h"
+#include <date/tz.h>
 
 namespace OpenWifi {
 	bool RESTAPI_topology_handler::FetchSubscriberDevices(
@@ -73,8 +75,10 @@ namespace OpenWifi {
 		return true;
 	}
 
-	bool RESTAPI_topology_handler::ResolveBoardIdFromGateway(const std::string &gatewaySerial,
-															 std::string &boardId) {
+	bool RESTAPI_topology_handler::ResolveVenueTopologyContext(const std::string &gatewaySerial, VenueTopologyContext &context) {
+		context.boardId.clear();
+		context.timezone.clear();
+
 		if (gatewaySerial.empty()) {
 			Logger().debug(fmt::format("[GET-TOPOLOGY] Gateway serial is empty for subscriber {}.",
 									   UserInfo_.userinfo.id));
@@ -121,14 +125,50 @@ namespace OpenWifi {
 			return false;
 		}
 
-		boardId = venue.boards.front();
-		if (boardId.empty()) {
+		context.boardId = venue.boards.front();
+		if (context.boardId.empty()) {
 			Logger().debug(
 				fmt::format("[GET-TOPOLOGY] Empty board id found for venue {}.", inventory.venue));
 			NotFound();
 			return false;
 		}
-		return true;
+
+		if (venue.location.empty()) {
+			Logger().debug(fmt::format("[GET-TOPOLOGY] Venue {} has no location configured for subscriber {}.", inventory.venue, UserInfo_.userinfo.id));
+			BadRequest(RESTAPI::Errors::TimezoneRequired);
+			return false;
+		}
+
+		ProvObjects::Location location;
+		callStatus = Poco::Net::HTTPServerResponse::HTTP_INTERNAL_SERVER_ERROR;
+		callResponse = Poco::makeShared<Poco::JSON::Object>();
+		if (SDK::Prov::Location::Get(nullptr, venue.location, location, callStatus, callResponse)) {
+			if (location.timezone.empty()) {
+				Logger().debug(fmt::format("[GET-TOPOLOGY] Location {} has no timezone configured for subscriber {}.", venue.location, UserInfo_.userinfo.id));
+				BadRequest(RESTAPI::Errors::TimezoneRequired);
+				return false;
+			}
+			try {
+				date::locate_zone(location.timezone);
+			} catch (...) {
+				Logger().debug(fmt::format("[GET-TOPOLOGY] Location {} has invalid timezone [{}] for subscriber {}.", venue.location, location.timezone, UserInfo_.userinfo.id));
+				BadRequest(RESTAPI::Errors::TimezoneRequired);
+				return false;
+			}
+			context.timezone = location.timezone;
+			Logger().debug(fmt::format("[GET-TOPOLOGY] Resolved venue timezone [{}] for subscriber {}.", context.timezone, UserInfo_.userinfo.id));
+			return true;
+		}
+
+		if (callStatus != Poco::Net::HTTPServerResponse::HTTP_OK) {
+			Logger().error(fmt::format("[GET-TOPOLOGY] OWProv Location lookup failed for location {}.", venue.location));
+			ForwardErrorResponse(this, callStatus, callResponse);
+			return false;
+		}
+
+		Logger().error(fmt::format("[GET-TOPOLOGY] Failed to parse location {} response.", venue.location));
+		InternalError(RESTAPI::Errors::InternalError);
+		return false;
 	}
 
 	bool RESTAPI_topology_handler::FetchTopology(const std::string &boardId,
@@ -158,15 +198,17 @@ namespace OpenWifi {
 		1. Filter topology nodes based on subscriber devices.
 		2. Fetch blocked MACs from the gateway configuration.
 		3. Attach a "blocked" flag to historical clients and live client entries in the topology.
+		4. Attach the venue timezone to the topology response.
 	*/
 	void RESTAPI_topology_handler::FinalizeTopologyResponse(const ProvObjects::SubscriberDeviceList &subscriberDevices,
-		const std::string &gatewaySerial, Poco::JSON::Object::Ptr &topologyResponse) {
+		const std::string &gatewaySerial, const VenueTopologyContext &context, Poco::JSON::Object::Ptr &topologyResponse) {
 		if (!topologyResponse)
 			return;
 
 		FilterTopologyNodes(subscriberDevices, topologyResponse);
 		FilterTopologyEdges(subscriberDevices, topologyResponse);
-		TagBlockedClients(gatewaySerial, topologyResponse);
+		TagBlockedClients(gatewaySerial, topologyResponse, context.timezone);
+		topologyResponse->set("timezone", context.timezone);
 	}
 
 	static std::unordered_set<std::string>BuildAllowedSerialsSet(const ProvObjects::SubscriberDeviceList &subscriberDevices) {
@@ -295,9 +337,8 @@ namespace OpenWifi {
 		]
 		}
 	*/
-	void RESTAPI_topology_handler::TagBlockedClients(const std::string &gatewaySerial, Poco::JSON::Object::Ptr &topologyResponse) {
+	void RESTAPI_topology_handler::TagBlockedClients(const std::string &gatewaySerial, Poco::JSON::Object::Ptr &topologyResponse, const std::string &timezoneStr) {
 
-		std::list<std::string> blockedMacs;
 		Poco::JSON::Object::Ptr deviceObj;
 		Poco::Net::HTTPServerResponse::HTTPStatus status = Poco::Net::HTTPServerResponse::HTTP_INTERNAL_SERVER_ERROR;
 
@@ -308,14 +349,15 @@ namespace OpenWifi {
 			config = deviceObj->getObject("configuration");
 		}
 
-		if (!config || !RESTAPI::ParentalControl::GetBlockedClients(config, blockedMacs)) {
+		std::map<std::string, std::string> blockedMacMap;
+		if (!config || !RESTAPI::ParentalControl::GetBlockedClients(config, blockedMacMap, timezoneStr)) {
 			Logger().debug(fmt::format("[GET-TOPOLOGY] Failed to fetch config for {}.", gatewaySerial));
 		}
 
-		std::unordered_set<std::string> blockedMacSet;
-		blockedMacSet.reserve(blockedMacs.size());
-		for (const auto &macNorm : blockedMacs) {
-			blockedMacSet.insert(Utils::SerialToMAC(macNorm));
+		std::unordered_map<std::string, std::string> blockedMacSet;
+		blockedMacSet.reserve(blockedMacMap.size());
+		for (const auto &[macNorm, untilStr] : blockedMacMap) {
+			blockedMacSet[Utils::SerialToMAC(macNorm)] = untilStr;
 		}
 
 		if (auto historicalDevices = topologyResponse->getArray("historicalDevices")) {
@@ -331,7 +373,13 @@ namespace OpenWifi {
 				Poco::toLowerInPlace(normalizedStation);
 				auto entry = Poco::makeShared<Poco::JSON::Object>();
 				entry->set("station", station);
-				entry->set("blocked", blockedMacSet.count(normalizedStation) ? "1" : "0");
+				const auto it = blockedMacSet.find(normalizedStation);
+				if (it != blockedMacSet.end()) {
+					entry->set("blocked", "1");
+					entry->set("blocked_until", it->second);
+				} else {
+					entry->set("blocked", "0");
+				}
 				historicalClientsWithFlags->add(entry);
 			}
 			topologyResponse->set("historicalClients", historicalClientsWithFlags);
@@ -362,7 +410,14 @@ namespace OpenWifi {
 						const auto station = client->getValue<std::string>("station");
 						std::string normalizedStation = station;
 						Poco::toLowerInPlace(normalizedStation);
-						client->set("blocked", blockedMacSet.count(normalizedStation) ? "1" : "0");
+						const auto it = blockedMacSet.find(normalizedStation);
+						if (it != blockedMacSet.end()) {
+							client->set("blocked", "1");
+							client->set("blocked_until", it->second);
+						} else {
+							client->set("blocked", "0");
+							client->remove("blocked_until");
+						}
 					}
 				}
 			}
@@ -383,15 +438,15 @@ namespace OpenWifi {
 		if (!FindGatewaySerial(subscriberDevices, gatewaySerial))
 			return;
 
-		std::string boardId;
-		if (!ResolveBoardIdFromGateway(gatewaySerial, boardId))
+		VenueTopologyContext context;
+		if (!ResolveVenueTopologyContext(gatewaySerial, context))
 			return;
 
 		Poco::JSON::Object::Ptr topologyResponse;
-		if (!FetchTopology(boardId, topologyResponse))
+		if (!FetchTopology(context.boardId, topologyResponse))
 			return;
 
-		FinalizeTopologyResponse(subscriberDevices, gatewaySerial, topologyResponse);
+		FinalizeTopologyResponse(subscriberDevices, gatewaySerial, context, topologyResponse);
 
 		return ReturnObject(*topologyResponse);
 	}

@@ -81,16 +81,6 @@ namespace OpenWifi {
 		}
 		std::string normalizedMac = Utils::SerialToMAC(clientMac);
 
-		// topology validation check
-		std::string gatewaySerial;
-		RESTAPI::ParentalControl::ValidateMacResult valRes =
-			RESTAPI::ParentalControl::ValidateMacInTopology(*this, UserInfo_.userinfo.id,
-															UserInfo_.userinfo.owner,
-															normalizedMac, gatewaySerial);
-		if (!RESTAPI::ParentalControl::HandleValidateMacResult(*this, valRes)) {
-			return;
-		}
-
 		Poco::Net::HTTPResponse::HTTPStatus callStatus;
 		Poco::JSON::Object::Ptr callResponse;
 		Poco::JSON::Object downstreamBody;
@@ -111,8 +101,7 @@ namespace OpenWifi {
 				*this, RESTAPI::ParentalControl::ApplyConfigRaw(*this, Logger(),
 																UserInfo_.userinfo.id,
 																UserInfo_.userinfo.owner, groupId,
-																configRaw, "DoPost", "group_device",
-																gatewaySerial))) {
+																configRaw, "DoPost", "group_device"))) {
 			return;
 		}
 

@@ -33,14 +33,19 @@ namespace OpenWifi {
 		void DoDelete() final {};
 
 	  private:
+		struct VenueTopologyContext {
+			std::string boardId;
+			std::string timezone;
+		};
+
 		bool FetchSubscriberDevices(ProvObjects::SubscriberDeviceList &subscriberDevices);
 		bool FindGatewaySerial(const ProvObjects::SubscriberDeviceList &subscriberDevices,
 							   std::string &gatewaySerial);
-		bool ResolveBoardIdFromGateway(const std::string &gatewaySerial, std::string &boardId);
+		bool ResolveVenueTopologyContext(const std::string &gatewaySerial, VenueTopologyContext &context);
 		bool FetchTopology(const std::string &boardId, Poco::JSON::Object::Ptr &topologyResponse);
-		void FinalizeTopologyResponse(const ProvObjects::SubscriberDeviceList &subscriberDevices, const std::string &gatewaySerial, Poco::JSON::Object::Ptr &topologyResponse);
+		void FinalizeTopologyResponse(const ProvObjects::SubscriberDeviceList &subscriberDevices, const std::string &gatewaySerial, const VenueTopologyContext &context, Poco::JSON::Object::Ptr &topologyResponse);
 		void FilterTopologyNodes(const ProvObjects::SubscriberDeviceList &subscriberDevices, Poco::JSON::Object::Ptr &topologyResponse);
 		void FilterTopologyEdges(const ProvObjects::SubscriberDeviceList &subscriberDevices, Poco::JSON::Object::Ptr &topologyResponse);
-		void TagBlockedClients(const std::string &gatewaySerial, Poco::JSON::Object::Ptr &topologyResponse);
+		void TagBlockedClients(const std::string &gatewaySerial, Poco::JSON::Object::Ptr &topologyResponse, const std::string &timezoneStr = "");
 	};
 } // namespace OpenWifi

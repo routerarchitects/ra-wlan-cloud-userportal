@@ -605,35 +605,30 @@ namespace OpenWifi::SDK::GW {
 				Poco::JSON::Object::Ptr callResponse;
 
 				if (entry.access == "deny") {
-					Poco::DateTime now;
-					std::string startDate = Poco::DateTimeFormatter::format(now, "%Y-%m-%d");
-					std::string startTime = Poco::DateTimeFormatter::format(now, "%H:%M:%S");
-
-					std::string stopDate;
-					std::string stopTime;
-					if (entry.durationMinutes > 0) {
-						Poco::DateTime endDt = now + Poco::Timespan(entry.durationMinutes * 60, 0);
-						stopTime = Poco::DateTimeFormatter::format(endDt, "%H:%M:%S");
-
-						Poco::DateTime nextDay = endDt + Poco::Timespan(86400, 0);
-						stopDate = Poco::DateTimeFormatter::format(nextDay, "%Y-%m-%d");
-					} else {
-						stopTime = "23:59:59";
-						Poco::DateTime nextDay = now + Poco::Timespan(86400, 0);
-						stopDate = Poco::DateTimeFormatter::format(nextDay, "%Y-%m-%d");
-					}
-
 					Poco::JSON::Object reqBody;
 					reqBody.set("client_mac", entry.formattedMac);
-					reqBody.set("start_date", startDate);
-					reqBody.set("stop_date", stopDate);
-					reqBody.set("start_time", startTime);
-					reqBody.set("stop_time", stopTime);
 
-					Poco::Logger::get("SDK_gw").information(fmt::format(
-						"Sending BLOCK request for client: [{}] subscriber: [{}] "
-						"(start_date={}, stop_date={}, start_time={}, stop_time={}) to parental-control",
-						entry.formattedMac, SubscriberId, startDate, stopDate, startTime, stopTime));
+					if (entry.hasDuration) {
+						Poco::DateTime now;
+						std::string startDate = Poco::DateTimeFormatter::format(now, "%Y-%m-%d");
+						std::string startTime = Poco::DateTimeFormatter::format(now, "%H:%M:%S");
+
+						Poco::DateTime endDt = now + Poco::Timespan(entry.durationMinutes * 60, 0);
+						std::string stopTime = Poco::DateTimeFormatter::format(endDt, "%H:%M:%S");
+
+						Poco::DateTime nextDay = endDt + Poco::Timespan(86400, 0);
+						std::string stopDate = Poco::DateTimeFormatter::format(nextDay, "%Y-%m-%d");
+
+						reqBody.set("start_date", startDate);
+						reqBody.set("stop_date", stopDate);
+						reqBody.set("start_time", startTime);
+						reqBody.set("stop_time", stopTime);
+
+						Poco::Logger::get("SDK_gw").information(fmt::format("Sending BLOCK request for client: [{}] subscriber: [{}] (start_date={}, stop_date={}, start_time={}, stop_time={}) to parental-control",
+							entry.formattedMac, SubscriberId, startDate, stopDate, startTime, stopTime));
+					} else {
+						Poco::Logger::get("SDK_gw").information(fmt::format("Sending PERMANENT BLOCK request for client: [{}] subscriber: [{}] to parental-control", entry.formattedMac, SubscriberId));
+					}
 
 					if (!SDK::ParentalControl::CreateClientAccess(client, SubscriberId, reqBody, callStatus, callResponse)) {
 						Poco::Logger::get("SDK_gw").error(fmt::format("CreateClientAccess failed for client: [{}] subscriber: [{}], Status={}",

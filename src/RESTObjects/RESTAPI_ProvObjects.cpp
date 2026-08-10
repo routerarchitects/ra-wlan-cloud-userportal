@@ -188,6 +188,34 @@ namespace OpenWifi::ProvObjects {
 		return false;
 	}
 
+	void VenueList::to_json(Poco::JSON::Object &Obj) const {
+		field_to_json(Obj, "venues", venues);
+	}
+
+	bool VenueList::from_json(const Poco::JSON::Object::Ptr &Obj) {
+		try {
+			if (!Obj || !Obj->has("venues") || !Obj->isArray("venues") || Obj->isNull("venues")) {
+				return false;
+			}
+			venues.clear();
+			auto arr = Obj->getArray("venues");
+			for (std::size_t i = 0; i < arr->size(); ++i) {
+				if (!arr->isObject(i) || arr->isNull(i)) {
+					return false;
+				}
+				auto innerObj = arr->getObject(i);
+				Venue v;
+				if (!v.from_json(innerObj) || v.info.id.empty()) {
+					return false;
+				}
+				venues.push_back(v);
+			}
+			return true;
+		} catch (...) {
+		}
+		return false;
+	}
+
 	void Operator::to_json(Poco::JSON::Object &Obj) const {
 		info.to_json(Obj);
 		field_to_json(Obj, "managementPolicy", managementPolicy);
@@ -323,6 +351,7 @@ namespace OpenWifi::ProvObjects {
 		field_to_json(Obj, "inUse", inUse);
 		field_to_json(Obj, "entity", entity);
 		field_to_json(Obj, "managementPolicy", managementPolicy);
+		field_to_json(Obj, "timezone", timezone);
 	}
 
 	bool Location::from_json(const Poco::JSON::Object::Ptr &Obj) {
@@ -343,6 +372,7 @@ namespace OpenWifi::ProvObjects {
 			field_from_json(Obj, "inUse", inUse);
 			field_from_json(Obj, "entity", entity);
 			field_from_json(Obj, "managementPolicy", managementPolicy);
+			field_from_json(Obj, "timezone", timezone);
 			return true;
 		} catch (...) {
 		}

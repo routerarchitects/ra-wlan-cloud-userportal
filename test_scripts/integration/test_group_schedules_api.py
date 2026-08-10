@@ -71,6 +71,7 @@ def create_group(name="test-group"):
 def create_schedule(name="test-schedule"):
     payload = {
         "name": name,
+        "description": "desc",
         "action_type": "BLOCK",
         "target_kind": "INTERNET",
         "target_value": None,
@@ -81,6 +82,63 @@ def create_schedule(name="test-schedule"):
     status, body = request("POST", "/api/v1/schedules", body=payload)
     assert status == 200, f"Expected 200 on schedule create, got {status}. Body: {body}"
     return body["id"]
+
+
+def test_get_group_schedules_missing_timezone():
+    print("Testing GET /groups/{id}/schedules missing timezone → 400 with zero PC calls...")
+    gid = create_group("gs-tz-missing")
+    set_scenario("timezone-missing")
+    req1 = urllib.request.Request(f"{FAKE_URL}/reset-observations", data=b"", method="POST")
+    open_url(req1)
+
+    status, body = request("GET", f"/api/v1/groups/{gid}/schedules", scenario="timezone-missing")
+    assert status == 400, f"Expected 400 for missing timezone on group schedule list, got {status}. Body: {body}"
+
+    with open_url(f"{FAKE_URL}/observations") as r:
+        obs = json.loads(r.read())
+        pc_calls = [c for c in obs.get("calls", []) if c["path"].startswith("/api/v1/subscribers/")]
+        assert len(pc_calls) == 0, f"Expected 0 parental control calls, got {pc_calls}"
+
+    print("✅ GET /groups/{id}/schedules missing timezone passed")
+
+
+def test_group_schedule_list_full_schedule_contract():
+    print("Testing GET /groups/{id}/schedules returns full Schedule array contract...")
+    gid = create_group("gs-full-contract")
+    sid = create_schedule("gs-full-sched")
+
+    # Link schedule to group
+    status, _ = request("POST", f"/api/v1/groups/{gid}/schedules",
+                        body={"schedule_id": sid},
+                        scenario="config-raw")
+    assert status == 200
+
+    # List group schedules under normal scenario
+    status, list_body = request("GET", f"/api/v1/groups/{gid}/schedules", scenario="normal")
+    assert status == 200
+    assert isinstance(list_body, list), f"Expected list, got {type(list_body)}"
+    assert len(list_body) == 1, f"Expected 1 schedule, got {list_body}"
+
+    item = list_body[0]
+    assert item["id"] == sid, f"Expected id {sid}, got {item.get('id')}"
+    assert "subscriber_id" in item
+    assert isinstance(item["schedule_config_index"], int)
+    assert item["name"] == "gs-full-sched"
+    assert item["description"] == "desc"
+    assert item["enabled"] is True
+    assert item["action_type"] == "BLOCK"
+    assert item["target_kind"] == "INTERNET"
+    assert item["start_time"] == "08:00"
+    assert item["stop_time"] == "17:00"
+    assert item["weekdays"] == [1, 2, 3]
+    assert item["created_at"]
+    assert item["updated_at"]
+
+    # Forbidden fields
+    for forbidden in ["schedule_id", "group_id", "start_minute", "stop_minute", "config-raw"]:
+        assert forbidden not in item, f"Forbidden field '{forbidden}' found in group schedule list item: {item}"
+
+    print("✅ GET /groups/{id}/schedules full Schedule contract passed")
 
 
 # ---------------------------------------------------------------------------
@@ -114,10 +172,14 @@ def test_group_schedule_crud_state_lifecycle():
     assert status == 200
     assert any(s.get("id") == sid1 for s in list_body), f"Linked schedule {sid1} not found in list: {list_body}"
 
-    # 5. GET single schedule should succeed
+    # 5. GET single schedule link should succeed
     status, get_body = request("GET", f"/api/v1/groups/{gid}/schedules/{sid1}")
     assert status == 200
-    assert get_body.get("id") == sid1, f"Expected schedule ID {sid1}, got {get_body}"
+    assert get_body["schedule_id"] == sid1
+    assert get_body["group_id"] == gid
+    assert "subscriber_id" in get_body
+    assert "created_at" in get_body
+    assert "id" not in get_body
 
     # 6. PUT replace with both schedules -> 200
     status, put_body = request("PUT", f"/api/v1/groups/{gid}/schedules",
@@ -337,6 +399,8 @@ if __name__ == "__main__":
     print("Starting group-schedules integration tests...")
     try:
         reset_db()
+        test_get_group_schedules_missing_timezone()
+        test_group_schedule_list_full_schedule_contract()
         test_group_schedule_crud_state_lifecycle()
         test_post_group_schedule_missing_config_raw()
         test_post_group_schedule_downstream_errors()

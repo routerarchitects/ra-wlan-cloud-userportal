@@ -25,7 +25,31 @@ namespace OpenWifi::SDK::Prov {
 		bool Get(RESTAPIHandler *client, const std::string &VenueUUID, ProvObjects::Venue &Venue,
 				 Poco::Net::HTTPServerResponse::HTTPStatus &CallStatus,
 				 Poco::JSON::Object::Ptr &CallResponse);
+		bool GetVenues(RESTAPIHandler *client, const std::string &SubscriberId,
+					   ProvObjects::VenueList &venueList,
+					   Poco::Net::HTTPServerResponse::HTTPStatus &CallStatus,
+					   Poco::JSON::Object::Ptr &CallResponse);
+		bool CreateLocation(RESTAPIHandler *client, const std::string &VenueId,
+							const Poco::JSON::Object::Ptr &locationData,
+							Poco::Net::HTTPServerResponse::HTTPStatus &CallStatus,
+							Poco::JSON::Object::Ptr &CallResponse);
+		bool ClearLocation(RESTAPIHandler *client, const std::string &VenueId,
+						   Poco::Net::HTTPServerResponse::HTTPStatus &CallStatus,
+						   Poco::JSON::Object::Ptr &CallResponse);
 	} // namespace Venue
+
+	namespace Location {
+		bool Get(RESTAPIHandler *client, const std::string &LocationUUID, ProvObjects::Location &Location,
+				 Poco::Net::HTTPServerResponse::HTTPStatus &CallStatus,
+				 Poco::JSON::Object::Ptr &CallResponse);
+		bool Put(RESTAPIHandler *client, const std::string &LocationUUID,
+				 const Poco::JSON::Object::Ptr &body,
+				 Poco::Net::HTTPServerResponse::HTTPStatus &CallStatus,
+				 Poco::JSON::Object::Ptr &CallResponse);
+		bool Delete(RESTAPIHandler *client, const std::string &LocationUUID,
+					Poco::Net::HTTPServerResponse::HTTPStatus &CallStatus,
+					Poco::JSON::Object::Ptr &CallResponse);
+	} // namespace Location
 
 	namespace Subscriber {
 		bool GetDevices(RESTAPIHandler *client, const std::string &SubscriberId,

@@ -460,6 +460,8 @@ namespace OpenWifi::RESTAPI::Errors {
 	static const struct msg DurationNotAllowedForAllow { 1202, "Duration is not allowed when access is set to 'allow'." };
 	static const struct msg InvalidDuration { 1203, "Duration must be a positive integer greater than or equal to 1." };
 	static const struct msg InvalidAccess { 1204, "Access must be 'allow' or 'deny'." };
+	static const struct msg TimezoneRequired { 1205, "Subscriber timezone is required. Set the venue timezone before continuing." };
+	static const struct msg SubscriberLocationAlreadyConfigured { 1206, "A location is already configured for this subscriber venue." };
 
 } // namespace OpenWifi::RESTAPI::Errors
 

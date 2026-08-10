@@ -129,28 +129,32 @@ def test_group_device_crud_state_lifecycle():
     print("✅ Group Device CRUD State Lifecycle passed")
 
 
-# ---------------------------------------------------------------------------
-# POST — topology validation required before downstream write
-# ---------------------------------------------------------------------------
+def test_post_group_device_unknown_mac_forwarding():
+    print("Testing POST /groups/{id}/devices for MAC not in topology (forwarded directly)...")
+    gid = create_group("gd-unknown-mac-test")
 
-def test_post_group_device_topology_validation():
-    print("Testing POST /groups/{id}/devices topology validation...")
-    gid = create_group("gd-topo-test")
+    set_scenario("config-raw")
+    req1 = urllib.request.Request(f"{FAKE_URL}/reset-observations", data=b"", method="POST")
+    open_url(req1)
 
-    # MAC not in topology → 400 MacNotPresentInTopology
-    status, _ = request("POST", f"/api/v1/groups/{gid}/devices",
-                        body={"client_mac": TOPOLOGY_UNKNOWN_MAC})
-    assert status == 400, f"Expected 400 for MAC not in topology, got {status}"
+    status, body = request("POST", f"/api/v1/groups/{gid}/devices",
+                         body={"client_mac": TOPOLOGY_UNKNOWN_MAC},
+                         scenario="config-raw")
+    assert status == 200, f"Expected 200 for MAC not in topology, got {status}. Body: {body}"
 
     obs = get_observations()
-    # subscriberDevice (prov) must have been called (topology chain started)
-    assert any("subscriberDevice" in c["path"] for c in obs["calls"]), \
-        "Expected prov subscriberDevice call for topology validation"
-    # Parental-control group-devices must NOT have been called (topology rejected)
-    assert not any("/groups/" in c["path"] and "/devices" in c["path"] for c in obs["calls"]), \
-        "Parental-control group-devices should NOT be called when topology rejects"
+    assert any(
+        c["method"] == "POST"
+        and c["path"].endswith(f"/groups/{gid}/devices")
+        for c in obs["calls"]
+    ), "Expected parental-control call for MAC not in topology"
 
-    print("✅ POST topology validation (MAC not in topology → 400) passed")
+    status, list_body = request("GET", f"/api/v1/groups/{gid}/devices")
+    assert status == 200
+    assert any(canonical_mac(d.get("client_mac")) == canonical_mac(TOPOLOGY_UNKNOWN_MAC) for d in list_body), \
+        f"Expected {TOPOLOGY_UNKNOWN_MAC} in list: {list_body}"
+
+    print("✅ POST MAC not in topology forwarded directly passed")
 
 
 # ---------------------------------------------------------------------------
@@ -259,7 +263,7 @@ if __name__ == "__main__":
     try:
         reset_db()
         test_group_device_crud_state_lifecycle()
-        test_post_group_device_topology_validation()
+        test_post_group_device_unknown_mac_forwarding()
         test_post_group_device_missing_config_raw()
         test_post_group_device_gw_failures()
         test_delete_group_device_missing_config_raw()
