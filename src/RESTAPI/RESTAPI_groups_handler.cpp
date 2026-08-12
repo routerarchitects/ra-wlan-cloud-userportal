@@ -38,8 +38,8 @@ namespace OpenWifi {
 	}
 
 	void RESTAPI_groups_handler::DoPut() {
-		if (UserInfo_.userinfo.id.empty()) {
-			return UnAuthorized(RESTAPI::Errors::InvalidSubscriberId);
+		if (!RESTAPI::ParentalControl::ValidateAuthPreconditions(*this, UserInfo_.userinfo.id, UserInfo_.userinfo.owner, false)) {
+			return;
 		}
 
 		const auto groupId = GetBinding("group_id", "");
@@ -102,8 +102,8 @@ namespace OpenWifi {
 	}
 
 	void RESTAPI_groups_handler::DoDelete() {
-		if (UserInfo_.userinfo.id.empty()) {
-			return UnAuthorized(RESTAPI::Errors::InvalidSubscriberId);
+		if (!RESTAPI::ParentalControl::ValidateAuthPreconditions(*this, UserInfo_.userinfo.id, UserInfo_.userinfo.owner, false)) {
+			return;
 		}
 
 		const auto groupId = GetBinding("group_id", "");
@@ -114,33 +114,15 @@ namespace OpenWifi {
 			return BadRequest(RESTAPI::Errors::UnknownId);
 		}
 
-		Poco::Net::HTTPResponse::HTTPStatus callStatus;
-		Poco::JSON::Object::Ptr callResponse;
+		RESTAPI::ParentalControl::MutationCallResult mutation;
 		std::string rawResponseBody;
+		mutation.success = SDK::ParentalControl::DeleteGroup(this, UserInfo_.userinfo.id, groupId, mutation.status, mutation.response, rawResponseBody);
 
-		if (!SDK::ParentalControl::DeleteGroup(this, UserInfo_.userinfo.id, groupId, callStatus,
-											   callResponse, rawResponseBody)) {
-			return ForwardErrorResponse(this, callStatus, callResponse);
-		}
-
-		Poco::JSON::Array::Ptr deleteConfigRaw;
-		if (!RESTAPI::ParentalControl::ExtractConfigRawSnapshot(callResponse, deleteConfigRaw)) {
-			Logger().error(fmt::format("DoDelete: invalid parental-control delete payload "
-									   "(subscriber={} group={})",
-									   UserInfo_.userinfo.id, groupId));
-			return InternalError(RESTAPI::Errors::InternalError);
-		}
-
-		if (!RESTAPI::ParentalControl::HandleApplyConfigRawResult(
-				*this, RESTAPI::ParentalControl::ApplyConfigRaw(*this, Logger(),
-																UserInfo_.userinfo.id,
-																UserInfo_.userinfo.owner, groupId,
-																deleteConfigRaw, "DoDelete", "group"))) {
-			return;
-		}
-
-		// YAML contract: DELETE public success returns empty HTTP 200.
-		return OK();
+		return RESTAPI::ParentalControl::HandleParentalControlMutationResult(
+		    *this, Logger(), mutation, UserInfo_.userinfo.id, UserInfo_.userinfo.owner,
+		    groupId, "DoDelete", "group", /*configRawRequired=*/false,
+		    fmt::format("subscriber={} group={}", UserInfo_.userinfo.id, groupId),
+		    RESTAPI::ParentalControl::MutationSuccessResponse::Ok);
 	}
 
 } // namespace OpenWifi

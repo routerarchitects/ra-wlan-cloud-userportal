@@ -104,6 +104,18 @@ class TestGroupDevicesHandler final : public OpenWifi::RESTAPI_group_devices_han
 
 namespace OpenWifi::RESTAPI::ParentalControl {
 
+bool ValidateAuthPreconditions(RESTAPIHandler &handler, const std::string &subscriberId, const std::string &operatorId, bool requireOperatorId) {
+    if (subscriberId.empty()) {
+        handler.UnAuthorized(RESTAPI::Errors::InvalidSubscriberId);
+        return false;
+    }
+    if (requireOperatorId && operatorId.empty()) {
+        handler.UnAuthorized(RESTAPI::Errors::OperatorIdMustExist);
+        return false;
+    }
+    return true;
+}
+
 bool ExtractConfigRawSnapshot(const Poco::JSON::Object::Ptr &, Poco::JSON::Array::Ptr &configRaw, bool) {
     configRaw = g_state.extractedConfigRaw;
     return g_state.extractConfigRawOk;
@@ -127,6 +139,61 @@ bool HandleApplyConfigRawResult(RESTAPIHandler &handler, ApplyConfigRawResult re
     }
     handler.InternalError(RESTAPI::Errors::InternalError);
     return false;
+}
+
+bool NormalizeScheduleResponse(Poco::JSON::Object::Ptr schedule, const std::string &timezone) {
+    (void)schedule;
+    (void)timezone;
+    return true;
+}
+
+void HandleParentalControlMutationResult(RESTAPIHandler &handler,
+                                         Poco::Logger &logger,
+                                         const MutationCallResult &mutation,
+                                         const std::string &subscriberId,
+                                         const std::string &operatorId,
+                                         const std::string &applyTargetId,
+                                         const std::string &operationName,
+                                         const std::string &objectType,
+                                         bool configRawRequired,
+                                         const std::string &invalidPayloadContext,
+                                         MutationSuccessResponse successResponse,
+                                         const std::string &normalizeTimezone) {
+    if (!mutation.success) {
+        handler.ForwardErrorResponse(&handler, mutation.status, mutation.response);
+        return;
+    }
+    Poco::JSON::Array::Ptr configRaw;
+    if (!ExtractConfigRawSnapshot(mutation.response, configRaw, configRawRequired)) {
+        handler.InternalError(RESTAPI::Errors::InternalError);
+        return;
+    }
+    if (configRaw) {
+        auto result = ApplyConfigRaw(handler, logger, subscriberId, operatorId, applyTargetId, configRaw, operationName, objectType);
+        if (!HandleApplyConfigRawResult(handler, result)) {
+            return;
+        }
+    }
+    Poco::JSON::Object::Ptr response = mutation.response;
+    if (successResponse != MutationSuccessResponse::Ok && !response) {
+        return handler.InternalError(RESTAPI::Errors::InternalError);
+    }
+    switch (successResponse) {
+    case MutationSuccessResponse::Ok:
+        return handler.OK();
+    case MutationSuccessResponse::ReturnObject:
+        return handler.ReturnObject(*response);
+    case MutationSuccessResponse::ReturnObjectWithoutConfigRaw:
+        if (response && response->has("config-raw")) {
+            response->remove("config-raw");
+        }
+        return handler.ReturnObject(*response);
+    case MutationSuccessResponse::ReturnNormalizedScheduleObject:
+        if (!NormalizeScheduleResponse(response, normalizeTimezone)) {
+            return handler.InternalError(RESTAPI::Errors::InternalError);
+        }
+        return handler.ReturnObject(*response);
+    }
 }
 
 } // namespace OpenWifi::RESTAPI::ParentalControl

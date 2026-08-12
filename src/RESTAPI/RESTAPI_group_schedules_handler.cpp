@@ -45,11 +45,8 @@ namespace OpenWifi {
 	}
 
 	void RESTAPI_group_schedules_handler::DoDelete() {
-		if (UserInfo_.userinfo.id.empty()) {
-			return UnAuthorized(RESTAPI::Errors::InvalidSubscriberId);
-		}
-		if (UserInfo_.userinfo.owner.empty()) {
-			return UnAuthorized(RESTAPI::Errors::OperatorIdMustExist);
+		if (!RESTAPI::ParentalControl::ValidateAuthPreconditions(*this, UserInfo_.userinfo.id, UserInfo_.userinfo.owner, true)) {
+			return;
 		}
 
 		const auto groupId = GetBinding("group_id", "");
@@ -68,31 +65,15 @@ namespace OpenWifi {
 			return BadRequest(RESTAPI::Errors::UnknownId);
 		}
 
-		Poco::Net::HTTPResponse::HTTPStatus callStatus;
-		Poco::JSON::Object::Ptr callResponse;
+		RESTAPI::ParentalControl::MutationCallResult mutation;
 		std::string rawResponseBody;
+		mutation.success = SDK::ParentalControl::DeleteGroupSchedule(this, UserInfo_.userinfo.id, groupId, scheduleId, mutation.status, mutation.response, rawResponseBody);
 
-		if (!SDK::ParentalControl::DeleteGroupSchedule(this, UserInfo_.userinfo.id, groupId, scheduleId,
-													   callStatus, callResponse, rawResponseBody)) {
-			return ForwardErrorResponse(this, callStatus, callResponse);
-		}
-
-		Poco::JSON::Array::Ptr configRaw;
-		if (!RESTAPI::ParentalControl::ExtractConfigRawSnapshot(callResponse, configRaw, true)) {
-			Logger().error(fmt::format("DoDelete: invalid parental-control payload (subscriber={} group={} schedule={})",
-									   UserInfo_.userinfo.id, groupId, scheduleId));
-			return InternalError(RESTAPI::Errors::InternalError);
-		}
-
-		if (!RESTAPI::ParentalControl::HandleApplyConfigRawResult(
-				*this, RESTAPI::ParentalControl::ApplyConfigRaw(*this, Logger(),
-																UserInfo_.userinfo.id,
-																UserInfo_.userinfo.owner, groupId,
-																configRaw, "DoDelete", "group_schedule"))) {
-			return;
-		}
-
-		return OK();
+		return RESTAPI::ParentalControl::HandleParentalControlMutationResult(
+		    *this, Logger(), mutation, UserInfo_.userinfo.id, UserInfo_.userinfo.owner,
+		    groupId, "DoDelete", "group_schedule", /*configRawRequired=*/true,
+		    fmt::format("subscriber={} group={} schedule={}", UserInfo_.userinfo.id, groupId, scheduleId),
+		    RESTAPI::ParentalControl::MutationSuccessResponse::Ok);
 	}
 
 } // namespace OpenWifi

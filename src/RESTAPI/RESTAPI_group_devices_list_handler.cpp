@@ -45,11 +45,8 @@ namespace OpenWifi {
 	}
 
 	void RESTAPI_group_devices_list_handler::DoPost() {
-		if (UserInfo_.userinfo.id.empty()) {
-			return UnAuthorized(RESTAPI::Errors::InvalidSubscriberId);
-		}
-		if (UserInfo_.userinfo.owner.empty()) {
-			return UnAuthorized(RESTAPI::Errors::OperatorIdMustExist);
+		if (!RESTAPI::ParentalControl::ValidateAuthPreconditions(*this, UserInfo_.userinfo.id, UserInfo_.userinfo.owner, true)) {
+			return;
 		}
 
 		const auto groupId = GetBinding("group_id", "");
@@ -81,35 +78,16 @@ namespace OpenWifi {
 		}
 		std::string normalizedMac = Utils::SerialToMAC(clientMac);
 
-		Poco::Net::HTTPResponse::HTTPStatus callStatus;
-		Poco::JSON::Object::Ptr callResponse;
+		RESTAPI::ParentalControl::MutationCallResult mutation;
 		Poco::JSON::Object downstreamBody;
 		downstreamBody.set("client_mac", normalizedMac);
-		if (!SDK::ParentalControl::CreateGroupDevice(this, UserInfo_.userinfo.id, groupId, downstreamBody,
-													 callStatus, callResponse)) {
-			return ForwardErrorResponse(this, callStatus, callResponse);
-		}
+		mutation.success = SDK::ParentalControl::CreateGroupDevice(this, UserInfo_.userinfo.id, groupId, downstreamBody, mutation.status, mutation.response);
 
-		Poco::JSON::Array::Ptr configRaw;
-		if (!RESTAPI::ParentalControl::ExtractConfigRawSnapshot(callResponse, configRaw, true)) {
-			Logger().error(fmt::format("DoPost: invalid parental-control payload (subscriber={} group={})",
-									   UserInfo_.userinfo.id, groupId));
-			return InternalError(RESTAPI::Errors::InternalError);
-		}
-
-		if (!RESTAPI::ParentalControl::HandleApplyConfigRawResult(
-				*this, RESTAPI::ParentalControl::ApplyConfigRaw(*this, Logger(),
-																UserInfo_.userinfo.id,
-																UserInfo_.userinfo.owner, groupId,
-																configRaw, "DoPost", "group_device"))) {
-			return;
-		}
-
-		if (callResponse->has("config-raw")) {
-			callResponse->remove("config-raw");
-		}
-
-		return ReturnObject(*callResponse);
+		return RESTAPI::ParentalControl::HandleParentalControlMutationResult(
+		    *this, Logger(), mutation, UserInfo_.userinfo.id, UserInfo_.userinfo.owner,
+		    groupId, "DoPost", "group_device", /*configRawRequired=*/true,
+		    fmt::format("subscriber={} group={}", UserInfo_.userinfo.id, groupId),
+		    RESTAPI::ParentalControl::MutationSuccessResponse::ReturnObjectWithoutConfigRaw);
 	}
 
 } // namespace OpenWifi

@@ -45,8 +45,8 @@ namespace OpenWifi {
 	}
 
 	void RESTAPI_schedules_handler::DoPut() {
-		if (UserInfo_.userinfo.id.empty()) {
-			return UnAuthorized(RESTAPI::Errors::InvalidSubscriberId);
+		if (!RESTAPI::ParentalControl::ValidateAuthPreconditions(*this, UserInfo_.userinfo.id, UserInfo_.userinfo.owner, false)) {
+			return;
 		}
 
 		const auto scheduleId = GetBinding("schedule_id", "");
@@ -79,38 +79,20 @@ namespace OpenWifi {
 
 		Poco::JSON::Object body = RESTAPI::ParentalControl::BuildScheduleRequestBody(req);
 
-		Poco::Net::HTTPResponse::HTTPStatus callStatus;
-		Poco::JSON::Object::Ptr callResponse;
-		if (!SDK::ParentalControl::UpdateSchedule(this, UserInfo_.userinfo.id, scheduleId, body,
-												  callStatus, callResponse)) {
-			return ForwardErrorResponse(this, callStatus, callResponse);
-		}
+		RESTAPI::ParentalControl::MutationCallResult mutation;
+		mutation.success = SDK::ParentalControl::UpdateSchedule(this, UserInfo_.userinfo.id, scheduleId, body, mutation.status, mutation.response);
 
-		Poco::JSON::Array::Ptr configRaw;
-		if (!RESTAPI::ParentalControl::ExtractConfigRawSnapshot(callResponse, configRaw)) {
-			Logger().error(fmt::format("DoPut: invalid parental-control update payload "
-									   "(subscriber={} schedule={})",
-									   UserInfo_.userinfo.id, scheduleId));
-			return InternalError(RESTAPI::Errors::InternalError);
-		}
-
-		if (!RESTAPI::ParentalControl::HandleApplyConfigRawResult(
-				*this, RESTAPI::ParentalControl::ApplyConfigRaw(*this, Logger(),
-																UserInfo_.userinfo.id,
-																UserInfo_.userinfo.owner, scheduleId,
-																configRaw, "DoPut", "schedule"))) {
-			return;
-		}
-
-		if (!RESTAPI::ParentalControl::NormalizeScheduleResponse(callResponse, timezone)) {
-			return InternalError(RESTAPI::Errors::InternalError);
-		}
-		return ReturnObject(*callResponse);
+		return RESTAPI::ParentalControl::HandleParentalControlMutationResult(
+		    *this, Logger(), mutation, UserInfo_.userinfo.id, UserInfo_.userinfo.owner,
+		    scheduleId, "DoPut", "schedule", /*configRawRequired=*/false,
+		    fmt::format("subscriber={} schedule={}", UserInfo_.userinfo.id, scheduleId),
+		    RESTAPI::ParentalControl::MutationSuccessResponse::ReturnNormalizedScheduleObject,
+		    timezone);
 	}
 
 	void RESTAPI_schedules_handler::DoDelete() {
-		if (UserInfo_.userinfo.id.empty()) {
-			return UnAuthorized(RESTAPI::Errors::InvalidSubscriberId);
+		if (!RESTAPI::ParentalControl::ValidateAuthPreconditions(*this, UserInfo_.userinfo.id, UserInfo_.userinfo.owner, false)) {
+			return;
 		}
 
 		const auto scheduleId = GetBinding("schedule_id", "");
@@ -121,32 +103,15 @@ namespace OpenWifi {
 			return BadRequest(RESTAPI::Errors::UnknownId);
 		}
 
-		Poco::Net::HTTPResponse::HTTPStatus callStatus;
-		Poco::JSON::Object::Ptr callResponse;
+		RESTAPI::ParentalControl::MutationCallResult mutation;
 		std::string rawResponseBody;
+		mutation.success = SDK::ParentalControl::DeleteSchedule(this, UserInfo_.userinfo.id, scheduleId, mutation.status, mutation.response, rawResponseBody);
 
-		if (!SDK::ParentalControl::DeleteSchedule(this, UserInfo_.userinfo.id, scheduleId,
-												  callStatus, callResponse, rawResponseBody)) {
-			return ForwardErrorResponse(this, callStatus, callResponse);
-		}
-
-		Poco::JSON::Array::Ptr configRaw;
-		if (!RESTAPI::ParentalControl::ExtractConfigRawSnapshot(callResponse, configRaw)) {
-			Logger().error(fmt::format("DoDelete: invalid parental-control delete payload "
-									   "(subscriber={} schedule={})",
-									   UserInfo_.userinfo.id, scheduleId));
-			return InternalError(RESTAPI::Errors::InternalError);
-		}
-
-		if (!RESTAPI::ParentalControl::HandleApplyConfigRawResult(
-				*this, RESTAPI::ParentalControl::ApplyConfigRaw(*this, Logger(),
-																UserInfo_.userinfo.id,
-																UserInfo_.userinfo.owner, scheduleId,
-																configRaw, "DoDelete", "schedule"))) {
-			return;
-		}
-
-		return OK();
+		return RESTAPI::ParentalControl::HandleParentalControlMutationResult(
+		    *this, Logger(), mutation, UserInfo_.userinfo.id, UserInfo_.userinfo.owner,
+		    scheduleId, "DoDelete", "schedule", /*configRawRequired=*/false,
+		    fmt::format("subscriber={} schedule={}", UserInfo_.userinfo.id, scheduleId),
+		    RESTAPI::ParentalControl::MutationSuccessResponse::Ok);
 	}
 
 } // namespace OpenWifi

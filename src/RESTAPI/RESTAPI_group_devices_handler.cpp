@@ -43,11 +43,8 @@ namespace OpenWifi {
 	}
 
 	void RESTAPI_group_devices_handler::DoDelete() {
-		if (UserInfo_.userinfo.id.empty()) {
-			return UnAuthorized(RESTAPI::Errors::InvalidSubscriberId);
-		}
-		if (UserInfo_.userinfo.owner.empty()) {
-			return UnAuthorized(RESTAPI::Errors::OperatorIdMustExist);
+		if (!RESTAPI::ParentalControl::ValidateAuthPreconditions(*this, UserInfo_.userinfo.id, UserInfo_.userinfo.owner, true)) {
+			return;
 		}
 
 		const auto groupId = GetBinding("group_id", "");
@@ -64,31 +61,15 @@ namespace OpenWifi {
 		}
 		std::string normalizedMac = Utils::SerialToMAC(clientMac);
 
-		Poco::Net::HTTPResponse::HTTPStatus callStatus;
-		Poco::JSON::Object::Ptr callResponse;
+		RESTAPI::ParentalControl::MutationCallResult mutation;
 		std::string rawResponseBody;
+		mutation.success = SDK::ParentalControl::DeleteGroupDevice(this, UserInfo_.userinfo.id, groupId, normalizedMac, mutation.status, mutation.response, rawResponseBody);
 
-		if (!SDK::ParentalControl::DeleteGroupDevice(this, UserInfo_.userinfo.id, groupId, normalizedMac,
-													 callStatus, callResponse, rawResponseBody)) {
-			return ForwardErrorResponse(this, callStatus, callResponse);
-		}
-
-		Poco::JSON::Array::Ptr configRaw;
-		if (!RESTAPI::ParentalControl::ExtractConfigRawSnapshot(callResponse, configRaw, true)) {
-			Logger().error(fmt::format("DoDelete: invalid parental-control payload (subscriber={} group={} device={})",
-									   UserInfo_.userinfo.id, groupId, normalizedMac));
-			return InternalError(RESTAPI::Errors::InternalError);
-		}
-
-		if (!RESTAPI::ParentalControl::HandleApplyConfigRawResult(
-				*this, RESTAPI::ParentalControl::ApplyConfigRaw(*this, Logger(),
-																UserInfo_.userinfo.id,
-																UserInfo_.userinfo.owner, groupId,
-																configRaw, "DoDelete", "group_device"))) {
-			return;
-		}
-
-		return OK();
+		return RESTAPI::ParentalControl::HandleParentalControlMutationResult(
+		    *this, Logger(), mutation, UserInfo_.userinfo.id, UserInfo_.userinfo.owner,
+		    groupId, "DoDelete", "group_device", /*configRawRequired=*/true,
+		    fmt::format("subscriber={} group={} device={}", UserInfo_.userinfo.id, groupId, normalizedMac),
+		    RESTAPI::ParentalControl::MutationSuccessResponse::Ok);
 	}
 
 } // namespace OpenWifi
