@@ -183,7 +183,7 @@ void HandleParentalControlMutationResult(RESTAPIHandler &handler,
     g_state.lastSuccessResponse = successResponse;
 
     if (!mutation.success) {
-        handler.ForwardErrorResponse(&handler, mutation.status, mutation.response);
+        ForwardParentalControlErrorResponse(&handler, mutation.status, mutation.response);
         return;
     }
     Poco::JSON::Object::Ptr response = mutation.response;
@@ -440,4 +440,3 @@ namespace OpenWifi::Utils {
     }
     std::string SerialToMAC(const std::string &serial) { return MacWithColons(StripMac(serial)); }
 }
-

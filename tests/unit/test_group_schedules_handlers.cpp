@@ -190,7 +190,7 @@ void HandleParentalControlMutationResult(RESTAPIHandler &handler,
     g_state.lastSuccessResponse = successResponse;
 
     if (!mutation.success) {
-        handler.ForwardErrorResponse(&handler, mutation.status, mutation.response);
+        ForwardParentalControlErrorResponse(&handler, mutation.status, mutation.response);
         return;
     }
     Poco::JSON::Object::Ptr response = mutation.response;
@@ -641,4 +641,3 @@ int main() {
     std::cout << kTests.size() << " test(s) passed." << std::endl;
     return 0;
 }
-
