@@ -23,9 +23,10 @@ struct State {
     bool     putLocOk         = true;
     bool     clearLocOk       = true;
     bool     deleteLocOk      = true;
+    bool     setLocOk         = true;
     std::string venueLocId;                        // empty = no location linked
     Poco::JSON::Object::Ptr locResponse = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
-    int createCalls = 0, putCalls = 0, clearCalls = 0, deleteCalls = 0;
+    int createCalls = 0, putCalls = 0, clearCalls = 0, deleteCalls = 0, setCalls = 0;
     std::string capturedTz, capturedVenueId, capturedLocId;
 } g;
 
@@ -69,6 +70,12 @@ bool ClearLocation(RESTAPIHandler *, const std::string &venueId,
     ++g.clearCalls; g.capturedVenueId = venueId;
     s = g.clearLocOk ? Poco::Net::HTTPResponse::HTTP_OK : Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR;
     return g.clearLocOk;
+}
+bool SetLocation(RESTAPIHandler *, const std::string &venueId, const std::string &locationId,
+                 Poco::Net::HTTPServerResponse::HTTPStatus &s, Poco::JSON::Object::Ptr &) {
+    ++g.setCalls; g.capturedVenueId = venueId; g.capturedLocId = locationId;
+    s = g.setLocOk ? Poco::Net::HTTPResponse::HTTP_OK : Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR;
+    return g.setLocOk;
 }
 } // namespace OpenWifi::SDK::Prov::Venue
 
@@ -180,7 +187,25 @@ void TestDeleteOk()        { g.venueLocId=kLocationId; Run("DELETE",kSubscriber,
         ExpectEq(g.capturedLocId,kLocationId,"loc id"); ExpectEq(g.capturedVenueId,kVenueId,"venue id"); }); }
 void TestDeleteClearFails(){ g.venueLocId=kLocationId; g.clearLocOk=false;
     Run("DELETE",kSubscriber, HTTP::HTTP_INTERNAL_SERVER_ERROR, nullptr,
-    [](const FakeResponse&){ ExpectEq(g.deleteCalls,0,"no delete when clear fails"); }); }
+    [](const FakeResponse&){ ExpectEq(g.deleteCalls,0,"no delete when clear fails"); ExpectEq(g.setCalls,0,"no set when clear fails"); }); }
+void TestDeleteLocationFailsRestoresLocation() {
+    g.venueLocId = kLocationId; g.deleteLocOk = false;
+    Run("DELETE", kSubscriber, HTTP::HTTP_INTERNAL_SERVER_ERROR, nullptr,
+    [](const FakeResponse&){
+        ExpectEq(g.clearCalls, 1, "clear called");
+        ExpectEq(g.deleteCalls, 1, "delete called");
+        ExpectEq(g.setCalls, 1, "restore setLocation called");
+        ExpectEq(g.capturedLocId, kLocationId, "restored loc id");
+        ExpectEq(g.capturedVenueId, kVenueId, "restored venue id"); });
+}
+void TestDeleteLocationFailsRestoreFailsStillReturnsDeleteError() {
+    g.venueLocId = kLocationId; g.deleteLocOk = false; g.setLocOk = false;
+    Run("DELETE", kSubscriber, HTTP::HTTP_INTERNAL_SERVER_ERROR, nullptr,
+    [](const FakeResponse&){
+        ExpectEq(g.clearCalls, 1, "clear called");
+        ExpectEq(g.deleteCalls, 1, "delete called");
+        ExpectEq(g.setCalls, 1, "restore setLocation called even when restore fails"); });
+}
 
 const std::vector<std::pair<std::string,std::function<void()>>> kTests = {
     {"GetNoAuth",           TestGetNoAuth},
@@ -203,6 +228,8 @@ const std::vector<std::pair<std::string,std::function<void()>>> kTests = {
     {"DeleteNoLocation",    TestDeleteNoLocation},
     {"DeleteOk",            TestDeleteOk},
     {"DeleteClearFails",    TestDeleteClearFails},
+    {"DeleteLocationFailsRestoresLocation",                 TestDeleteLocationFailsRestoresLocation},
+    {"DeleteLocationFailsRestoreFailsStillReturnsDeleteError", TestDeleteLocationFailsRestoreFailsStillReturnsDeleteError},
 };
 
 } // namespace
