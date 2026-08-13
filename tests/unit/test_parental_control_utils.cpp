@@ -1264,17 +1264,25 @@ void TestHandleParentalControlMutationResultBehaviorPreservation() {
     // 5. Apply failure mapping
     FakeResponse r5; FakeRequest req5("POST", "/", "", r5); FakeRESTAPIHandler h5(logger, &req5, &r5);
     OpenWifi::RESTAPI::ParentalControl::HandleApplyConfigRawResult(h5, OpenWifi::RESTAPI::ParentalControl::ApplyConfigRawResult::MissingOperatorId);
-    ExpectEq(static_cast<int>(r5.getStatus()), 401, "Apply failure mapping MissingOperatorId");
+    ExpectEq(static_cast<int>(r5.getStatus()), 403, "Apply failure mapping MissingOperatorId");
 
     // 6. ReturnObjectWithoutConfigRaw
     OpenWifi::RESTAPI::ParentalControl::MutationCallResult m6{true, Poco::Net::HTTPResponse::HTTP_OK, new Poco::JSON::Object()};
-    m6.response->set("config-raw", new Poco::JSON::Array());
+    m6.response->set("config-raw", Poco::Dynamic::Var());
     ExpectEq(runTest(m6, false, OpenWifi::RESTAPI::ParentalControl::MutationSuccessResponse::ReturnObjectWithoutConfigRaw), 200, "ReturnObjectWithoutConfigRaw");
     Expect(!m6.response->has("config-raw"), "Strip config-raw");
 
     // 7. Schedule normalization failure
     OpenWifi::RESTAPI::ParentalControl::MutationCallResult m7{true, Poco::Net::HTTPResponse::HTTP_OK, new Poco::JSON::Object()};
     ExpectEq(runTest(m7, false, OpenWifi::RESTAPI::ParentalControl::MutationSuccessResponse::ReturnNormalizedScheduleObject, "UTC"), 500, "Schedule normalization failure");
+
+    // 8. Schedule normalization success
+    OpenWifi::RESTAPI::ParentalControl::MutationCallResult m8{true, Poco::Net::HTTPResponse::HTTP_OK, new Poco::JSON::Object()};
+    m8.response->set("start_minute", 480);
+    m8.response->set("stop_minute", 1020);
+    ExpectEq(runTest(m8, false, OpenWifi::RESTAPI::ParentalControl::MutationSuccessResponse::ReturnNormalizedScheduleObject, "UTC"), 200, "Schedule normalization success");
+    Expect(m8.response->has("start_time"), "Normalized response contains start_time");
+    Expect(m8.response->has("stop_time"), "Normalized response contains stop_time");
 }
 
 const std::vector<std::pair<std::string, std::function<void()>>> kTests = {

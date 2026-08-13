@@ -71,7 +71,12 @@ struct DeviceHandlerState {
     int createCalls = 0;
     int deleteCalls = 0;
     std::string lastSubscriberId;
+    std::string lastOperatorId;
     std::string lastGroupId;
+    std::string lastObjectType;
+    bool lastConfigRawRequired = false;
+    OpenWifi::RESTAPI::ParentalControl::MutationSuccessResponse lastSuccessResponse =
+        OpenWifi::RESTAPI::ParentalControl::MutationSuccessResponse::Ok;
     std::string lastClientMac;
     std::string lastGatewaySerial;
 };
@@ -156,41 +161,29 @@ void HandleParentalControlMutationResult(RESTAPIHandler &handler,
                                          const std::string &operationName,
                                          const std::string &objectType,
                                          bool configRawRequired,
-                                         const std::string &invalidPayloadContext,
+                                         const std::string &,
                                          MutationSuccessResponse successResponse,
-                                         const std::string &normalizeTimezone) {
+                                         const std::string &) {
+    (void)logger;
+    (void)operationName;
+    g_state.lastSubscriberId = subscriberId;
+    g_state.lastOperatorId = operatorId;
+    g_state.lastGroupId = applyTargetId;
+    g_state.lastObjectType = objectType;
+    g_state.lastConfigRawRequired = configRawRequired;
+    g_state.lastSuccessResponse = successResponse;
+
     if (!mutation.success) {
         handler.ForwardErrorResponse(&handler, mutation.status, mutation.response);
         return;
     }
-    Poco::JSON::Array::Ptr configRaw;
-    if (!ExtractConfigRawSnapshot(mutation.response, configRaw, configRawRequired)) {
-        handler.InternalError(RESTAPI::Errors::InternalError);
-        return;
-    }
-    if (configRaw) {
-        auto result = ApplyConfigRaw(handler, logger, subscriberId, operatorId, applyTargetId, configRaw, operationName, objectType);
-        if (!HandleApplyConfigRawResult(handler, result)) {
-            return;
-        }
-    }
     Poco::JSON::Object::Ptr response = mutation.response;
-    if (successResponse != MutationSuccessResponse::Ok && !response) {
-        return handler.InternalError(RESTAPI::Errors::InternalError);
-    }
-    switch (successResponse) {
-    case MutationSuccessResponse::Ok:
+    if (successResponse == MutationSuccessResponse::Ok) {
         return handler.OK();
-    case MutationSuccessResponse::ReturnObject:
-        return handler.ReturnObject(*response);
-    case MutationSuccessResponse::ReturnObjectWithoutConfigRaw:
-        if (response && response->has("config-raw")) {
+    }
+    if (response) {
+        if (successResponse == MutationSuccessResponse::ReturnObjectWithoutConfigRaw && response->has("config-raw")) {
             response->remove("config-raw");
-        }
-        return handler.ReturnObject(*response);
-    case MutationSuccessResponse::ReturnNormalizedScheduleObject:
-        if (!NormalizeScheduleResponse(response, normalizeTimezone)) {
-            return handler.InternalError(RESTAPI::Errors::InternalError);
         }
         return handler.ReturnObject(*response);
     }
@@ -363,7 +356,10 @@ void TestPostStripsConfigRawAndReturnsObject() {
             auto parsed = ParseObject(response.body());
             Expect(!parsed->has("config-raw"), "POST response should strip config-raw");
             ExpectEq(parsed->getValue<std::string>("client_mac"), std::string(kValidMac), "client_mac should remain in response");
-            ExpectEq(g_state.lastGatewaySerial, std::string(""), "empty gateway serial should be passed to ApplyConfigRaw");
+            ExpectEq(g_state.lastConfigRawRequired, true, "configRawRequired should be true");
+            ExpectEq(g_state.lastGroupId, kValidGroupId, "applyTargetId should be group_id");
+            ExpectEq(g_state.lastObjectType, std::string("group_device"), "objectType should be group_device");
+            Expect(g_state.lastSuccessResponse == OpenWifi::RESTAPI::ParentalControl::MutationSuccessResponse::ReturnObjectWithoutConfigRaw, "successResponse should be ReturnObjectWithoutConfigRaw");
         }
     );
 }
@@ -380,7 +376,14 @@ void TestDeleteReturnsOkOnSuccess() {
         {{"group_id", kValidGroupId}, {"client_mac", kValidMac}},
         "subscriber-1",
         "operator-1",
-        Poco::Net::HTTPResponse::HTTP_OK
+        Poco::Net::HTTPResponse::HTTP_OK,
+        nullptr,
+        [](const FakeResponse &) {
+            ExpectEq(g_state.lastConfigRawRequired, true, "configRawRequired should be true");
+            ExpectEq(g_state.lastGroupId, kValidGroupId, "applyTargetId should be group_id");
+            ExpectEq(g_state.lastObjectType, std::string("group_device"), "objectType should be group_device");
+            Expect(g_state.lastSuccessResponse == OpenWifi::RESTAPI::ParentalControl::MutationSuccessResponse::Ok, "successResponse should be Ok");
+        }
     );
 }
 
