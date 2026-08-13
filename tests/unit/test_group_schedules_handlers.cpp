@@ -53,8 +53,13 @@ struct ScheduleHandlerState {
     std::string lastNormalizedTimezone;
 
     std::string lastSubscriberId;
+    std::string lastOperatorId;
     std::string lastGroupId;
     std::string lastScheduleId;
+    std::string lastObjectType;
+    bool lastConfigRawRequired = false;
+    OpenWifi::RESTAPI::ParentalControl::MutationSuccessResponse lastSuccessResponse =
+        OpenWifi::RESTAPI::ParentalControl::MutationSuccessResponse::Ok;
     std::size_t replaceCount = 0;
 };
 
@@ -87,6 +92,18 @@ class TestGroupSchedulesHandler final : public OpenWifi::RESTAPI_group_schedules
 
 
 namespace OpenWifi::RESTAPI::ParentalControl {
+
+bool ValidateAuthPreconditions(RESTAPIHandler &handler, const std::string &subscriberId, const std::string &operatorId, bool requireOperatorId) {
+    if (subscriberId.empty()) {
+        handler.UnAuthorized(RESTAPI::Errors::InvalidSubscriberId);
+        return false;
+    }
+    if (requireOperatorId && operatorId.empty()) {
+        handler.UnAuthorized(RESTAPI::Errors::OperatorIdMustExist);
+        return false;
+    }
+    return true;
+}
 
 bool ResolveSubscriberTimezone(RESTAPIHandler &handler, const std::string &subscriberId, std::string &timezone) {
     g_state.lastSubscriberId = subscriberId;
@@ -140,6 +157,43 @@ bool HandleApplyConfigRawResult(RESTAPIHandler &handler, ApplyConfigRawResult re
     }
     handler.InternalError(RESTAPI::Errors::InternalError);
     return false;
+}
+
+void HandleParentalControlMutationResult(RESTAPIHandler &handler,
+                                         Poco::Logger &logger,
+                                         const MutationCallResult &mutation,
+                                         const std::string &subscriberId,
+                                         const std::string &operatorId,
+                                         const std::string &applyTargetId,
+                                         const std::string &operationName,
+                                         const std::string &objectType,
+                                         bool configRawRequired,
+                                         const std::string &,
+                                         MutationSuccessResponse successResponse,
+                                         const std::string &) {
+    (void)logger;
+    (void)operationName;
+    g_state.lastSubscriberId = subscriberId;
+    g_state.lastOperatorId = operatorId;
+    g_state.lastGroupId = applyTargetId;
+    g_state.lastObjectType = objectType;
+    g_state.lastConfigRawRequired = configRawRequired;
+    g_state.lastSuccessResponse = successResponse;
+
+    if (!mutation.success) {
+        handler.ForwardErrorResponse(&handler, mutation.status, mutation.response);
+        return;
+    }
+    Poco::JSON::Object::Ptr response = mutation.response;
+    if (successResponse == MutationSuccessResponse::Ok) {
+        return handler.OK();
+    }
+    if (response) {
+        if (successResponse == MutationSuccessResponse::ReturnObjectWithoutConfigRaw && response->has("config-raw")) {
+            response->remove("config-raw");
+        }
+        return handler.ReturnObject(*response);
+    }
 }
 
 } // namespace OpenWifi::RESTAPI::ParentalControl
@@ -400,6 +454,10 @@ void TestPostStripsConfigRawAndReturnsObject() {
             auto parsed = ParseObject(response.body());
             Expect(!parsed->has("config-raw"), "POST response should strip config-raw");
             ExpectEq(parsed->getValue<std::string>("schedule_id"), kValidScheduleId, "schedule_id should remain");
+            ExpectEq(g_state.lastConfigRawRequired, true, "configRawRequired should be true");
+            ExpectEq(g_state.lastGroupId, kValidGroupId, "applyTargetId should be group_id");
+            ExpectEq(g_state.lastObjectType, std::string("group_schedule"), "objectType should be group_schedule");
+            Expect(g_state.lastSuccessResponse == OpenWifi::RESTAPI::ParentalControl::MutationSuccessResponse::ReturnObjectWithoutConfigRaw, "successResponse should be ReturnObjectWithoutConfigRaw");
         }
     );
 }
@@ -469,6 +527,10 @@ void TestPutStripsConfigRawAndReturnsObject() {
             auto parsed = ParseObject(response.body());
             Expect(!parsed->has("config-raw"), "PUT response should strip config-raw");
             ExpectEq(g_state.replaceCount, static_cast<std::size_t>(2), "two schedule ids should be forwarded");
+            ExpectEq(g_state.lastConfigRawRequired, true, "configRawRequired should be true");
+            ExpectEq(g_state.lastGroupId, kValidGroupId, "applyTargetId should be group_id");
+            ExpectEq(g_state.lastObjectType, std::string("group_schedule"), "objectType should be group_schedule");
+            Expect(g_state.lastSuccessResponse == OpenWifi::RESTAPI::ParentalControl::MutationSuccessResponse::ReturnObjectWithoutConfigRaw, "successResponse should be ReturnObjectWithoutConfigRaw");
         }
     );
 }
@@ -518,7 +580,14 @@ void TestSingleDeleteReturnsOkOnSuccess() {
         {{"group_id", kValidGroupId}, {"schedule_id", kValidScheduleId}},
         "subscriber-1",
         "operator-1",
-        Poco::Net::HTTPResponse::HTTP_OK
+        Poco::Net::HTTPResponse::HTTP_OK,
+        nullptr,
+        [](const FakeResponse &) {
+            ExpectEq(g_state.lastConfigRawRequired, true, "configRawRequired should be true");
+            ExpectEq(g_state.lastGroupId, kValidGroupId, "applyTargetId should be group_id");
+            ExpectEq(g_state.lastObjectType, std::string("group_schedule"), "objectType should be group_schedule");
+            Expect(g_state.lastSuccessResponse == OpenWifi::RESTAPI::ParentalControl::MutationSuccessResponse::Ok, "successResponse should be Ok");
+        }
     );
 }
 

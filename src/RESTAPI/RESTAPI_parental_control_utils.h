@@ -109,4 +109,57 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 
 	bool HandleApplyConfigRawResult(RESTAPIHandler &handler, ApplyConfigRawResult result);
 
+	// Validates the two standard parental-control preconditions that appear at the top of
+	// every mutating handler. Returns true when all required fields are present; otherwise
+	// - If subscriberId is empty: sends UnAuthorized(InvalidSubscriberId).
+	// - If requireOperatorId is true and operatorId is empty: sends UnAuthorized(OperatorIdMustExist).
+	bool ValidateAuthPreconditions(RESTAPIHandler &handler, const std::string &subscriberId, const std::string &operatorId, bool requireOperatorId);
+
+	// Extracts the config-raw snapshot from a parental-control SDK mutation response
+	// and, when one is present, applies it to the subscriber's gateway.
+	// - Calls ExtractConfigRawSnapshot on mutationResponse.
+	// - If configRawRequired is false and no config-raw is present, returns true immediately (nothing to apply).
+	// - If configRawRequired is true and config-raw is missing, logs an error, sends InternalError, and returns false.
+	// - When config-raw is present, calls ApplyConfigRaw then HandleApplyConfigRawResult and returns its result.
+	bool ApplyConfigRawFromMutationResponse(RESTAPIHandler &handler,
+	                                        Poco::Logger &logger,
+	                                        const std::string &subscriberId,
+	                                        const std::string &operatorId,
+	                                        const std::string &applyTargetId,
+	                                        const Poco::JSON::Object::Ptr &mutationResponse,
+	                                        const std::string &operationName,
+	                                        const std::string &objectType,
+	                                        bool configRawRequired = false,
+	                                        const std::string &invalidPayloadContext = "");
+
+	// Removes internal config-raw field from mutation responses before returning them to clients.
+	void StripConfigRawFromMutationResponse(Poco::JSON::Object::Ptr mutationResponse);
+
+	enum class MutationSuccessResponse {
+		Ok,
+		ReturnObject,
+		ReturnObjectWithoutConfigRaw,
+		ReturnNormalizedScheduleObject
+	};
+
+	struct MutationCallResult {
+		bool success = false;
+		Poco::Net::HTTPResponse::HTTPStatus status = Poco::Net::HTTPResponse::HTTP_OK;
+		Poco::JSON::Object::Ptr response;
+	};
+
+	// Common orchestration helper for handling SDK mutation call results.
+	void HandleParentalControlMutationResult(RESTAPIHandler &handler,
+	                                         Poco::Logger &logger,
+	                                         const MutationCallResult &mutation,
+	                                         const std::string &subscriberId,
+	                                         const std::string &operatorId,
+	                                         const std::string &applyTargetId,
+	                                         const std::string &operationName,
+	                                         const std::string &objectType,
+	                                         bool configRawRequired,
+	                                         const std::string &invalidPayloadContext,
+	                                         MutationSuccessResponse successResponse,
+	                                         const std::string &normalizeTimezone = "");
+
 } // namespace OpenWifi::RESTAPI::ParentalControl

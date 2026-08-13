@@ -1163,7 +1163,134 @@ void TestGetBlockedClientsIncompleteRuleMissingMacs() {
     Expect(blockedMacs.empty(), "Rule without valid MACs should be ignored");
 }
 
+void TestValidateAuthPreconditions() {
+    auto &logger = Poco::Logger::get("test");
+    FakeResponse response;
+    FakeRequest request("POST", "/api/v1/group", "", response);
+    FakeRESTAPIHandler handler(logger, &request, &response);
+
+    Expect(!OpenWifi::RESTAPI::ParentalControl::ValidateAuthPreconditions(handler, "", "op-1", false),
+           "ValidateAuthPreconditions should reject empty subscriberId");
+
+    Expect(!OpenWifi::RESTAPI::ParentalControl::ValidateAuthPreconditions(handler, "sub-1", "", true),
+           "ValidateAuthPreconditions should reject empty operatorId when requireOperatorId is true");
+
+    Expect(OpenWifi::RESTAPI::ParentalControl::ValidateAuthPreconditions(handler, "sub-1", "", false),
+           "ValidateAuthPreconditions should accept empty operatorId when requireOperatorId is false");
+
+    Expect(OpenWifi::RESTAPI::ParentalControl::ValidateAuthPreconditions(handler, "sub-1", "op-1", true),
+           "ValidateAuthPreconditions should accept valid subscriberId and operatorId");
+}
+
+void TestStripConfigRawFromMutationResponse() {
+    Poco::JSON::Object::Ptr obj = new Poco::JSON::Object();
+    obj->set("id", "123");
+    obj->set("config-raw", new Poco::JSON::Array());
+
+    Expect(obj->has("config-raw"), "obj should have config-raw initially");
+    OpenWifi::RESTAPI::ParentalControl::StripConfigRawFromMutationResponse(obj);
+    Expect(!obj->has("config-raw"), "config-raw should be stripped");
+}
+
+void TestHandleParentalControlMutationResultOk() {
+    auto &logger = Poco::Logger::get("test");
+    FakeResponse response;
+    FakeRequest request("POST", "/api/v1/group", "", response);
+    FakeRESTAPIHandler handler(logger, &request, &response);
+
+    OpenWifi::RESTAPI::ParentalControl::MutationCallResult mutation;
+    mutation.success = true;
+    mutation.status = Poco::Net::HTTPResponse::HTTP_OK;
+
+    OpenWifi::RESTAPI::ParentalControl::HandleParentalControlMutationResult(
+        handler, logger, mutation, "sub-1", "op-1", "target-1", "DoPost", "group", false, "",
+        OpenWifi::RESTAPI::ParentalControl::MutationSuccessResponse::Ok);
+
+    ExpectEq(static_cast<int>(response.getStatus()), static_cast<int>(Poco::Net::HTTPResponse::HTTP_OK),
+             "HandleParentalControlMutationResult Ok should return HTTP 200");
+}
+
+void TestHandleParentalControlMutationResultNullResponseGuard() {
+    auto &logger = Poco::Logger::get("test");
+    FakeResponse response;
+    FakeRequest request("POST", "/api/v1/group", "", response);
+    FakeRESTAPIHandler handler(logger, &request, &response);
+
+    OpenWifi::RESTAPI::ParentalControl::MutationCallResult mutation;
+    mutation.success = true;
+    mutation.status = Poco::Net::HTTPResponse::HTTP_OK;
+    mutation.response = nullptr;
+
+    OpenWifi::RESTAPI::ParentalControl::HandleParentalControlMutationResult(
+        handler, logger, mutation, "sub-1", "op-1", "target-1", "DoPost", "group", false, "",
+        OpenWifi::RESTAPI::ParentalControl::MutationSuccessResponse::ReturnObject);
+
+    ExpectEq(static_cast<int>(response.getStatus()), static_cast<int>(Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR),
+             "HandleParentalControlMutationResult should return InternalServerError for null response when ReturnObject requested");
+}
+
+void TestHandleParentalControlMutationResultBehaviorPreservation() {
+    auto &logger = Poco::Logger::get("test");
+
+    auto runTest = [&](const OpenWifi::RESTAPI::ParentalControl::MutationCallResult &mutation,
+                       bool configRawReq,
+                       OpenWifi::RESTAPI::ParentalControl::MutationSuccessResponse respMode,
+                       const std::string &tz = "") {
+        FakeResponse response;
+        FakeRequest request("POST", "/api/v1/test", "", response);
+        FakeRESTAPIHandler handler(logger, &request, &response);
+        OpenWifi::RESTAPI::ParentalControl::HandleParentalControlMutationResult(
+            handler, logger, mutation, "sub-1", "op-1", "target-1", "DoPost", "group", configRawReq, "", respMode, tz);
+        return static_cast<int>(response.getStatus());
+    };
+
+    // 1. SDK failure forwarding
+    OpenWifi::RESTAPI::ParentalControl::MutationCallResult m1{false, Poco::Net::HTTPResponse::HTTP_BAD_REQUEST, new Poco::JSON::Object()};
+    ExpectEq(runTest(m1, false, OpenWifi::RESTAPI::ParentalControl::MutationSuccessResponse::Ok), 400, "SDK failure forwarding");
+
+    // 2. Missing required config-raw
+    OpenWifi::RESTAPI::ParentalControl::MutationCallResult m2{true, Poco::Net::HTTPResponse::HTTP_OK, new Poco::JSON::Object()};
+    ExpectEq(runTest(m2, true, OpenWifi::RESTAPI::ParentalControl::MutationSuccessResponse::Ok), 500, "Missing required config-raw");
+
+    // 3. Invalid config-raw type
+    OpenWifi::RESTAPI::ParentalControl::MutationCallResult m3{true, Poco::Net::HTTPResponse::HTTP_OK, new Poco::JSON::Object()};
+    m3.response->set("config-raw", "not_an_array");
+    ExpectEq(runTest(m3, false, OpenWifi::RESTAPI::ParentalControl::MutationSuccessResponse::Ok), 500, "Invalid config-raw type");
+
+    // 4. Optional missing config-raw
+    OpenWifi::RESTAPI::ParentalControl::MutationCallResult m4{true, Poco::Net::HTTPResponse::HTTP_OK, new Poco::JSON::Object()};
+    ExpectEq(runTest(m4, false, OpenWifi::RESTAPI::ParentalControl::MutationSuccessResponse::ReturnObject), 200, "Optional missing config-raw");
+
+    // 5. Apply failure mapping
+    FakeResponse r5; FakeRequest req5("POST", "/", "", r5); FakeRESTAPIHandler h5(logger, &req5, &r5);
+    OpenWifi::RESTAPI::ParentalControl::HandleApplyConfigRawResult(h5, OpenWifi::RESTAPI::ParentalControl::ApplyConfigRawResult::MissingOperatorId);
+    ExpectEq(static_cast<int>(r5.getStatus()), 403, "Apply failure mapping MissingOperatorId");
+
+    // 6. ReturnObjectWithoutConfigRaw
+    OpenWifi::RESTAPI::ParentalControl::MutationCallResult m6{true, Poco::Net::HTTPResponse::HTTP_OK, new Poco::JSON::Object()};
+    m6.response->set("config-raw", Poco::Dynamic::Var());
+    ExpectEq(runTest(m6, false, OpenWifi::RESTAPI::ParentalControl::MutationSuccessResponse::ReturnObjectWithoutConfigRaw), 200, "ReturnObjectWithoutConfigRaw");
+    Expect(!m6.response->has("config-raw"), "Strip config-raw");
+
+    // 7. Schedule normalization failure
+    OpenWifi::RESTAPI::ParentalControl::MutationCallResult m7{true, Poco::Net::HTTPResponse::HTTP_OK, new Poco::JSON::Object()};
+    ExpectEq(runTest(m7, false, OpenWifi::RESTAPI::ParentalControl::MutationSuccessResponse::ReturnNormalizedScheduleObject, "UTC"), 500, "Schedule normalization failure");
+
+    // 8. Schedule normalization success
+    OpenWifi::RESTAPI::ParentalControl::MutationCallResult m8{true, Poco::Net::HTTPResponse::HTTP_OK, new Poco::JSON::Object()};
+    m8.response->set("start_minute", 480);
+    m8.response->set("stop_minute", 1020);
+    ExpectEq(runTest(m8, false, OpenWifi::RESTAPI::ParentalControl::MutationSuccessResponse::ReturnNormalizedScheduleObject, "UTC"), 200, "Schedule normalization success");
+    Expect(m8.response->has("start_time"), "Normalized response contains start_time");
+    Expect(m8.response->has("stop_time"), "Normalized response contains stop_time");
+}
+
 const std::vector<std::pair<std::string, std::function<void()>>> kTests = {
+    {"ValidateAuthPreconditions", TestValidateAuthPreconditions},
+    {"StripConfigRawFromMutationResponse", TestStripConfigRawFromMutationResponse},
+    {"HandleParentalControlMutationResultOk", TestHandleParentalControlMutationResultOk},
+    {"HandleParentalControlMutationResultNullResponseGuard", TestHandleParentalControlMutationResultNullResponseGuard},
+    {"HandleParentalControlMutationResultBehaviorPreservation", TestHandleParentalControlMutationResultBehaviorPreservation},
     {"GetBlockedClientsIncompleteRuleMissingEnabled", TestGetBlockedClientsIncompleteRuleMissingEnabled},
     {"GetBlockedClientsIncompleteRuleMissingSectionDeclaration", TestGetBlockedClientsIncompleteRuleMissingSectionDeclaration},
     {"GetBlockedClientsIncompleteRuleMissingDates", TestGetBlockedClientsIncompleteRuleMissingDates},

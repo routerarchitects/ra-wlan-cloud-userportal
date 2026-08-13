@@ -57,11 +57,8 @@ namespace OpenWifi {
 	}
 
 	void RESTAPI_group_schedules_list_handler::DoPost() {
-		if (UserInfo_.userinfo.id.empty()) {
-			return UnAuthorized(RESTAPI::Errors::InvalidSubscriberId);
-		}
-		if (UserInfo_.userinfo.owner.empty()) {
-			return UnAuthorized(RESTAPI::Errors::OperatorIdMustExist);
+		if (!RESTAPI::ParentalControl::ValidateAuthPreconditions(*this, UserInfo_.userinfo.id, UserInfo_.userinfo.owner, true)) {
+			return;
 		}
 
 		const auto groupId = GetBinding("group_id", "");
@@ -92,41 +89,19 @@ namespace OpenWifi {
 			return BadRequest(RESTAPI::Errors::MissingOrInvalidParameters, "schedule_id is not a valid UUID");
 		}
 
-		Poco::Net::HTTPResponse::HTTPStatus callStatus;
-		Poco::JSON::Object::Ptr callResponse;
-		if (!SDK::ParentalControl::CreateGroupSchedule(this, UserInfo_.userinfo.id, groupId, *ParsedBody_,
-													   callStatus, callResponse)) {
-			return ForwardErrorResponse(this, callStatus, callResponse);
-		}
+		RESTAPI::ParentalControl::MutationCallResult mutation;
+		mutation.success = SDK::ParentalControl::CreateGroupSchedule(this, UserInfo_.userinfo.id, groupId, *ParsedBody_, mutation.status, mutation.response);
 
-		Poco::JSON::Array::Ptr configRaw;
-		if (!RESTAPI::ParentalControl::ExtractConfigRawSnapshot(callResponse, configRaw, true)) {
-			Logger().error(fmt::format("DoPost: invalid parental-control payload (subscriber={} group={} schedule={})",
-									   UserInfo_.userinfo.id, groupId, scheduleId));
-			return InternalError(RESTAPI::Errors::InternalError);
-		}
-
-		if (!RESTAPI::ParentalControl::HandleApplyConfigRawResult(
-				*this, RESTAPI::ParentalControl::ApplyConfigRaw(*this, Logger(),
-																UserInfo_.userinfo.id,
-																UserInfo_.userinfo.owner, groupId,
-																configRaw, "DoPost", "group_schedule"))) {
-			return;
-		}
-
-		if (callResponse->has("config-raw")) {
-			callResponse->remove("config-raw");
-		}
-
-		return ReturnObject(*callResponse);
+		return RESTAPI::ParentalControl::HandleParentalControlMutationResult(
+		    *this, Logger(), mutation, UserInfo_.userinfo.id, UserInfo_.userinfo.owner,
+		    groupId, "DoPost", "group_schedule", /*configRawRequired=*/true,
+		    fmt::format("subscriber={} group={} schedule={}", UserInfo_.userinfo.id, groupId, scheduleId),
+		    RESTAPI::ParentalControl::MutationSuccessResponse::ReturnObjectWithoutConfigRaw);
 	}
 
 	void RESTAPI_group_schedules_list_handler::DoPut() {
-		if (UserInfo_.userinfo.id.empty()) {
-			return UnAuthorized(RESTAPI::Errors::InvalidSubscriberId);
-		}
-		if (UserInfo_.userinfo.owner.empty()) {
-			return UnAuthorized(RESTAPI::Errors::OperatorIdMustExist);
+		if (!RESTAPI::ParentalControl::ValidateAuthPreconditions(*this, UserInfo_.userinfo.id, UserInfo_.userinfo.owner, true)) {
+			return;
 		}
 
 		const auto groupId = GetBinding("group_id", "");
@@ -176,33 +151,14 @@ namespace OpenWifi {
 			}
 		}
 
-		Poco::Net::HTTPResponse::HTTPStatus callStatus;
-		Poco::JSON::Object::Ptr callResponse;
-		if (!SDK::ParentalControl::ReplaceGroupSchedules(this, UserInfo_.userinfo.id, groupId, *ParsedBody_,
-														 callStatus, callResponse)) {
-			return ForwardErrorResponse(this, callStatus, callResponse);
-		}
+		RESTAPI::ParentalControl::MutationCallResult mutation;
+		mutation.success = SDK::ParentalControl::ReplaceGroupSchedules(this, UserInfo_.userinfo.id, groupId, *ParsedBody_, mutation.status, mutation.response);
 
-		Poco::JSON::Array::Ptr configRaw;
-		if (!RESTAPI::ParentalControl::ExtractConfigRawSnapshot(callResponse, configRaw, true)) {
-			Logger().error(fmt::format("DoPut: invalid parental-control payload (subscriber={} group={})",
-									   UserInfo_.userinfo.id, groupId));
-			return InternalError(RESTAPI::Errors::InternalError);
-		}
-
-		if (!RESTAPI::ParentalControl::HandleApplyConfigRawResult(
-				*this, RESTAPI::ParentalControl::ApplyConfigRaw(*this, Logger(),
-																UserInfo_.userinfo.id,
-																UserInfo_.userinfo.owner, groupId,
-																configRaw, "DoPut", "group_schedule"))) {
-			return;
-		}
-
-		if (callResponse->has("config-raw")) {
-			callResponse->remove("config-raw");
-		}
-
-		return ReturnObject(*callResponse);
+		return RESTAPI::ParentalControl::HandleParentalControlMutationResult(
+		    *this, Logger(), mutation, UserInfo_.userinfo.id, UserInfo_.userinfo.owner,
+		    groupId, "DoPut", "group_schedule", /*configRawRequired=*/true,
+		    fmt::format("subscriber={} group={}", UserInfo_.userinfo.id, groupId),
+		    RESTAPI::ParentalControl::MutationSuccessResponse::ReturnObjectWithoutConfigRaw);
 	}
 
 } // namespace OpenWifi

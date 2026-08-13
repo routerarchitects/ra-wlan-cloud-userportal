@@ -207,3 +207,4 @@ namespace OpenWifi::Utils {
         return uuid.size() == 36 && uuid[8] == '-' && uuid[13] == '-' && uuid[18] == '-' && uuid[23] == '-';
     }
 }
+
