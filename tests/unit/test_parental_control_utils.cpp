@@ -1361,7 +1361,7 @@ void TestForwardParentalControlErrorResponseMalformedOrEmptyFallback() {
         FakeRESTAPIHandler handler(logger, &request, &response);
 
         Poco::JSON::Object::Ptr downstreamErr = new Poco::JSON::Object();
-        downstreamErr->set("error", new Poco::JSON::Object());
+        downstreamErr->set("error", Poco::JSON::Object::Ptr(new Poco::JSON::Object()));
 
         OpenWifi::RESTAPI::ParentalControl::ForwardParentalControlErrorResponse(
             &handler, Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR, downstreamErr);
