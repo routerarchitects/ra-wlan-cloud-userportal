@@ -60,12 +60,15 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 		Poco::JSON::Object::Ptr NormalizeParentalControlErrorResponse(
 			Poco::Net::HTTPResponse::HTTPStatus status,
 			const Poco::JSON::Object::Ptr &downstreamResponse) {
-			if (!downstreamResponse || !downstreamResponse->has("error") || !downstreamResponse->isObject("error")) {
+			if (!downstreamResponse || !downstreamResponse->has("error") || downstreamResponse->isNull("error")) {
 				return nullptr;
 			}
 
 			Poco::JSON::Object::Ptr errorObject;
 			try {
+				if (!downstreamResponse->isObject("error")) {
+					return nullptr;
+				}
 				errorObject = downstreamResponse->getObject("error");
 			} catch (...) {
 				return nullptr;
