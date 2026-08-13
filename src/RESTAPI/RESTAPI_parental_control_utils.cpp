@@ -56,6 +56,68 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 			}
 			weekdays = newWeekdays;
 		}
+
+		Poco::JSON::Object::Ptr NormalizeParentalControlErrorResponse(
+			Poco::Net::HTTPResponse::HTTPStatus status,
+			const Poco::JSON::Object::Ptr &downstreamResponse) {
+			if (!downstreamResponse || !downstreamResponse->has("error") || !downstreamResponse->isObject("error")) {
+				return nullptr;
+			}
+
+			Poco::JSON::Object::Ptr errorObject;
+			try {
+				errorObject = downstreamResponse->getObject("error");
+			} catch (...) {
+				return nullptr;
+			}
+
+			if (!errorObject) {
+				return nullptr;
+			}
+
+			std::string code;
+			std::string message;
+
+			if (errorObject->has("code") && !errorObject->isNull("code")) {
+				try {
+					if (errorObject->get("code").isString()) {
+						code = errorObject->getValue<std::string>("code");
+					}
+				} catch (...) {
+					code.clear();
+				}
+			}
+
+			if (errorObject->has("message") && !errorObject->isNull("message")) {
+				try {
+					if (errorObject->get("message").isString()) {
+						message = errorObject->getValue<std::string>("message");
+					}
+				} catch (...) {
+					message.clear();
+				}
+			}
+
+			Poco::trimInPlace(code);
+			Poco::trimInPlace(message);
+
+			if (code.empty() && message.empty()) {
+				return nullptr;
+			}
+
+			if (message.empty()) {
+				message = code;
+			}
+
+			std::string details = code.empty() ? message : code;
+
+			Poco::JSON::Object::Ptr normalized = new Poco::JSON::Object;
+			normalized->set("ErrorCode", static_cast<int>(status));
+			normalized->set("ErrorDescription", message);
+			normalized->set("ErrorDetails", details);
+
+			return normalized;
+		}
 	} // namespace
 
 	// =========================================================================
@@ -615,9 +677,19 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 		return ApplyConfigRawResult::Applied;
 	}
 
-	// =========================================================================
-	// HTTP/Result Mapping Helpers
-	// =========================================================================
+	void ForwardParentalControlErrorResponse(
+		RESTAPIHandler *handler,
+		Poco::Net::HTTPResponse::HTTPStatus status,
+		const Poco::JSON::Object::Ptr &downstreamResponse) {
+		if (handler == nullptr) {
+			return;
+		}
+		auto normalized = NormalizeParentalControlErrorResponse(status, downstreamResponse);
+		if (normalized) {
+			return handler->ForwardErrorResponse(handler, status, normalized);
+		}
+		return handler->ForwardErrorResponse(handler, status, downstreamResponse);
+	}
 
 	bool HandleApplyConfigRawResult(RESTAPIHandler &handler, ApplyConfigRawResult result) {
 		switch (result) {
@@ -701,7 +773,7 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 	                                         const std::string &normalizeTimezone)
 	{
 		if (!mutation.success) {
-			return handler.ForwardErrorResponse(&handler, mutation.status, mutation.response);
+			return ForwardParentalControlErrorResponse(&handler, mutation.status, mutation.response);
 		}
 
 		if (!ApplyConfigRawFromMutationResponse(

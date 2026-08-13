@@ -1285,12 +1285,160 @@ void TestHandleParentalControlMutationResultBehaviorPreservation() {
     Expect(m8.response->has("stop_time"), "Normalized response contains stop_time");
 }
 
+void TestForwardParentalControlErrorResponseStandardMapping() {
+    FakeResponse response;
+    FakeRequest request("GET", "/api/v1/subscribers/sub1/groups/grp1", "", response);
+    Poco::Logger &logger = Poco::Logger::get("TestLogger");
+    FakeRESTAPIHandler handler(logger, &request, &response);
+
+    Poco::JSON::Object::Ptr downstreamErr = new Poco::JSON::Object();
+    Poco::JSON::Object::Ptr errDetails = new Poco::JSON::Object();
+    errDetails->set("code", "group_not_found");
+    errDetails->set("message", "Group not found");
+    downstreamErr->set("error", errDetails);
+
+    OpenWifi::RESTAPI::ParentalControl::ForwardParentalControlErrorResponse(
+        &handler, Poco::Net::HTTPResponse::HTTP_NOT_FOUND, downstreamErr);
+
+    ExpectEq(response.getStatus(), Poco::Net::HTTPResponse::HTTP_NOT_FOUND, "HTTP status preserved");
+    Poco::JSON::Parser parser;
+    auto resObj = parser.parse(response.body()).extract<Poco::JSON::Object::Ptr>();
+    ExpectEq(resObj->getValue<int>("ErrorCode"), 404, "ErrorCode mapped");
+    ExpectEq(resObj->getValue<std::string>("ErrorDescription"), "Group not found", "ErrorDescription mapped");
+    ExpectEq(resObj->getValue<std::string>("ErrorDetails"), "group_not_found", "ErrorDetails mapped");
+}
+
+void TestForwardParentalControlErrorResponseMissingMessageFallback() {
+    FakeResponse response;
+    FakeRequest request("POST", "/api/v1/subscribers/sub1/groups", "", response);
+    Poco::Logger &logger = Poco::Logger::get("TestLogger");
+    FakeRESTAPIHandler handler(logger, &request, &response);
+
+    Poco::JSON::Object::Ptr downstreamErr = new Poco::JSON::Object();
+    Poco::JSON::Object::Ptr errDetails = new Poco::JSON::Object();
+    errDetails->set("code", "invalid_name");
+    downstreamErr->set("error", errDetails);
+
+    OpenWifi::RESTAPI::ParentalControl::ForwardParentalControlErrorResponse(
+        &handler, Poco::Net::HTTPResponse::HTTP_BAD_REQUEST, downstreamErr);
+
+    ExpectEq(response.getStatus(), Poco::Net::HTTPResponse::HTTP_BAD_REQUEST, "HTTP status preserved");
+    Poco::JSON::Parser parser;
+    auto resObj = parser.parse(response.body()).extract<Poco::JSON::Object::Ptr>();
+    ExpectEq(resObj->getValue<int>("ErrorCode"), 400, "ErrorCode mapped");
+    ExpectEq(resObj->getValue<std::string>("ErrorDescription"), "invalid_name", "ErrorDescription falls back to code");
+    ExpectEq(resObj->getValue<std::string>("ErrorDetails"), "invalid_name", "ErrorDetails mapped");
+}
+
+void TestForwardParentalControlErrorResponseMissingCodeFallback() {
+    FakeResponse response;
+    FakeRequest request("POST", "/api/v1/subscribers/sub1/groups", "", response);
+    Poco::Logger &logger = Poco::Logger::get("TestLogger");
+    FakeRESTAPIHandler handler(logger, &request, &response);
+
+    Poco::JSON::Object::Ptr downstreamErr = new Poco::JSON::Object();
+    Poco::JSON::Object::Ptr errDetails = new Poco::JSON::Object();
+    errDetails->set("message", "Validation failed");
+    downstreamErr->set("error", errDetails);
+
+    OpenWifi::RESTAPI::ParentalControl::ForwardParentalControlErrorResponse(
+        &handler, Poco::Net::HTTPResponse::HTTP_BAD_REQUEST, downstreamErr);
+
+    ExpectEq(response.getStatus(), Poco::Net::HTTPResponse::HTTP_BAD_REQUEST, "HTTP status preserved");
+    Poco::JSON::Parser parser;
+    auto resObj = parser.parse(response.body()).extract<Poco::JSON::Object::Ptr>();
+    ExpectEq(resObj->getValue<int>("ErrorCode"), 400, "ErrorCode mapped");
+    ExpectEq(resObj->getValue<std::string>("ErrorDescription"), "Validation failed", "ErrorDescription mapped");
+    ExpectEq(resObj->getValue<std::string>("ErrorDetails"), "Validation failed", "ErrorDetails falls back to message");
+}
+
+void TestForwardParentalControlErrorResponseMalformedOrEmptyFallback() {
+    // 1. Empty error object
+    {
+        FakeResponse response;
+        FakeRequest request("GET", "/test", "", response);
+        Poco::Logger &logger = Poco::Logger::get("TestLogger");
+        FakeRESTAPIHandler handler(logger, &request, &response);
+
+        Poco::JSON::Object::Ptr downstreamErr = new Poco::JSON::Object();
+        downstreamErr->set("error", new Poco::JSON::Object());
+
+        OpenWifi::RESTAPI::ParentalControl::ForwardParentalControlErrorResponse(
+            &handler, Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR, downstreamErr);
+
+        ExpectEq(response.getStatus(), Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR, "HTTP status preserved");
+        Expect(response.body().find("ErrorCode") == std::string::npos, "Legacy forwarding used for empty error");
+    }
+
+    // 2. Non-object error field
+    {
+        FakeResponse response;
+        FakeRequest request("GET", "/test", "", response);
+        Poco::Logger &logger = Poco::Logger::get("TestLogger");
+        FakeRESTAPIHandler handler(logger, &request, &response);
+
+        Poco::JSON::Object::Ptr downstreamErr = new Poco::JSON::Object();
+        downstreamErr->set("error", "string_instead_of_object");
+
+        OpenWifi::RESTAPI::ParentalControl::ForwardParentalControlErrorResponse(
+            &handler, Poco::Net::HTTPResponse::HTTP_BAD_REQUEST, downstreamErr);
+
+        ExpectEq(response.getStatus(), Poco::Net::HTTPResponse::HTTP_BAD_REQUEST, "HTTP status preserved");
+        Expect(response.body().find("ErrorCode") == std::string::npos, "Legacy forwarding used for string error");
+    }
+
+    // 3. Null downstream response
+    {
+        FakeResponse response;
+        FakeRequest request("GET", "/test", "", response);
+        Poco::Logger &logger = Poco::Logger::get("TestLogger");
+        FakeRESTAPIHandler handler(logger, &request, &response);
+
+        OpenWifi::RESTAPI::ParentalControl::ForwardParentalControlErrorResponse(
+            &handler, Poco::Net::HTTPResponse::HTTP_SERVICE_UNAVAILABLE, nullptr);
+
+        ExpectEq(response.getStatus(), Poco::Net::HTTPResponse::HTTP_SERVICE_UNAVAILABLE, "HTTP status preserved");
+    }
+}
+
+void TestHandleParentalControlMutationResultFailureForwarding() {
+    FakeResponse response;
+    FakeRequest request("POST", "/api/v1/subscribers/sub1/groups", "", response);
+    Poco::Logger &logger = Poco::Logger::get("TestLogger");
+    FakeRESTAPIHandler handler(logger, &request, &response);
+
+    OpenWifi::RESTAPI::ParentalControl::MutationCallResult mutation;
+    mutation.success = false;
+    mutation.status = Poco::Net::HTTPResponse::HTTP_NOT_FOUND;
+    mutation.response = new Poco::JSON::Object();
+    Poco::JSON::Object::Ptr errDetails = new Poco::JSON::Object();
+    errDetails->set("code", "schedule_not_found");
+    errDetails->set("message", "Schedule not found");
+    mutation.response->set("error", errDetails);
+
+    OpenWifi::RESTAPI::ParentalControl::HandleParentalControlMutationResult(
+        handler, logger, mutation, "sub1", "op1", "sched1", "CreateSchedule", "Schedule", false, "",
+        OpenWifi::RESTAPI::ParentalControl::MutationSuccessResponse::ReturnObject);
+
+    ExpectEq(response.getStatus(), Poco::Net::HTTPResponse::HTTP_NOT_FOUND, "Mutation failure status preserved");
+    Poco::JSON::Parser parser;
+    auto resObj = parser.parse(response.body()).extract<Poco::JSON::Object::Ptr>();
+    ExpectEq(resObj->getValue<int>("ErrorCode"), 404, "Mutation failure ErrorCode mapped");
+    ExpectEq(resObj->getValue<std::string>("ErrorDescription"), "Schedule not found", "Mutation failure ErrorDescription mapped");
+    ExpectEq(resObj->getValue<std::string>("ErrorDetails"), "schedule_not_found", "Mutation failure ErrorDetails mapped");
+}
+
 const std::vector<std::pair<std::string, std::function<void()>>> kTests = {
     {"ValidateAuthPreconditions", TestValidateAuthPreconditions},
     {"StripConfigRawFromMutationResponse", TestStripConfigRawFromMutationResponse},
     {"HandleParentalControlMutationResultOk", TestHandleParentalControlMutationResultOk},
     {"HandleParentalControlMutationResultNullResponseGuard", TestHandleParentalControlMutationResultNullResponseGuard},
     {"HandleParentalControlMutationResultBehaviorPreservation", TestHandleParentalControlMutationResultBehaviorPreservation},
+    {"ForwardParentalControlErrorResponseStandardMapping", TestForwardParentalControlErrorResponseStandardMapping},
+    {"ForwardParentalControlErrorResponseMissingMessageFallback", TestForwardParentalControlErrorResponseMissingMessageFallback},
+    {"ForwardParentalControlErrorResponseMissingCodeFallback", TestForwardParentalControlErrorResponseMissingCodeFallback},
+    {"ForwardParentalControlErrorResponseMalformedOrEmptyFallback", TestForwardParentalControlErrorResponseMalformedOrEmptyFallback},
+    {"HandleParentalControlMutationResultFailureForwarding", TestHandleParentalControlMutationResultFailureForwarding},
     {"GetBlockedClientsIncompleteRuleMissingEnabled", TestGetBlockedClientsIncompleteRuleMissingEnabled},
     {"GetBlockedClientsIncompleteRuleMissingSectionDeclaration", TestGetBlockedClientsIncompleteRuleMissingSectionDeclaration},
     {"GetBlockedClientsIncompleteRuleMissingDates", TestGetBlockedClientsIncompleteRuleMissingDates},

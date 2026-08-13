@@ -152,6 +152,15 @@ bool NormalizeScheduleResponse(Poco::JSON::Object::Ptr schedule, const std::stri
     return true;
 }
 
+void ForwardParentalControlErrorResponse(RESTAPIHandler *handler,
+                                        Poco::Net::HTTPResponse::HTTPStatus status,
+                                        const Poco::JSON::Object::Ptr &downstreamResponse) {
+    if (handler != nullptr) {
+        handler->ForwardErrorResponse(handler, status, downstreamResponse);
+    }
+}
+
+
 void HandleParentalControlMutationResult(RESTAPIHandler &handler,
                                          Poco::Logger &logger,
                                          const MutationCallResult &mutation,

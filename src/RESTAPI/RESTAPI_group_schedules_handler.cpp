@@ -38,7 +38,7 @@ namespace OpenWifi {
 
 		if (!SDK::ParentalControl::GetGroupSchedule(this, UserInfo_.userinfo.id, groupId, scheduleId,
 													callStatus, callResponse)) {
-			return ForwardErrorResponse(this, callStatus, callResponse);
+			return RESTAPI::ParentalControl::ForwardParentalControlErrorResponse(this, callStatus, callResponse);
 		}
 
 		return ReturnObject(*callResponse);
