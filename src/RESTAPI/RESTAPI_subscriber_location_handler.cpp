@@ -251,7 +251,17 @@ namespace OpenWifi {
 		callResponse = Poco::makeShared<Poco::JSON::Object>();
 
 		if (!SDK::Prov::Location::Delete(nullptr, locationId, callStatus, callResponse)) {
-			return ForwardErrorResponse(this, callStatus, callResponse);
+			auto deleteStatus = callStatus;
+			auto deleteResponse = callResponse;
+
+			Poco::Net::HTTPServerResponse::HTTPStatus restoreStatus = Poco::Net::HTTPServerResponse::HTTP_INTERNAL_SERVER_ERROR;
+			auto restoreResponse = Poco::makeShared<Poco::JSON::Object>();
+
+			if (!SDK::Prov::Venue::SetLocation(nullptr, venueId, locationId, restoreStatus, restoreResponse)) {
+				Logger().error(fmt::format("Failed to restore venue location [{}] for venue [{}] after location deletion failed", locationId, venueId));
+			}
+
+			return ForwardErrorResponse(this, deleteStatus, deleteResponse);
 		}
 
 		return OK();

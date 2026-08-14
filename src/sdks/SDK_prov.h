@@ -36,6 +36,10 @@ namespace OpenWifi::SDK::Prov {
 		bool ClearLocation(RESTAPIHandler *client, const std::string &VenueId,
 						   Poco::Net::HTTPServerResponse::HTTPStatus &CallStatus,
 						   Poco::JSON::Object::Ptr &CallResponse);
+		bool SetLocation(RESTAPIHandler *client, const std::string &VenueId,
+						 const std::string &LocationUUID,
+						 Poco::Net::HTTPServerResponse::HTTPStatus &CallStatus,
+						 Poco::JSON::Object::Ptr &CallResponse);
 	} // namespace Venue
 
 	namespace Location {

@@ -114,6 +114,20 @@ namespace OpenWifi::SDK::Prov {
 								client == nullptr ? "" : client->UserInfo_.webtoken.access_token_);
 			return CallStatus == Poco::Net::HTTPServerResponse::HTTP_OK;
 		}
+
+		bool SetLocation(RESTAPIHandler *client, const std::string &VenueId,
+						 const std::string &LocationUUID,
+						 Poco::Net::HTTPServerResponse::HTTPStatus &CallStatus,
+						 Poco::JSON::Object::Ptr &CallResponse) {
+			const std::string EndPoint = "/api/v1/venue/" + VenueId;
+			Poco::JSON::Object body;
+			body.set("location", LocationUUID);
+
+			auto API = OpenAPIRequestPut(uSERVICE_PROVISIONING, EndPoint, {}, body, 60000);
+			CallResponse = Poco::makeShared<Poco::JSON::Object>();
+			CallStatus = API.Do(CallResponse, client == nullptr ? "" : client->UserInfo_.webtoken.access_token_);
+			return CallStatus == Poco::Net::HTTPServerResponse::HTTP_OK;
+		}
 	} // namespace Venue
 
 	namespace Location {
