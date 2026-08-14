@@ -5,6 +5,7 @@
  */
 
 #include "RESTAPI_parental_control_utils.h"
+#include "Poco/Exception.h"
 #include "Poco/Format.h"
 #include "Poco/DateTime.h"
 #include "Poco/DateTimeFormatter.h"
@@ -27,6 +28,74 @@
 namespace OpenWifi::RESTAPI::ParentalControl {
 
 	namespace {
+		constexpr std::size_t MAX_ERROR_CODE_LENGTH = 128;
+		constexpr std::size_t MAX_ERROR_MESSAGE_LENGTH = 1024;
+
+		bool IsClientSafeParentalControlErrorCode(const std::string &code) {
+			static const std::set<std::string> kSafeCodes = {
+				// General & Auth
+				"invalid_request",
+				"not_found",
+				"unauthorized",
+				"forbidden",
+
+				// Groups
+				"invalid_group",
+				"group_not_found",
+				"duplicate_group",
+				"group_already_exists",
+
+				// Group devices
+				"invalid_device",
+				"invalid_mac",
+				"device_not_found",
+				"device_already_assigned",
+				"device_already_exists",
+				"group_device_already_exists",
+
+				// Schedules
+				"invalid_schedule",
+				"schedule_not_found",
+				"duplicate_schedule",
+				"schedule_already_exists",
+
+				// Group schedules
+				"group_schedule_link_not_found",
+				"group_schedule_already_exists",
+				"duplicate_group_schedule",
+
+				// Client access
+				"invalid_client_access",
+				"client_access_not_found",
+				"client_access_already_exists"
+			};
+
+			return kSafeCodes.find(code) != kSafeCodes.end();
+		}
+
+		std::string SafeDescriptionFromErrorCode(const std::string &code) {
+			std::string description;
+			bool lastWasSpace = false;
+
+			for (unsigned char uch : code) {
+				char ch = static_cast<char>(uch);
+
+				if (ch == '_' || ch == '-') {
+					if (!description.empty() && !lastWasSpace) {
+						description.push_back(' ');
+						lastWasSpace = true;
+					}
+					continue;
+				}
+
+				description.push_back(static_cast<char>(
+					description.empty() ? std::toupper(uch) : std::tolower(uch)));
+				lastWasSpace = false;
+			}
+
+			return description.empty() ? "Parental-control service error" : description;
+		}
+
 		bool MinuteToTimeString(int minuteOfDay, std::string &timeValue) {
 			if (minuteOfDay < 0 || minuteOfDay > 1439) {
 				return false;
@@ -70,7 +139,7 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 					return nullptr;
 				}
 				errorObject = downstreamResponse->getObject("error");
-			} catch (...) {
+			} catch (const Poco::Exception &) {
 				return nullptr;
 			}
 
@@ -86,7 +155,7 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 					if (errorObject->get("code").isString()) {
 						code = errorObject->getValue<std::string>("code");
 					}
-				} catch (...) {
+				} catch (const Poco::Exception &) {
 					code.clear();
 				}
 			}
@@ -96,7 +165,7 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 					if (errorObject->get("message").isString()) {
 						message = errorObject->getValue<std::string>("message");
 					}
-				} catch (...) {
+				} catch (const Poco::Exception &) {
 					message.clear();
 				}
 			}
@@ -108,16 +177,18 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 				return nullptr;
 			}
 
-			if (message.empty()) {
-				message = code;
+			if (code.size() > MAX_ERROR_CODE_LENGTH || message.size() > MAX_ERROR_MESSAGE_LENGTH || !IsClientSafeParentalControlErrorCode(code)) {
+				Poco::JSON::Object::Ptr normalized = new Poco::JSON::Object;
+				normalized->set("ErrorCode", static_cast<int>(status));
+				normalized->set("ErrorDescription", "Parental-control service error");
+				normalized->set("ErrorDetails", "parental_control_error");
+				return normalized;
 			}
-
-			std::string details = code.empty() ? message : code;
 
 			Poco::JSON::Object::Ptr normalized = new Poco::JSON::Object;
 			normalized->set("ErrorCode", static_cast<int>(status));
-			normalized->set("ErrorDescription", message);
-			normalized->set("ErrorDetails", details);
+			normalized->set("ErrorDescription", SafeDescriptionFromErrorCode(code));
+			normalized->set("ErrorDetails", code);
 
 			return normalized;
 		}

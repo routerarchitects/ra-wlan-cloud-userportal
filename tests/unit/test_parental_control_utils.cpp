@@ -1316,7 +1316,7 @@ void TestForwardParentalControlErrorResponseMissingMessageFallback() {
 
     Poco::JSON::Object::Ptr downstreamErr = new Poco::JSON::Object();
     Poco::JSON::Object::Ptr errDetails = new Poco::JSON::Object();
-    errDetails->set("code", "invalid_name");
+    errDetails->set("code", "invalid_request");
     downstreamErr->set("error", errDetails);
 
     OpenWifi::RESTAPI::ParentalControl::ForwardParentalControlErrorResponse(
@@ -1326,8 +1326,34 @@ void TestForwardParentalControlErrorResponseMissingMessageFallback() {
     Poco::JSON::Parser parser;
     auto resObj = parser.parse(response.body()).extract<Poco::JSON::Object::Ptr>();
     ExpectEq(resObj->getValue<int>("ErrorCode"), 400, "ErrorCode mapped");
-    ExpectEq(resObj->getValue<std::string>("ErrorDescription"), "invalid_name", "ErrorDescription falls back to code");
-    ExpectEq(resObj->getValue<std::string>("ErrorDetails"), "invalid_name", "ErrorDetails mapped");
+    ExpectEq(resObj->getValue<std::string>("ErrorDescription"), "Invalid request", "ErrorDescription derived from code");
+    ExpectEq(resObj->getValue<std::string>("ErrorDetails"), "invalid_request", "ErrorDetails mapped");
+}
+
+void TestForwardParentalControlErrorResponseKnownCodeUnsafeMessageSanitized() {
+    FakeResponse response;
+    FakeRequest request("POST", "/api/v1/subscribers/sub1/groups", "", response);
+    Poco::Logger &logger = Poco::Logger::get("TestLogger");
+    FakeRESTAPIHandler handler(logger, &request, &response);
+
+    Poco::JSON::Object::Ptr downstreamErr = new Poco::JSON::Object();
+    Poco::JSON::Object::Ptr errDetails = new Poco::JSON::Object();
+    errDetails->set("code", "invalid_request");
+    errDetails->set("message", "PostgreSQL connection failed at 10.2.3.17:5432");
+    downstreamErr->set("error", errDetails);
+
+    OpenWifi::RESTAPI::ParentalControl::ForwardParentalControlErrorResponse(
+        &handler, Poco::Net::HTTPResponse::HTTP_BAD_REQUEST, downstreamErr);
+
+    ExpectEq(response.getStatus(), Poco::Net::HTTPResponse::HTTP_BAD_REQUEST, "HTTP status preserved");
+    Expect(response.body().find("PostgreSQL") == std::string::npos, "Raw database error not exposed");
+    Expect(response.body().find("10.2.3.17") == std::string::npos, "Internal IP not exposed");
+
+    Poco::JSON::Parser parser;
+    auto resObj = parser.parse(response.body()).extract<Poco::JSON::Object::Ptr>();
+    ExpectEq(resObj->getValue<int>("ErrorCode"), 400, "ErrorCode mapped");
+    ExpectEq(resObj->getValue<std::string>("ErrorDescription"), "Invalid request", "ErrorDescription derived from safe code");
+    ExpectEq(resObj->getValue<std::string>("ErrorDetails"), "invalid_request", "ErrorDetails mapped");
 }
 
 void TestForwardParentalControlErrorResponseMissingCodeFallback() {
@@ -1348,8 +1374,107 @@ void TestForwardParentalControlErrorResponseMissingCodeFallback() {
     Poco::JSON::Parser parser;
     auto resObj = parser.parse(response.body()).extract<Poco::JSON::Object::Ptr>();
     ExpectEq(resObj->getValue<int>("ErrorCode"), 400, "ErrorCode mapped");
-    ExpectEq(resObj->getValue<std::string>("ErrorDescription"), "Validation failed", "ErrorDescription mapped");
-    ExpectEq(resObj->getValue<std::string>("ErrorDetails"), "Validation failed", "ErrorDetails falls back to message");
+    ExpectEq(resObj->getValue<std::string>("ErrorDescription"), "Parental-control service error", "Generic ErrorDescription used for missing code");
+    ExpectEq(resObj->getValue<std::string>("ErrorDetails"), "parental_control_error", "Generic ErrorDetails used for missing code");
+}
+
+void TestForwardParentalControlErrorResponseStorageFailureSanitized() {
+    FakeResponse response;
+    FakeRequest request("GET", "/test", "", response);
+    Poco::Logger &logger = Poco::Logger::get("TestLogger");
+    FakeRESTAPIHandler handler(logger, &request, &response);
+
+    Poco::JSON::Object::Ptr downstreamErr = new Poco::JSON::Object();
+    Poco::JSON::Object::Ptr errDetails = new Poco::JSON::Object();
+    errDetails->set("code", "storage_failure");
+    errDetails->set("message", "PostgreSQL connection failed at 10.2.3.17:5432");
+    downstreamErr->set("error", errDetails);
+
+    OpenWifi::RESTAPI::ParentalControl::ForwardParentalControlErrorResponse(
+        &handler, Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR, downstreamErr);
+
+    ExpectEq(response.getStatus(), Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR, "HTTP status preserved");
+    Expect(response.body().find("PostgreSQL") == std::string::npos, "Raw database error not exposed");
+    Expect(response.body().find("10.2.3.17") == std::string::npos, "Internal IP not exposed");
+
+    Poco::JSON::Parser parser;
+    auto resObj = parser.parse(response.body()).extract<Poco::JSON::Object::Ptr>();
+    ExpectEq(resObj->getValue<int>("ErrorCode"), 500, "ErrorCode mapped");
+    ExpectEq(resObj->getValue<std::string>("ErrorDescription"), "Parental-control service error", "Generic ErrorDescription used");
+    ExpectEq(resObj->getValue<std::string>("ErrorDetails"), "parental_control_error", "Generic ErrorDetails used");
+}
+
+void TestForwardParentalControlErrorResponseUnknownCodeSanitized() {
+    FakeResponse response;
+    FakeRequest request("GET", "/test", "", response);
+    Poco::Logger &logger = Poco::Logger::get("TestLogger");
+    FakeRESTAPIHandler handler(logger, &request, &response);
+
+    Poco::JSON::Object::Ptr downstreamErr = new Poco::JSON::Object();
+    Poco::JSON::Object::Ptr errDetails = new Poco::JSON::Object();
+    errDetails->set("code", "database_error");
+    errDetails->set("message", "internal database detail");
+    downstreamErr->set("error", errDetails);
+
+    OpenWifi::RESTAPI::ParentalControl::ForwardParentalControlErrorResponse(
+        &handler, Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR, downstreamErr);
+
+    ExpectEq(response.getStatus(), Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR, "HTTP status preserved");
+    Poco::JSON::Parser parser;
+    auto resObj = parser.parse(response.body()).extract<Poco::JSON::Object::Ptr>();
+    ExpectEq(resObj->getValue<int>("ErrorCode"), 500, "ErrorCode mapped");
+    ExpectEq(resObj->getValue<std::string>("ErrorDescription"), "Parental-control service error", "Generic ErrorDescription used");
+    ExpectEq(resObj->getValue<std::string>("ErrorDetails"), "parental_control_error", "Generic ErrorDetails used");
+}
+
+void TestForwardParentalControlErrorResponseOversizedCodeSanitized() {
+    FakeResponse response;
+    FakeRequest request("GET", "/test", "", response);
+    Poco::Logger &logger = Poco::Logger::get("TestLogger");
+    FakeRESTAPIHandler handler(logger, &request, &response);
+
+    std::string longCode(130, 'x');
+    Poco::JSON::Object::Ptr downstreamErr = new Poco::JSON::Object();
+    Poco::JSON::Object::Ptr errDetails = new Poco::JSON::Object();
+    errDetails->set("code", longCode);
+    errDetails->set("message", "Some error");
+    downstreamErr->set("error", errDetails);
+
+    OpenWifi::RESTAPI::ParentalControl::ForwardParentalControlErrorResponse(
+        &handler, Poco::Net::HTTPResponse::HTTP_BAD_REQUEST, downstreamErr);
+
+    ExpectEq(response.getStatus(), Poco::Net::HTTPResponse::HTTP_BAD_REQUEST, "HTTP status preserved");
+    Expect(response.body().find(longCode) == std::string::npos, "Oversized code not exposed");
+    Poco::JSON::Parser parser;
+    auto resObj = parser.parse(response.body()).extract<Poco::JSON::Object::Ptr>();
+    ExpectEq(resObj->getValue<int>("ErrorCode"), 400, "ErrorCode mapped");
+    ExpectEq(resObj->getValue<std::string>("ErrorDescription"), "Parental-control service error", "Generic ErrorDescription used");
+    ExpectEq(resObj->getValue<std::string>("ErrorDetails"), "parental_control_error", "Generic ErrorDetails used");
+}
+
+void TestForwardParentalControlErrorResponseOversizedMessageSanitized() {
+    FakeResponse response;
+    FakeRequest request("GET", "/test", "", response);
+    Poco::Logger &logger = Poco::Logger::get("TestLogger");
+    FakeRESTAPIHandler handler(logger, &request, &response);
+
+    std::string longMessage(1030, 'y');
+    Poco::JSON::Object::Ptr downstreamErr = new Poco::JSON::Object();
+    Poco::JSON::Object::Ptr errDetails = new Poco::JSON::Object();
+    errDetails->set("code", "invalid_request");
+    errDetails->set("message", longMessage);
+    downstreamErr->set("error", errDetails);
+
+    OpenWifi::RESTAPI::ParentalControl::ForwardParentalControlErrorResponse(
+        &handler, Poco::Net::HTTPResponse::HTTP_BAD_REQUEST, downstreamErr);
+
+    ExpectEq(response.getStatus(), Poco::Net::HTTPResponse::HTTP_BAD_REQUEST, "HTTP status preserved");
+    Expect(response.body().find(longMessage) == std::string::npos, "Oversized message not exposed");
+    Poco::JSON::Parser parser;
+    auto resObj = parser.parse(response.body()).extract<Poco::JSON::Object::Ptr>();
+    ExpectEq(resObj->getValue<int>("ErrorCode"), 400, "ErrorCode mapped");
+    ExpectEq(resObj->getValue<std::string>("ErrorDescription"), "Parental-control service error", "Generic ErrorDescription used");
+    ExpectEq(resObj->getValue<std::string>("ErrorDetails"), "parental_control_error", "Generic ErrorDetails used");
 }
 
 void TestForwardParentalControlErrorResponseMalformedOrEmptyFallback() {
@@ -1436,7 +1561,12 @@ const std::vector<std::pair<std::string, std::function<void()>>> kTests = {
     {"HandleParentalControlMutationResultBehaviorPreservation", TestHandleParentalControlMutationResultBehaviorPreservation},
     {"ForwardParentalControlErrorResponseStandardMapping", TestForwardParentalControlErrorResponseStandardMapping},
     {"ForwardParentalControlErrorResponseMissingMessageFallback", TestForwardParentalControlErrorResponseMissingMessageFallback},
+    {"ForwardParentalControlErrorResponseKnownCodeUnsafeMessageSanitized", TestForwardParentalControlErrorResponseKnownCodeUnsafeMessageSanitized},
     {"ForwardParentalControlErrorResponseMissingCodeFallback", TestForwardParentalControlErrorResponseMissingCodeFallback},
+    {"ForwardParentalControlErrorResponseStorageFailureSanitized", TestForwardParentalControlErrorResponseStorageFailureSanitized},
+    {"ForwardParentalControlErrorResponseUnknownCodeSanitized", TestForwardParentalControlErrorResponseUnknownCodeSanitized},
+    {"ForwardParentalControlErrorResponseOversizedCodeSanitized", TestForwardParentalControlErrorResponseOversizedCodeSanitized},
+    {"ForwardParentalControlErrorResponseOversizedMessageSanitized", TestForwardParentalControlErrorResponseOversizedMessageSanitized},
     {"ForwardParentalControlErrorResponseMalformedOrEmptyFallback", TestForwardParentalControlErrorResponseMalformedOrEmptyFallback},
     {"HandleParentalControlMutationResultFailureForwarding", TestHandleParentalControlMutationResultFailureForwarding},
     {"GetBlockedClientsIncompleteRuleMissingEnabled", TestGetBlockedClientsIncompleteRuleMissingEnabled},
