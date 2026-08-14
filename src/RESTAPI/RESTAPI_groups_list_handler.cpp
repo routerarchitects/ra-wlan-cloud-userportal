@@ -5,6 +5,7 @@
  */
 
 #include "RESTAPI_groups_list_handler.h"
+#include "RESTAPI_parental_control_utils.h"
 #include "sdks/SDK_parental_control.h"
 #include "Poco/JSON/Stringifier.h"
 
@@ -25,7 +26,7 @@ namespace OpenWifi {
 			Poco::JSON::Stringifier::condense(*arrayResponse, ss);
 			return ReturnRawJSON(ss.str());
 		}
-		return ForwardErrorResponse(this, callStatus, errorResponse);
+		return RESTAPI::ParentalControl::ForwardParentalControlErrorResponse(this, callStatus, errorResponse);
 	}
 
 	void RESTAPI_groups_list_handler::DoPost() {
@@ -81,7 +82,7 @@ namespace OpenWifi {
 		                                      callResponse)) {
 			return ReturnObject(*callResponse);
 		}
-		return ForwardErrorResponse(this, callStatus, callResponse);
+		return RESTAPI::ParentalControl::ForwardParentalControlErrorResponse(this, callStatus, callResponse);
 	}
 
 } // namespace OpenWifi

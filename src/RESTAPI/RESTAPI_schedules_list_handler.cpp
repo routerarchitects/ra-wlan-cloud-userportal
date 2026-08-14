@@ -27,7 +27,7 @@ namespace OpenWifi {
 
 		if (!SDK::ParentalControl::GetSchedules(this, UserInfo_.userinfo.id, callStatus,
 												arrayResponse, errorResponse)) {
-			return ForwardErrorResponse(this, callStatus, errorResponse);
+			return RESTAPI::ParentalControl::ForwardParentalControlErrorResponse(this, callStatus, errorResponse);
 		}
 
 		for (std::size_t i = 0; i < arrayResponse->size(); ++i) {
@@ -73,7 +73,7 @@ namespace OpenWifi {
 
 		if (!SDK::ParentalControl::CreateSchedule(this, UserInfo_.userinfo.id, body, callStatus,
 												  callResponse)) {
-			return ForwardErrorResponse(this, callStatus, callResponse);
+			return RESTAPI::ParentalControl::ForwardParentalControlErrorResponse(this, callStatus, callResponse);
 		}
 
 		if (!RESTAPI::ParentalControl::NormalizeScheduleResponse(callResponse, timezone)) {

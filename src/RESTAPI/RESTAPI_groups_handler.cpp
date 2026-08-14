@@ -34,7 +34,7 @@ namespace OpenWifi {
 										   callResponse)) {
 			return ReturnObject(*callResponse);
 		}
-		return ForwardErrorResponse(this, callStatus, callResponse);
+		return RESTAPI::ParentalControl::ForwardParentalControlErrorResponse(this, callStatus, callResponse);
 	}
 
 	void RESTAPI_groups_handler::DoPut() {
@@ -98,7 +98,7 @@ namespace OpenWifi {
 											  callStatus, callResponse)) {
 			return ReturnObject(*callResponse);
 		}
-		return ForwardErrorResponse(this, callStatus, callResponse);
+		return RESTAPI::ParentalControl::ForwardParentalControlErrorResponse(this, callStatus, callResponse);
 	}
 
 	void RESTAPI_groups_handler::DoDelete() {

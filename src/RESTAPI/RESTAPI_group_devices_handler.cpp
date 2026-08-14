@@ -36,7 +36,7 @@ namespace OpenWifi {
 
 		if (!SDK::ParentalControl::GetGroupDevice(this, UserInfo_.userinfo.id, groupId, normalizedMac,
 												 callStatus, callResponse)) {
-			return ForwardErrorResponse(this, callStatus, callResponse);
+			return RESTAPI::ParentalControl::ForwardParentalControlErrorResponse(this, callStatus, callResponse);
 		}
 
 		return ReturnObject(*callResponse);

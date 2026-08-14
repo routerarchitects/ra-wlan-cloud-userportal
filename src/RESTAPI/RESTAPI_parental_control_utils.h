@@ -103,9 +103,12 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 										const std::string &gatewaySerial = "");
 
 
-	// =========================================================================
-	// HTTP/Result Mapping Helpers
-	// =========================================================================
+	// Forwards a parental-control error response through UserPortal. Normalizes the error body if it matches
+	// the parental-control error shape; otherwise falls back to standard ForwardErrorResponse.
+	void ForwardParentalControlErrorResponse(
+		RESTAPIHandler *handler,
+		Poco::Net::HTTPResponse::HTTPStatus status,
+		const Poco::JSON::Object::Ptr &downstreamResponse);
 
 	bool HandleApplyConfigRawResult(RESTAPIHandler &handler, ApplyConfigRawResult result);
 
