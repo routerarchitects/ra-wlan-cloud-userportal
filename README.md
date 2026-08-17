@@ -7,7 +7,7 @@
 # Mango Cloud - OpenWiFi User Self-Care Portal (OWSUB)
 
 ## Overview
-The OpenWiFi User Self-Care Portal (OWSUB) is the subscriber management and self-care service used within [Mango Cloud](https://www.mangowifi.cloud/), Router Architects’ open-source OpenLAN/OpenWiFi managed Wi-Fi platform.
+The OpenWiFi User Self-Care Portal (OWSUB) is the subscriber management and self-care service used within Mango Cloud, Router Architects’ open-source OpenLAN/OpenWiFi cloud controller and managed Wi-Fi platform.
 
 OWSUB is based on the Telecom Infra Project (TIP) OpenWiFi CloudSDK architecture and provides subscriber-facing APIs for account management, device onboarding, subscriber-specific Wi-Fi configuration, and self-service workflows.
 
