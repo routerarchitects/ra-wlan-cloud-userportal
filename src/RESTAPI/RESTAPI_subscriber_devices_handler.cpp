@@ -50,7 +50,7 @@ namespace OpenWifi {
 		} else {
 			Logger().error(
 				fmt::format("Failed to fetch subscriber devices for subscriber [{}], status [{}].",
-							UserInfo_.userinfo.id, status));
+							UserInfo_.userinfo.id, static_cast<int>(status)));
 			InternalError(RESTAPI::Errors::AddDeviceFailed);
 			return false;
 		}

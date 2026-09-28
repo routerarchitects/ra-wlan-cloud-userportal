@@ -7,7 +7,8 @@
 //
 
 #pragma once
-
+#include <cstdint>
+#include <optional>
 #include <array>
 #include <ctime>
 #include <fstream>

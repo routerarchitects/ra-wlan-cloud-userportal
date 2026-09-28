@@ -6,6 +6,7 @@
 #include "framework/MicroService.h"
 
 #include "framework/ALBserver.h"
+#include <optional>
 
 #include "Poco/Environment.h"
 #include <algorithm>

@@ -43,6 +43,11 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: Verify log redaction patterns
+        run: |
+          chmod +x test_scripts/ci/sanitize_logs.sh test_scripts/ci/test_sanitize_logs.sh
+          ./test_scripts/ci/test_sanitize_logs.sh
+
       - name: Build UserPortal Docker Image
         run: |
           echo "Building UserPortal using repo-native Dockerfile..."
@@ -141,10 +146,7 @@ jobs:
           done
 
           if [ "$READY" -eq 0 ]; then
-            echo "UserPortal failed to start! Container logs:"
-            docker logs userportal
-            echo "Fake server logs:"
-            cat fake_server.log
+            echo "UserPortal failed to start within timeout!"
             exit 1
           fi
 
@@ -155,109 +157,125 @@ jobs:
           USERPORTAL_URL: https://localhost:16006
         run: |
           echo "Running Python contract tests..."
-          if ! python3 test_scripts/integration/test_groups_contract.py; then
-            echo "Contract tests failed! Container logs:"
-            docker logs userportal
-            echo "Fake server logs:"
-            cat fake_server.log
-            exit 1
-          fi
+          python3 test_scripts/integration/test_groups_contract.py
 
       - name: Run Groups Integration Tests
         env:
           USERPORTAL_URL: https://localhost:16006
         run: |
           echo "Running Python integration tests..."
-          if ! python3 test_scripts/integration/test_groups_api.py; then
-            echo "Integration tests failed! Container logs:"
-            docker logs userportal
-            echo "Fake server logs:"
-            cat fake_server.log
-            exit 1
-          fi
+          python3 test_scripts/integration/test_groups_api.py
 
       - name: Run Schedules Contract Tests
         env:
           USERPORTAL_URL: https://localhost:16006
         run: |
           echo "Running Schedules contract tests..."
-          if ! python3 test_scripts/integration/test_schedules_contract.py; then
-            echo "Schedules contract tests failed! Container logs:"
-            docker logs userportal
-            echo "Fake server logs:"
-            cat fake_server.log
-            exit 1
-          fi
+          python3 test_scripts/integration/test_schedules_contract.py
 
       - name: Run Schedules Integration Tests
         env:
           USERPORTAL_URL: https://localhost:16006
         run: |
           echo "Running Schedules integration tests..."
-          if ! python3 test_scripts/integration/test_schedules_api.py; then
-            echo "Schedules integration tests failed! Container logs:"
-            docker logs userportal
-            echo "Fake server logs:"
-            cat fake_server.log
-            exit 1
-          fi
+          python3 test_scripts/integration/test_schedules_api.py
 
       - name: Run Group-Devices Contract Tests
         env:
           USERPORTAL_URL: https://localhost:16006
         run: |
           echo "Running Group-Devices contract tests..."
-          if ! python3 test_scripts/integration/test_group_devices_contract.py; then
-            echo "Group-Devices contract tests failed! Container logs:"
-            docker logs userportal
-            echo "Fake server logs:"
-            cat fake_server.log
-            exit 1
-          fi
+          python3 test_scripts/integration/test_group_devices_contract.py
 
       - name: Run Group-Devices Integration Tests
         env:
           USERPORTAL_URL: https://localhost:16006
         run: |
           echo "Running Group-Devices integration tests..."
-          if ! python3 test_scripts/integration/test_group_devices_api.py; then
-            echo "Group-Devices integration tests failed! Container logs:"
-            docker logs userportal
-            echo "Fake server logs:"
-            cat fake_server.log
-            exit 1
-          fi
+          python3 test_scripts/integration/test_group_devices_api.py
 
       - name: Run Group-Schedules Contract Tests
         env:
           USERPORTAL_URL: https://localhost:16006
         run: |
           echo "Running Group-Schedules contract tests..."
-          if ! python3 test_scripts/integration/test_group_schedules_contract.py; then
-            echo "Group-Schedules contract tests failed! Container logs:"
-            docker logs userportal
-            echo "Fake server logs:"
-            cat fake_server.log
-            exit 1
-          fi
+          python3 test_scripts/integration/test_group_schedules_contract.py
 
       - name: Run Group-Schedules Integration Tests
         env:
           USERPORTAL_URL: https://localhost:16006
         run: |
           echo "Running Group-Schedules integration tests..."
-          if ! python3 test_scripts/integration/test_group_schedules_api.py; then
-            echo "Group-Schedules integration tests failed! Container logs:"
-            docker logs userportal
-            echo "Fake server logs:"
-            cat fake_server.log
-            exit 1
-          fi
+          python3 test_scripts/integration/test_group_schedules_api.py
 
-      - name: Print UserPortal Logs on Failure
+      - name: Collect and Sanitize Diagnostic Logs on Failure
         if: failure()
         run: |
-          docker logs userportal
+          mkdir -p ci-logs
+          COLLECTION_FAILED=0
+
+          echo "Collecting bounded, sanitized UserPortal logs..."
+          if ! (set -o pipefail; docker logs userportal 2>&1 | tail -500 | ./test_scripts/ci/sanitize_logs.sh > ci-logs/userportal-debug.log); then
+            echo "::warning::Failed to collect or sanitize UserPortal container logs"
+            COLLECTION_FAILED=1
+          fi
+          if [ ! -s ci-logs/userportal-debug.log ]; then
+            echo "::warning::ci-logs/userportal-debug.log is empty or missing"
+            COLLECTION_FAILED=1
+          fi
+
+          echo "Collecting bounded, sanitized fake server logs..."
+          if [ -f fake_server.log ]; then
+            if ! (set -o pipefail; tail -200 fake_server.log 2>&1 | ./test_scripts/ci/sanitize_logs.sh > ci-logs/fake-server-debug.log); then
+              echo "::warning::Failed to collect or sanitize fake server logs"
+              COLLECTION_FAILED=1
+            fi
+            if [ ! -s ci-logs/fake-server-debug.log ]; then
+              echo "::warning::ci-logs/fake-server-debug.log is empty or missing"
+              COLLECTION_FAILED=1
+            fi
+          else
+            echo "::warning::fake_server.log was not found on runner"
+            COLLECTION_FAILED=1
+          fi
+
+          {
+            echo "UserPortal CI Diagnostic Collection Status"
+            echo "Timestamp: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+            if [ -s ci-logs/userportal-debug.log ]; then
+              echo "userportal-debug.log: COLLECTED ($(wc -l < ci-logs/userportal-debug.log) lines)"
+            else
+              echo "userportal-debug.log: FAILED or EMPTY"
+            fi
+            if [ -s ci-logs/fake-server-debug.log ]; then
+              echo "fake-server-debug.log: COLLECTED ($(wc -l < ci-logs/fake-server-debug.log) lines)"
+            elif [ ! -f fake_server.log ]; then
+              echo "fake-server-debug.log: NOT_FOUND (fake_server.log was not found on runner)"
+            else
+              echo "fake-server-debug.log: FAILED or EMPTY"
+            fi
+          } > ci-logs/collection-status.txt
+
+          if [ "$COLLECTION_FAILED" -ne 0 ]; then
+            echo "::warning::Diagnostic collection failed; failure artifact may be incomplete"
+          fi
+
+          echo "=== UserPortal Logs (last 50 lines, sanitized) ==="
+          tail -50 ci-logs/userportal-debug.log 2>/dev/null || true
+          echo "=== Fake Server Logs (last 50 lines, sanitized) ==="
+          tail -50 ci-logs/fake-server-debug.log 2>/dev/null || true
+          echo "Full diagnostic logs are uploaded as artifact: userportal-ci-failure-logs"
+
+      - name: Upload Diagnostic Logs on Failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: userportal-ci-failure-logs
+          path: |
+            ci-logs/*.log
+            ci-logs/collection-status.txt
+          retention-days: 7
+          if-no-files-found: warn
 
       - name: Cleanup
         if: always()

@@ -7,7 +7,7 @@
 #include <string>
 
 #include "framework/OpenWifiTypes.h"
-
+#include <optional>
 #include "Poco/JSON/Object.h"
 #include "Poco/JWT/Token.h"
 #include "Poco/Net/HTTPServerRequest.h"

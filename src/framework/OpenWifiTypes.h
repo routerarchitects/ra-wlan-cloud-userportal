@@ -3,7 +3,8 @@
 //
 
 #pragma once
-
+#include <optional>
+#include <cstdint>
 #include <functional>
 #include <list>
 #include <map>
