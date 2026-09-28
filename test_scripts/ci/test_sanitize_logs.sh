@@ -15,6 +15,9 @@ echo "Running log sanitization pattern verification tests..."
 
 TEST_INPUT=$(cat <<'EOF'
 [DEBUG] Authorization: Bearer dummy-bearer-token-12345
+[DEBUG] Authorization: bearer lowercase-bearer-token
+[DEBUG] authorization:Bearer nospace-bearer-token
+[DEBUG] Authorization = Bearer equals-bearer-token
 [DEBUG] Authorization: Basic dXNlcjpwYXNz
 [DEBUG] Authorization: Basic unencoded_username:unencoded_password
 [DEBUG] Authorization: Bearer abc123 request completed status=200
@@ -27,6 +30,21 @@ TEST_INPUT=$(cat <<'EOF'
 [DEBUG] Incoming payload: {"token": "json-token-secret-999", "password": "super-secret-password", "client_secret": "app-secret-key"}
 [DEBUG] Python dict: {'token': 'single-quoted-token', 'password': 'single-quoted-password'}
 [DEBUG] Simple colon: password: secret-pw
+[DEBUG] No space colon: password:secret-no-space
+[DEBUG] Upper space colon: PASSWORD : space-colon-secret
+[DEBUG] Environment: PASSWORD="quoted-password"
+[DEBUG] Environment: TOKEN='quoted-token'
+[DEBUG] Environment: API_KEY="quoted-api-key"
+[DEBUG] Property: storage.password = "quoted-db-password"
+[DEBUG] Token prefix: access_token=access-token-12345
+[DEBUG] Token prefix: refresh_token=refresh-token-67890
+[DEBUG] Environment: cookie=session-cookie-val
+[DEBUG] Header: Cookie: session="cookie-secret"; other=second-cookie-val; Path=/
+[DEBUG] Header: Set-Cookie: session="set-cookie-secret"; id=second-set-cookie-val; Secure; HttpOnly
+[DEBUG] Header: Cookie: session='single-quoted-cookie-secret'
+[DEBUG] JSON: {"cookie": "quoted-cookie-secret"}
+[DEBUG] Request URI with tokens: /api/v1/user?access_token=url-access-token&refresh_token=url-refresh-token&cookie=url-cookie-val
+[DEBUG] JSON null value: {"password": null, "token": null}
 [DEBUG] Environment: STORAGE_TYPE_POSTGRESQL_PASSWORD=postgres-pw-secret
 [DEBUG] Environment: RESTAPI_HOST_KEY_PASSWORD=ssl-key-pw-secret
 [DEBUG] Environment: SERVICE_KEY_PASSWORD=service-pw-secret
@@ -41,10 +59,13 @@ EOF
 
 SANITIZED=$(echo "$TEST_INPUT" | "${SANITIZER}")
 
-# Check 1: Ensure sensitive values are not present
+# Check 1: Ensure all sensitive secret values are redacted (none leaked)
 LEAKED=0
 for secret in \
   "dummy-bearer-token-12345" \
+  "lowercase-bearer-token" \
+  "nospace-bearer-token" \
+  "equals-bearer-token" \
   "dXNlcjpwYXNz" \
   "unencoded_username:unencoded_password" \
   "abc123" \
@@ -58,6 +79,24 @@ for secret in \
   "single-quoted-token" \
   "single-quoted-password" \
   "secret-pw" \
+  "secret-no-space" \
+  "space-colon-secret" \
+  "quoted-password" \
+  "quoted-token" \
+  "quoted-api-key" \
+  "quoted-db-password" \
+  "access-token-12345" \
+  "refresh-token-67890" \
+  "session-cookie-val" \
+  "cookie-secret" \
+  "second-cookie-val" \
+  "set-cookie-secret" \
+  "second-set-cookie-val" \
+  "single-quoted-cookie-secret" \
+  "quoted-cookie-secret" \
+  "url-access-token" \
+  "url-refresh-token" \
+  "url-cookie-val" \
   "postgres-pw-secret" \
   "ssl-key-pw-secret" \
   "service-pw-secret" \
@@ -76,14 +115,31 @@ if [ "$LEAKED" -ne 0 ]; then
   exit 1
 fi
 
-# Check 2: Ensure [REDACTED] replacement exists
+# Check 2: Ensure redactions were performed across all expected categories
 REDACTED_COUNT=$(echo "$SANITIZED" | grep -o "\[REDACTED\]" | wc -l)
-if [ "$REDACTED_COUNT" -lt 16 ]; then
-  echo "FAIL: Expected at least 16 [REDACTED] replacements, found $REDACTED_COUNT"
-  echo "Sanitized output:"
-  echo "$SANITIZED"
+if [ "$REDACTED_COUNT" -eq 0 ]; then
+  echo "FAIL: No [REDACTED] markers found in output"
   exit 1
 fi
+
+for expected_pattern in \
+  'Authorization: Bearer \[REDACTED\]' \
+  'Cookie: \[REDACTED\]' \
+  'Set-Cookie: \[REDACTED\]' \
+  'access_token=\[REDACTED\]' \
+  'refresh_token=\[REDACTED\]' \
+  'cookie=\[REDACTED\]' \
+  '{"cookie": "\[REDACTED\]"}' \
+  'PASSWORD="\[REDACTED\]"' \
+  'TOKEN='\''\[REDACTED\]'\''' \
+  '"password": "\[REDACTED\]"' \
+  'storage.type.postgresql.password = \[REDACTED\]' \
+  '\?access_token=\[REDACTED\]'; do
+  if ! echo "$SANITIZED" | grep -q "$expected_pattern"; then
+    echo "FAIL: Expected category pattern was not redacted: $expected_pattern"
+    exit 1
+  fi
+done
 
 # Check 3: Ensure non-sensitive diagnostic logs are preserved
 if ! echo "$SANITIZED" | grep -q 'GET /api/v1/groups?serialNumber=112233445566 HTTP/1.1 200 OK'; then
@@ -121,9 +177,15 @@ for safe_pattern in "monkey=banana" "turnkey=enabled" "hockey=ice" "&user=sub1";
   fi
 done
 
-echo "Log pattern verification: PASS (${REDACTED_COUNT} patterns successfully redacted)"
+# Check 7: Ensure JSON null literals are preserved
+if ! echo "$SANITIZED" | grep -q '{"password": null, "token": null}'; then
+  echo "FAIL: Non-string JSON literal was altered or corrupted: expected '{\"password\": null, \"token\": null}'"
+  exit 1
+fi
 
-# Check 7: Pipeline Simulation Test (Testing stream -> tail -> sanitize -> file)
+echo "Log pattern verification: PASS (all secrets verified redacted across categories, non-credentials & JSON nulls preserved)"
+
+# Check 8: Pipeline Simulation Test (Testing stream -> tail -> sanitize -> file)
 echo "Running CI pipeline simulation test..."
 TEMP_DIR="$(mktemp -d)"
 trap 'rm -rf "${TEMP_DIR}"' EXIT
