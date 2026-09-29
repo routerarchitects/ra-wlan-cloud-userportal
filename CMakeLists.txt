@@ -217,6 +217,20 @@ if(BUILD_TESTING)
     target_link_options(test_sdk_parental_control PRIVATE "-Wl,-rpath,/usr/local/lib")
     add_test(NAME test_sdk_parental_control COMMAND test_sdk_parental_control)
 
+    # test_groups_handlers
+    add_executable(test_groups_handlers tests/unit/test_groups_handlers.cpp)
+    target_include_directories(test_groups_handlers PRIVATE src)
+    target_link_libraries(test_groups_handlers PRIVATE
+        ${Poco_LIBRARIES}
+        ${MySQL_LIBRARIES}
+        ${ZLIB_LIBRARIES}
+        CppKafka::cppkafka
+        resolv
+        fmt::fmt
+    )
+    target_link_options(test_groups_handlers PRIVATE "-Wl,-rpath,/usr/local/lib")
+    add_test(NAME test_groups_handlers COMMAND test_groups_handlers)
+
     # test_group_devices_handlers
     add_executable(test_group_devices_handlers tests/unit/test_group_devices_handlers.cpp)
     target_include_directories(test_group_devices_handlers PRIVATE src)

@@ -849,6 +849,52 @@ components:
             - type: 'null'
       additionalProperties: false
 
+    GroupListItem:
+      type: object
+      description: Summary representation of one parental-control group returned by the group-list endpoint, including assigned device_count.
+      required:
+        - id
+        - subscriber_id
+        - group_config_index
+        - name
+        - created_at
+        - updated_at
+        - device_count
+      properties:
+        id:
+          type: string
+          format: uuid
+        subscriber_id:
+          type: string
+          format: uuid
+        group_config_index:
+          type: integer
+        name:
+          type: string
+        description:
+          oneOf:
+            - type: string
+            - type: 'null'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        config-raw:
+          oneOf:
+            - type: array
+              description: Raw UCI configuration commands generated for the group.
+              items:
+                type: array
+                items:
+                  type: string
+            - type: 'null'
+        device_count:
+          type: integer
+          minimum: 0
+      additionalProperties: false
+
     GroupCreateRequest:
       type: object
       description: Create request for one subscriber-scoped parental-control group.
@@ -1792,8 +1838,8 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/Group'
-        '401':
+                  $ref: '#/components/schemas/GroupListItem'
+        '403':
           $ref: '#/components/responses/Unauthorized'
         '500':
           $ref: '#/components/responses/InternalError'
