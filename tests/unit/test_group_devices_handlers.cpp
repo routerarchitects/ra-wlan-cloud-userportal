@@ -7,12 +7,14 @@
 #include "test_parental_control_test_helpers.h"
 #include "RESTAPI/RESTAPI_group_devices_handler.h"
 #include "RESTAPI/RESTAPI_group_devices_list_handler.h"
+#include "RESTAPI/RESTAPI_group_devices_list_v2_handler.h"
 
 namespace {
 
 const std::string kValidGroupId = "11111111-1111-4111-8111-111111111111";
 const std::string kInvalidGroupId = "bad-group-id";
 const std::string kValidMac = "AA:BB:CC:DD:EE:FF";
+const std::string kValidMac2 = "AA:BB:CC:DD:EE:02";
 const std::string kInvalidMac = "invalid-mac";
 
 std::string StripMac(const std::string &value) {
@@ -54,6 +56,10 @@ struct DeviceHandlerState {
     Poco::Net::HTTPResponse::HTTPStatus createStatus = Poco::Net::HTTPResponse::HTTP_OK;
     Poco::JSON::Object::Ptr createResponse = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
 
+    bool createV2Ok = true;
+    Poco::Net::HTTPResponse::HTTPStatus createV2Status = Poco::Net::HTTPResponse::HTTP_OK;
+    Poco::JSON::Object::Ptr createV2Response = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+
     bool getSingleOk = true;
     Poco::Net::HTTPResponse::HTTPStatus getSingleStatus = Poco::Net::HTTPResponse::HTTP_OK;
     Poco::JSON::Object::Ptr getSingleResponse = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
@@ -69,6 +75,7 @@ struct DeviceHandlerState {
         OpenWifi::RESTAPI::ParentalControl::ApplyConfigRawResult::Applied;
 
     int createCalls = 0;
+    int createV2Calls = 0;
     int deleteCalls = 0;
     std::string lastSubscriberId;
     std::string lastOperatorId;
@@ -78,6 +85,7 @@ struct DeviceHandlerState {
     OpenWifi::RESTAPI::ParentalControl::MutationSuccessResponse lastSuccessResponse =
         OpenWifi::RESTAPI::ParentalControl::MutationSuccessResponse::Ok;
     std::string lastClientMac;
+    std::vector<std::string> lastClientMacs;
     std::string lastGatewaySerial;
 };
 
@@ -88,6 +96,7 @@ void ResetState() {
     g_state.getListArray = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
     g_state.getListError = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
     g_state.createResponse = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+    g_state.createV2Response = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
     g_state.getSingleResponse = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
     g_state.deleteResponse = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
     g_state.extractedConfigRaw = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
@@ -96,6 +105,13 @@ void ResetState() {
 class TestGroupDevicesListHandler final : public OpenWifi::RESTAPI_group_devices_list_handler {
   public:
     using OpenWifi::RESTAPI_group_devices_list_handler::RESTAPI_group_devices_list_handler;
+
+    void setParsedBody(const Poco::JSON::Object::Ptr &body) { ParsedBody_ = body; }
+};
+
+class TestGroupDevicesListV2Handler final : public OpenWifi::RESTAPI_group_devices_list_v2_handler {
+  public:
+    using OpenWifi::RESTAPI_group_devices_list_v2_handler::RESTAPI_group_devices_list_v2_handler;
 
     void setParsedBody(const Poco::JSON::Object::Ptr &body) { ParsedBody_ = body; }
 };
@@ -227,6 +243,26 @@ bool CreateGroupDevice(RESTAPIHandler *, const std::string &subscriberId, const 
     return g_state.createOk;
 }
 
+bool CreateGroupDevicesV2(RESTAPIHandler *, const std::string &subscriberId, const std::string &groupId,
+                         const Poco::JSON::Object &body, Poco::Net::HTTPResponse::HTTPStatus &callStatus,
+                         Poco::JSON::Object::Ptr &callResponse) {
+    ++g_state.createV2Calls;
+    g_state.lastSubscriberId = subscriberId;
+    g_state.lastGroupId = groupId;
+    g_state.lastClientMacs.clear();
+    if (body.has("client_macs") && body.isArray("client_macs")) {
+        auto arr = body.getArray("client_macs");
+        if (arr) {
+            for (std::size_t i = 0; i < arr->size(); ++i) {
+                g_state.lastClientMacs.push_back(arr->getElement<std::string>(i));
+            }
+        }
+    }
+    callStatus = g_state.createV2Status;
+    callResponse = g_state.createV2Response;
+    return g_state.createV2Ok;
+}
+
 bool GetGroupDevice(RESTAPIHandler *, const std::string &subscriberId, const std::string &groupId,
                     const std::string &clientMac, Poco::Net::HTTPResponse::HTTPStatus &callStatus,
                     Poco::JSON::Object::Ptr &callResponse) {
@@ -254,6 +290,7 @@ bool DeleteGroupDevice(RESTAPIHandler *, const std::string &subscriberId, const 
 } // namespace OpenWifi::SDK::ParentalControl
 
 #include "../../src/RESTAPI/RESTAPI_group_devices_list_handler.cpp"
+#include "../../src/RESTAPI/RESTAPI_group_devices_list_v2_handler.cpp"
 #include "../../src/RESTAPI/RESTAPI_group_devices_handler.cpp"
 
 namespace {
@@ -396,6 +433,215 @@ void TestDeleteReturnsOkOnSuccess() {
     );
 }
 
+void TestV2PostSuccessSingleDevice() {
+    auto responseObject = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+    auto devicesArr = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
+    auto dev = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+    dev->set("client_mac", "aa:bb:cc:dd:ee:ff");
+    devicesArr->add(dev);
+    responseObject->set("devices", devicesArr);
+    responseObject->set("config-raw", Poco::JSON::Array::Ptr(new Poco::JSON::Array()));
+    g_state.createV2Response = responseObject;
+
+    RunHandlerRequest<TestGroupDevicesListV2Handler>(
+        Poco::Net::HTTPRequest::HTTP_POST,
+        "/api/v2/groups/x/devices",
+        "{\"client_macs\":[\"AA:BB:CC:DD:EE:FF\"]}",
+        {{"group_id", kValidGroupId}},
+        "subscriber-1",
+        "operator-1",
+        Poco::Net::HTTPResponse::HTTP_OK,
+        [](TestGroupDevicesListV2Handler &handler) {
+            auto body = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+            auto arr = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
+            arr->add(kValidMac);
+            body->set("client_macs", arr);
+            handler.setParsedBody(body);
+        },
+        [](const FakeResponse &response) {
+            ExpectEq(g_state.createV2Calls, 1, "Exactly one V2 downstream call should be made");
+            ExpectEq(g_state.createCalls, 0, "V1 downstream call must not be made for V2");
+            ExpectEq(g_state.lastClientMacs.size(), static_cast<std::size_t>(1), "Should pass one MAC to V2 downstream");
+            ExpectEq(g_state.lastClientMacs[0], std::string(kValidMac), "MAC should match normalized colon format");
+            auto parsed = ParseObject(response.body());
+            Expect(parsed->has("devices"), "Response must have devices array");
+            Expect(!parsed->has("config-raw"), "Response must strip config-raw");
+        }
+    );
+}
+
+void TestV2PostSuccessMultipleDevices() {
+    auto responseObject = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+    auto devicesArr = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
+    devicesArr->add(Poco::JSON::Object::Ptr(new Poco::JSON::Object()));
+    devicesArr->add(Poco::JSON::Object::Ptr(new Poco::JSON::Object()));
+    responseObject->set("devices", devicesArr);
+    responseObject->set("config-raw", Poco::JSON::Array::Ptr(new Poco::JSON::Array()));
+    g_state.createV2Response = responseObject;
+
+    RunHandlerRequest<TestGroupDevicesListV2Handler>(
+        Poco::Net::HTTPRequest::HTTP_POST,
+        "/api/v2/groups/x/devices",
+        "{\"client_macs\":[\"AA:BB:CC:DD:EE:FF\",\"AA:BB:CC:DD:EE:02\"]}",
+        {{"group_id", kValidGroupId}},
+        "subscriber-1",
+        "operator-1",
+        Poco::Net::HTTPResponse::HTTP_OK,
+        [](TestGroupDevicesListV2Handler &handler) {
+            auto body = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+            auto arr = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
+            arr->add(kValidMac);
+            arr->add(kValidMac2);
+            body->set("client_macs", arr);
+            handler.setParsedBody(body);
+        },
+        [](const FakeResponse &response) {
+            ExpectEq(g_state.createV2Calls, 1, "Bulk request must result in exactly ONE downstream V2 call");
+            ExpectEq(g_state.createCalls, 0, "V1 downstream call must not be made");
+            ExpectEq(g_state.lastClientMacs.size(), static_cast<std::size_t>(2), "Should pass all MACs in single downstream call");
+            ExpectEq(g_state.lastClientMacs[0], std::string(kValidMac), "First MAC normalized");
+            ExpectEq(g_state.lastClientMacs[1], std::string(kValidMac2), "Second MAC normalized");
+            auto parsed = ParseObject(response.body());
+            Expect(parsed->has("devices"), "Response must have devices array");
+        }
+    );
+}
+
+void TestV2PostRejectsStringClientMacs() {
+    RunHandlerRequest<TestGroupDevicesListV2Handler>(
+        Poco::Net::HTTPRequest::HTTP_POST,
+        "/api/v2/groups/x/devices",
+        "{\"client_macs\":\"AA:BB:CC:DD:EE:FF\"}",
+        {{"group_id", kValidGroupId}},
+        "subscriber-1",
+        "operator-1",
+        Poco::Net::HTTPResponse::HTTP_BAD_REQUEST,
+        [](TestGroupDevicesListV2Handler &handler) {
+            auto body = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+            body->set("client_macs", kValidMac); // String instead of array
+            handler.setParsedBody(body);
+        },
+        [](const FakeResponse &) {
+            ExpectEq(g_state.createV2Calls, 0, "No downstream call when client_macs is string");
+        }
+    );
+}
+
+void TestV2PostRejectsLegacyClientMac() {
+    RunHandlerRequest<TestGroupDevicesListV2Handler>(
+        Poco::Net::HTTPRequest::HTTP_POST,
+        "/api/v2/groups/x/devices",
+        "{\"client_mac\":\"AA:BB:CC:DD:EE:FF\"}",
+        {{"group_id", kValidGroupId}},
+        "subscriber-1",
+        "operator-1",
+        Poco::Net::HTTPResponse::HTTP_BAD_REQUEST,
+        [](TestGroupDevicesListV2Handler &handler) {
+            auto body = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+            body->set("client_mac", kValidMac); // Legacy V1 field
+            handler.setParsedBody(body);
+        },
+        [](const FakeResponse &) {
+            ExpectEq(g_state.createV2Calls, 0, "No downstream call when legacy client_mac is provided to V2");
+        }
+    );
+}
+
+void TestV2PostRejectsEmptyArray() {
+    RunHandlerRequest<TestGroupDevicesListV2Handler>(
+        Poco::Net::HTTPRequest::HTTP_POST,
+        "/api/v2/groups/x/devices",
+        "{\"client_macs\":[]}",
+        {{"group_id", kValidGroupId}},
+        "subscriber-1",
+        "operator-1",
+        Poco::Net::HTTPResponse::HTTP_BAD_REQUEST,
+        [](TestGroupDevicesListV2Handler &handler) {
+            auto body = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+            body->set("client_macs", Poco::JSON::Array::Ptr(new Poco::JSON::Array()));
+            handler.setParsedBody(body);
+        },
+        [](const FakeResponse &) {
+            ExpectEq(g_state.createV2Calls, 0, "No downstream call for empty client_macs array");
+        }
+    );
+}
+
+void TestV2PostPropagatesConflict() {
+    g_state.createV2Ok = false;
+    g_state.createV2Status = Poco::Net::HTTPResponse::HTTP_CONFLICT;
+    auto errObj = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+    errObj->set("error", "conflict");
+    errObj->set("message", "device_already_assigned");
+    g_state.createV2Response = errObj;
+
+    RunHandlerRequest<TestGroupDevicesListV2Handler>(
+        Poco::Net::HTTPRequest::HTTP_POST,
+        "/api/v2/groups/x/devices",
+        "{\"client_macs\":[\"AA:BB:CC:DD:EE:FF\"]}",
+        {{"group_id", kValidGroupId}},
+        "subscriber-1",
+        "operator-1",
+        Poco::Net::HTTPResponse::HTTP_CONFLICT,
+        [](TestGroupDevicesListV2Handler &handler) {
+            auto body = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+            auto arr = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
+            arr->add(kValidMac);
+            body->set("client_macs", arr);
+            handler.setParsedBody(body);
+        },
+        [](const FakeResponse &) {
+            ExpectEq(g_state.createV2Calls, 1, "Downstream call made");
+        }
+    );
+}
+
+void TestV2PostRejectsMalformedMac() {
+    RunHandlerRequest<TestGroupDevicesListV2Handler>(
+        Poco::Net::HTTPRequest::HTTP_POST,
+        "/api/v2/groups/x/devices",
+        "{\"client_macs\":[\"not-a-valid-mac\"]}",
+        {{"group_id", kValidGroupId}},
+        "subscriber-1",
+        "operator-1",
+        Poco::Net::HTTPResponse::HTTP_BAD_REQUEST,
+        [](TestGroupDevicesListV2Handler &handler) {
+            auto body = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+            auto arr = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
+            arr->add(std::string("not-a-valid-mac"));
+            body->set("client_macs", arr);
+            handler.setParsedBody(body);
+        },
+        [](const FakeResponse &) {
+            ExpectEq(g_state.createV2Calls, 0, "No downstream call for malformed MAC in client_macs");
+        }
+    );
+}
+
+void TestV2PostRejectsExceedingMaxMacs() {
+    RunHandlerRequest<TestGroupDevicesListV2Handler>(
+        Poco::Net::HTTPRequest::HTTP_POST,
+        "/api/v2/groups/x/devices",
+        "{\"client_macs\":[/* 101 macs */]}",
+        {{"group_id", kValidGroupId}},
+        "subscriber-1",
+        "operator-1",
+        Poco::Net::HTTPResponse::HTTP_BAD_REQUEST,
+        [](TestGroupDevicesListV2Handler &handler) {
+            auto body = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+            auto arr = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
+            for (int i = 0; i < 101; ++i) {
+                arr->add(std::string("00:11:22:33:44:55"));
+            }
+            body->set("client_macs", arr);
+            handler.setParsedBody(body);
+        },
+        [](const FakeResponse &) {
+            ExpectEq(g_state.createV2Calls, 0, "No downstream call when client_macs exceeds 100");
+        }
+    );
+}
+
 const std::vector<std::pair<std::string, std::function<void()>>> kTests = {
     {"ListGetRejectsMissingSubscriberId", TestListGetRejectsMissingSubscriberId},
     {"ListGetRejectsInvalidGroupId", TestListGetRejectsInvalidGroupId},
@@ -404,6 +650,14 @@ const std::vector<std::pair<std::string, std::function<void()>>> kTests = {
     {"PostRejectsInvalidClientMac", TestPostRejectsInvalidClientMac},
     {"PostStripsConfigRawAndReturnsObject", TestPostStripsConfigRawAndReturnsObject},
     {"DeleteReturnsOkOnSuccess", TestDeleteReturnsOkOnSuccess},
+    {"V2PostSuccessSingleDevice", TestV2PostSuccessSingleDevice},
+    {"V2PostSuccessMultipleDevices", TestV2PostSuccessMultipleDevices},
+    {"V2PostRejectsStringClientMacs", TestV2PostRejectsStringClientMacs},
+    {"V2PostRejectsLegacyClientMac", TestV2PostRejectsLegacyClientMac},
+    {"V2PostRejectsEmptyArray", TestV2PostRejectsEmptyArray},
+    {"V2PostRejectsMalformedMac", TestV2PostRejectsMalformedMac},
+    {"V2PostRejectsExceedingMaxMacs", TestV2PostRejectsExceedingMaxMacs},
+    {"V2PostPropagatesConflict", TestV2PostPropagatesConflict},
 };
 
 } // namespace
