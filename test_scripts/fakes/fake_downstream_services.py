@@ -30,8 +30,23 @@ def init_db():
             id UUID PRIMARY KEY,
             subscriber_id TEXT,
             name TEXT,
-            description TEXT
+            description TEXT,
+            group_config_index INTEGER DEFAULT 1,
+            created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
         )
+    """)
+    cursor.execute("""
+        ALTER TABLE mock_groups
+        ADD COLUMN IF NOT EXISTS group_config_index INTEGER DEFAULT 1
+    """)
+    cursor.execute("""
+        ALTER TABLE mock_groups
+        ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    """)
+    cursor.execute("""
+        ALTER TABLE mock_groups
+        ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
     """)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS mock_schedules (
@@ -101,6 +116,22 @@ def serialize_schedule(row):
         "created_at": created_at,
         "updated_at": updated_at
     }
+
+def serialize_group(row, device_count=None):
+    created_at = row[5].isoformat().replace("+00:00", "Z") if hasattr(row[5], "isoformat") else str(row[5]) if row[5] else "2026-08-05T12:00:00Z"
+    updated_at = row[6].isoformat().replace("+00:00", "Z") if hasattr(row[6], "isoformat") else str(row[6]) if row[6] else "2026-08-05T12:00:00Z"
+    obj = {
+        "id": str(row[0]),
+        "subscriber_id": str(row[1]) if row[1] is not None else "11111111-1111-4111-8111-111111111111",
+        "name": row[2] if row[2] is not None else "",
+        "description": row[3],
+        "group_config_index": row[4] if row[4] is not None else 1,
+        "created_at": created_at,
+        "updated_at": updated_at
+    }
+    if device_count is not None:
+        obj["device_count"] = int(device_count)
+    return obj
 
 class FakeHandler(http.server.BaseHTTPRequestHandler):
     def record_call(self, body=None):
@@ -446,37 +477,61 @@ class FakeHandler(http.server.BaseHTTPRequestHandler):
                 self.send_response(200)
                 self.end_headers()
                 groups = [
-                    {"id": "11111111-1111-4111-8111-111111111111", "name": "group-1", "device_count": 3},
-                    {"id": "22222222-2222-4222-8222-222222222222", "name": "empty", "device_count": 0}
+                    {
+                        "id": "11111111-1111-4111-8111-111111111111",
+                        "subscriber_id": "11111111-1111-4111-8111-111111111111",
+                        "group_config_index": 1,
+                        "name": "group-1",
+                        "description": "First test group",
+                        "created_at": "2026-06-15T12:00:00Z",
+                        "updated_at": "2026-06-15T12:00:00Z",
+                        "device_count": 3
+                    },
+                    {
+                        "id": "22222222-2222-4222-8222-222222222222",
+                        "subscriber_id": "11111111-1111-4111-8111-111111111111",
+                        "group_config_index": 2,
+                        "name": "empty",
+                        "description": None,
+                        "created_at": "2026-06-15T12:00:00Z",
+                        "updated_at": "2026-06-15T12:00:00Z",
+                        "device_count": 0
+                    }
                 ]
                 self.wfile.write(json.dumps(groups).encode())
                 return
             
             # Use Postgres for Groups CRUD
+            parts = urlparse(self.path).path.split("/")
+            subscriber_id = parts[4] if len(parts) > 4 else "sub1"
             cursor = db_conn.cursor()
             match = re.search(r'/groups/([a-f0-9\-]+)', self.path)
             if match:
                 group_id = match.group(1)
-                cursor.execute("SELECT id, name, description FROM mock_groups WHERE id = %s", (group_id,))
+                cursor.execute("""
+                    SELECT id, subscriber_id, name, description, group_config_index, created_at, updated_at
+                    FROM mock_groups WHERE id = %s AND subscriber_id = %s
+                """, (group_id, subscriber_id))
                 row = cursor.fetchone()
                 if row:
                     self.send_response(200)
                     self.end_headers()
-                    self.wfile.write(json.dumps({"id": str(row[0]), "name": row[1], "description": row[2]}).encode())
+                    self.wfile.write(json.dumps(serialize_group(row)).encode())
                 else:
                     self.send_response(404)
                     self.end_headers()
                     self.wfile.write(json.dumps({"error":"not_found","message":"group not found"}).encode())
             else:
                 cursor.execute("""
-                    SELECT g.id, g.name, g.description, COUNT(d.client_mac) AS device_count
+                    SELECT g.id, g.subscriber_id, g.name, g.description, g.group_config_index, g.created_at, g.updated_at,
+                           COUNT(d.client_mac) AS device_count
                     FROM mock_groups g
                     LEFT JOIN mock_group_devices d ON d.group_id = g.id
-                    WHERE g.subscriber_id = 'sub1'
-                    GROUP BY g.id, g.name, g.description
-                """)
+                    WHERE g.subscriber_id = %s
+                    GROUP BY g.id, g.subscriber_id, g.name, g.description, g.group_config_index, g.created_at, g.updated_at
+                """, (subscriber_id,))
                 rows = cursor.fetchall()
-                groups = [{"id": str(r[0]), "name": r[1], "description": r[2], "device_count": int(r[3])} for r in rows]
+                groups = [serialize_group(r[:7], device_count=r[7]) for r in rows]
                 self.send_response(200)
                 self.end_headers()
                 self.wfile.write(json.dumps(groups).encode())
@@ -761,16 +816,20 @@ class FakeHandler(http.server.BaseHTTPRequestHandler):
                 return
                 
             # DB-backed POST
+            parts = urlparse(self.path).path.split("/")
+            subscriber_id = parts[4] if len(parts) > 4 else "sub1"
             req_data = json.loads(body.decode())
             new_id = str(uuid.uuid4())
             cursor = db_conn.cursor()
-            cursor.execute(
-                "INSERT INTO mock_groups (id, subscriber_id, name, description) VALUES (%s, %s, %s, %s)",
-                (new_id, "sub1", req_data.get("name"), req_data.get("description", ""))
-            )
+            cursor.execute("""
+                INSERT INTO mock_groups (id, subscriber_id, name, description)
+                VALUES (%s, %s, %s, %s)
+                RETURNING id, subscriber_id, name, description, group_config_index, created_at, updated_at
+            """, (new_id, subscriber_id, req_data.get("name"), req_data.get("description")))
+            row = cursor.fetchone()
             self.send_response(200)
             self.end_headers()
-            self.wfile.write(json.dumps({"id": new_id, "name": req_data.get("name"), "description": req_data.get("description", "")}).encode())
+            self.wfile.write(json.dumps(serialize_group(row)).encode())
             return
 
         if "/api/v1/subscribers/" in self.path and "/schedules" in self.path:
@@ -873,17 +932,24 @@ class FakeHandler(http.server.BaseHTTPRequestHandler):
                 return
                 
             # DB-backed PUT
+            parts = urlparse(self.path).path.split("/")
+            subscriber_id = parts[4] if len(parts) > 4 else "sub1"
             match = re.search(r'/groups/([a-f0-9\-]+)', self.path)
             if match:
                 group_id = match.group(1)
                 req_data = json.loads(body.decode())
                 cursor = db_conn.cursor()
-                cursor.execute("UPDATE mock_groups SET name = %s, description = %s WHERE id = %s", 
-                               (req_data.get("name"), req_data.get("description", ""), group_id))
-                if cursor.rowcount > 0:
+                cursor.execute("""
+                    UPDATE mock_groups
+                    SET name = %s, description = %s, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = %s AND subscriber_id = %s
+                    RETURNING id, subscriber_id, name, description, group_config_index, created_at, updated_at
+                """, (req_data.get("name"), req_data.get("description"), group_id, subscriber_id))
+                row = cursor.fetchone()
+                if row:
                     self.send_response(200)
                     self.end_headers()
-                    self.wfile.write(json.dumps({"id": group_id, "name": req_data.get("name"), "description": req_data.get("description", "")}).encode())
+                    self.wfile.write(json.dumps(serialize_group(row)).encode())
                 else:
                     self.send_response(404)
                     self.end_headers()

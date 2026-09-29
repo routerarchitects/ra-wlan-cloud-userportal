@@ -4,6 +4,7 @@ import json
 import os
 import sys
 import ssl
+import re
 
 USERPORTAL_URL = os.environ.get("USERPORTAL_URL", "http://localhost:16006")
 FAKE_URL = os.environ.get("FAKE_URL", "http://127.0.0.1:8080")
@@ -17,15 +18,18 @@ def open_url(req_or_url):
         return urllib.request.urlopen(req_or_url, context=HTTPS_CONTEXT)
     return urllib.request.urlopen(req_or_url)
 
+def set_scenario(scenario):
+    req = urllib.request.Request(
+        f"{FAKE_URL}/set-scenario",
+        data=json.dumps({"scenario": scenario}).encode(),
+        method="POST"
+    )
+    open_url(req)
+
 def reset_observations():
     req = urllib.request.Request(f"{FAKE_URL}/reset-observations", data=b"", method="POST")
     open_url(req)
-    req2 = urllib.request.Request(
-        f"{FAKE_URL}/set-scenario",
-        data=json.dumps({"scenario": "normal"}).encode(),
-        method="POST"
-    )
-    open_url(req2)
+    set_scenario("normal")
 
 def request(method, path, body=None, headers=None):
     if headers is None:
@@ -248,12 +252,69 @@ def test_forwarded_payloads():
 
     print("✅ Group forwarded payload tests passed")
 
+UUID_REGEX = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
+DATETIME_REGEX = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$")
+ALLOWED_GROUP_LIST_FIELDS = {
+    "id", "subscriber_id", "group_config_index", "name",
+    "description", "created_at", "updated_at", "config-raw", "device_count"
+}
+
+def test_response_schema():
+    print("Testing Group Response Schema Contracts (GroupListItem focused validation)...")
+    set_scenario("groups-device-counts")
+    status, body = request("GET", "/api/v1/groups")
+    assert status == 200, f"Expected 200, got {status}. Body: {body}"
+    assert isinstance(body, list), f"Expected list of groups, got {type(body)}"
+    assert len(body) == 2, f"Expected 2 groups, got {len(body)}"
+
+    required_fields = [
+        "id", "subscriber_id", "group_config_index", "name",
+        "created_at", "updated_at", "device_count"
+    ]
+    for item in body:
+        assert isinstance(item, dict), f"Expected group object, got {type(item)}"
+
+        # Validate additionalProperties: false
+        unexpected = set(item.keys()) - ALLOWED_GROUP_LIST_FIELDS
+        assert not unexpected, f"Unexpected properties in GroupListItem: {unexpected}"
+
+        for field in required_fields:
+            assert field in item, f"Missing required GroupListItem field '{field}' in response item: {item}"
+
+        assert isinstance(item["device_count"], int) and not isinstance(item["device_count"], bool), (
+            f"device_count must be int, got {type(item['device_count'])}"
+        )
+        assert item["device_count"] >= 0, f"device_count must be >= 0: {item['device_count']}"
+        assert isinstance(item["id"], str) and UUID_REGEX.match(item["id"]), f"id must be valid UUID: {item.get('id')}"
+        assert isinstance(item["subscriber_id"], str) and UUID_REGEX.match(item["subscriber_id"]), (
+            f"subscriber_id must be valid UUID: {item.get('subscriber_id')}"
+        )
+        assert isinstance(item["group_config_index"], int) and not isinstance(item["group_config_index"], bool)
+        assert isinstance(item["name"], str)
+        assert isinstance(item["created_at"], str) and DATETIME_REGEX.match(item["created_at"]), (
+            f"created_at must be date-time: {item.get('created_at')}"
+        )
+        assert isinstance(item["updated_at"], str) and DATETIME_REGEX.match(item["updated_at"]), (
+            f"updated_at must be date-time: {item.get('updated_at')}"
+        )
+        if item.get("description") is not None:
+            assert isinstance(item["description"], str), f"description must be str or None: {item.get('description')}"
+        if item.get("config-raw") is not None:
+            assert isinstance(item["config-raw"], list), f"config-raw must be list or None: {item.get('config-raw')}"
+
+    assert body[0]["device_count"] == 3
+    assert body[1]["device_count"] == 0
+
+    reset_observations()
+    print("✅ Group response schema contract tests passed (GroupListItem format & fields validated)")
+
 if __name__ == "__main__":
     print("Starting contract tests...")
     try:
         test_auth_checks()
         test_local_validation()
         test_forwarded_payloads()
+        test_response_schema()
         print("🎉 All contract tests passed!")
     except AssertionError as e:
         print(f"❌ TEST FAILED: {e}")

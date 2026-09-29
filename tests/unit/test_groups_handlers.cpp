@@ -193,6 +193,55 @@ void TestListGroupsPreservesMultiGroupDeviceCountsAndOrdering() {
     );
 }
 
+void TestListGroupsPreservesAllStandardGroupFields() {
+    auto group = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+    group->set("id", "c1f7b0f6-7b24-4f51-b0e6-996bb31b6fa2");
+    group->set("subscriber_id", "11111111-1111-4111-8111-111111111111");
+    group->set("group_config_index", 1);
+    group->set("name", "Full Group");
+    group->set("description", "Detailed description");
+    group->set("created_at", "2026-06-15T12:00:00Z");
+    group->set("updated_at", "2026-06-15T12:30:00Z");
+    group->set("device_count", 4);
+    g_state.getGroupsArray->add(group);
+
+    RunHandlerRequest<TestGroupsListHandler>(
+        Poco::Net::HTTPRequest::HTTP_GET,
+        "/api/v1/groups",
+        "",
+        {},
+        "11111111-1111-4111-8111-111111111111",
+        "",
+        Poco::Net::HTTPResponse::HTTP_OK,
+        nullptr,
+        [](const FakeResponse &response) {
+            auto array = ParseArray(response.body());
+            ExpectEq(static_cast<int>(array->size()), 1, "array size");
+            auto item = array->getObject(0);
+            ExpectEq(item->getValue<std::string>("id"), std::string("c1f7b0f6-7b24-4f51-b0e6-996bb31b6fa2"), "id");
+            ExpectEq(item->getValue<std::string>("subscriber_id"), std::string("11111111-1111-4111-8111-111111111111"), "subscriber_id");
+            ExpectEq(item->getValue<int>("group_config_index"), 1, "group_config_index");
+            ExpectEq(item->getValue<std::string>("name"), std::string("Full Group"), "name");
+            ExpectEq(item->getValue<std::string>("description"), std::string("Detailed description"), "description");
+            ExpectEq(item->getValue<std::string>("created_at"), std::string("2026-06-15T12:00:00Z"), "created_at");
+            ExpectEq(item->getValue<std::string>("updated_at"), std::string("2026-06-15T12:30:00Z"), "updated_at");
+            ExpectEq(item->getValue<int>("device_count"), 4, "device_count");
+        }
+    );
+}
+
+void TestListGroupsRejectsMissingSubscriberId() {
+    RunHandlerRequest<TestGroupsListHandler>(
+        Poco::Net::HTTPRequest::HTTP_GET,
+        "/api/v1/groups",
+        "",
+        {},
+        "",
+        "",
+        Poco::Net::HTTPResponse::HTTP_FORBIDDEN
+    );
+}
+
 void TestListGroupsForwardsDownstreamErrors() {
     g_state.getGroupsOk = false;
     g_state.getGroupsStatus = Poco::Net::HTTPResponse::HTTP_BAD_GATEWAY;
@@ -219,6 +268,8 @@ const std::vector<std::pair<std::string, std::function<void()>>> kTests = {
     {"ListGroupsPreservesPositiveDeviceCount", TestListGroupsPreservesPositiveDeviceCount},
     {"ListGroupsPreservesZeroDeviceCount", TestListGroupsPreservesZeroDeviceCount},
     {"ListGroupsPreservesMultiGroupDeviceCountsAndOrdering", TestListGroupsPreservesMultiGroupDeviceCountsAndOrdering},
+    {"ListGroupsPreservesAllStandardGroupFields", TestListGroupsPreservesAllStandardGroupFields},
+    {"ListGroupsRejectsMissingSubscriberId", TestListGroupsRejectsMissingSubscriberId},
     {"ListGroupsForwardsDownstreamErrors", TestListGroupsForwardsDownstreamErrors},
 };
 
