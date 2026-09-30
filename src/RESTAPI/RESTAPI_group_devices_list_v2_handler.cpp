@@ -10,6 +10,7 @@
 #include "fmt/format.h"
 #include "framework/utils.h"
 #include "sdks/SDK_parental_control.h"
+#include <unordered_set>
 
 namespace OpenWifi {
 
@@ -50,6 +51,8 @@ namespace OpenWifi {
 			return BadRequest(RESTAPI::Errors::MissingOrInvalidParameters, "client_macs must not exceed 100 MAC addresses");
 		}
 
+		// Sanitize and deduplicate MACs post-normalization to ensure downstream receives unique canonical MACs
+		std::unordered_set<std::string> seenMacs;
 		auto downstreamMacsArray = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
 		for (std::size_t i = 0; i < macsArray->size(); ++i) {
 			if (macsArray->isNull(i) || !macsArray->get(i).isString()) {
@@ -59,7 +62,10 @@ namespace OpenWifi {
 			if (!Utils::NormalizeMac(rawMac)) {
 				return BadRequest(RESTAPI::Errors::MissingOrInvalidParameters, "Invalid MAC address: " + rawMac);
 			}
-			downstreamMacsArray->add(Utils::SerialToMAC(rawMac));
+			auto canonicalMac = Utils::SerialToMAC(rawMac);
+			if (seenMacs.insert(canonicalMac).second) {
+				downstreamMacsArray->add(canonicalMac);
+			}
 		}
 
 		RESTAPI::ParentalControl::MutationCallResult mutation;

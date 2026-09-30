@@ -619,10 +619,19 @@ void TestV2PostRejectsMalformedMac() {
 }
 
 void TestV2PostRejectsExceedingMaxMacs() {
+    std::string rawJson = "{\"client_macs\":[";
+    for (int i = 0; i < 101; ++i) {
+        if (i > 0) {
+            rawJson += ",";
+        }
+        rawJson += "\"00:11:22:33:44:55\"";
+    }
+    rawJson += "]}";
+
     RunHandlerRequest<TestGroupDevicesListV2Handler>(
         Poco::Net::HTTPRequest::HTTP_POST,
         "/api/v2/groups/x/devices",
-        "{\"client_macs\":[/* 101 macs */]}",
+        rawJson,
         {{"group_id", kValidGroupId}},
         "subscriber-1",
         "operator-1",
@@ -638,6 +647,86 @@ void TestV2PostRejectsExceedingMaxMacs() {
         },
         [](const FakeResponse &) {
             ExpectEq(g_state.createV2Calls, 0, "No downstream call when client_macs exceeds 100");
+        }
+    );
+}
+
+void TestV2PostDeduplicatesMacs() {
+    auto responseObject = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+    auto devicesArr = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
+    devicesArr->add(Poco::JSON::Object::Ptr(new Poco::JSON::Object()));
+    devicesArr->add(Poco::JSON::Object::Ptr(new Poco::JSON::Object()));
+    responseObject->set("devices", devicesArr);
+    responseObject->set("config-raw", Poco::JSON::Array::Ptr(new Poco::JSON::Array()));
+    g_state.createV2Response = responseObject;
+
+    RunHandlerRequest<TestGroupDevicesListV2Handler>(
+        Poco::Net::HTTPRequest::HTTP_POST,
+        "/api/v2/groups/x/devices",
+        "{\"client_macs\":[\"AA:BB:CC:DD:EE:FF\",\"aa-bb-cc-dd-ee-ff\",\"aabbccddeeff\",\"00:11:22:33:44:55\"]}",
+        {{"group_id", kValidGroupId}},
+        "subscriber-1",
+        "operator-1",
+        Poco::Net::HTTPResponse::HTTP_OK,
+        [](TestGroupDevicesListV2Handler &handler) {
+            auto body = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+            auto arr = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
+            arr->add(std::string("AA:BB:CC:DD:EE:FF")); // Colon format
+            arr->add(std::string("aa-bb-cc-dd-ee-ff")); // Hyphen format
+            arr->add(std::string("aabbccddeeff"));       // 12-digit hex format
+            arr->add(std::string("00:11:22:33:44:55")); // Distinct MAC
+            body->set("client_macs", arr);
+            handler.setParsedBody(body);
+        },
+        [](const FakeResponse &response) {
+            ExpectEq(g_state.createV2Calls, 1, "Bulk request should execute single downstream call");
+            ExpectEq(g_state.lastClientMacs.size(), static_cast<std::size_t>(2), "3 duplicate MAC representations should be deduplicated to 2 total entries");
+            ExpectEq(g_state.lastClientMacs[0], kValidMac, "Equivalent colon, hyphen, and hex MACs collapse to canonical form");
+            ExpectEq(g_state.lastClientMacs[1], std::string("00:11:22:33:44:55"), "Second distinct MAC canonicalized");
+            auto parsed = ParseObject(response.body());
+            Expect(parsed->has("devices"), "Response must have devices array");
+        }
+    );
+}
+
+void TestV2PostRejectsUnknownField() {
+    RunHandlerRequest<TestGroupDevicesListV2Handler>(
+        Poco::Net::HTTPRequest::HTTP_POST,
+        "/api/v2/groups/x/devices",
+        "{\"client_macs\":[\"AA:BB:CC:DD:EE:FF\"],\"foo\":\"bar\"}",
+        {{"group_id", kValidGroupId}},
+        "subscriber-1",
+        "operator-1",
+        Poco::Net::HTTPResponse::HTTP_BAD_REQUEST,
+        [](TestGroupDevicesListV2Handler &handler) {
+            auto body = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+            auto arr = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
+            arr->add(kValidMac);
+            body->set("client_macs", arr);
+            body->set("foo", std::string("bar"));
+            handler.setParsedBody(body);
+        },
+        [](const FakeResponse &) {
+            ExpectEq(g_state.createV2Calls, 0, "No downstream call when unknown field is present");
+        }
+    );
+}
+
+void TestV2PostRejectsMissingClientMacs() {
+    RunHandlerRequest<TestGroupDevicesListV2Handler>(
+        Poco::Net::HTTPRequest::HTTP_POST,
+        "/api/v2/groups/x/devices",
+        "{}",
+        {{"group_id", kValidGroupId}},
+        "subscriber-1",
+        "operator-1",
+        Poco::Net::HTTPResponse::HTTP_BAD_REQUEST,
+        [](TestGroupDevicesListV2Handler &handler) {
+            auto body = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+            handler.setParsedBody(body);
+        },
+        [](const FakeResponse &) {
+            ExpectEq(g_state.createV2Calls, 0, "No downstream call when client_macs is missing");
         }
     );
 }
@@ -658,6 +747,9 @@ const std::vector<std::pair<std::string, std::function<void()>>> kTests = {
     {"V2PostRejectsMalformedMac", TestV2PostRejectsMalformedMac},
     {"V2PostRejectsExceedingMaxMacs", TestV2PostRejectsExceedingMaxMacs},
     {"V2PostPropagatesConflict", TestV2PostPropagatesConflict},
+    {"V2PostDeduplicatesMacs", TestV2PostDeduplicatesMacs},
+    {"V2PostRejectsUnknownField", TestV2PostRejectsUnknownField},
+    {"V2PostRejectsMissingClientMacs", TestV2PostRejectsMissingClientMacs},
 };
 
 } // namespace

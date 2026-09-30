@@ -974,10 +974,9 @@ components:
       properties:
         client_macs:
           type: array
-          description: List of client MAC addresses to assign. Accepts 1 to 100 valid MAC addresses. Each MAC can be 12 hex digits, hyphen-separated, or colon-separated.
+          description: List of client MAC addresses to assign. Accepts 1 to 100 valid MAC addresses. Each MAC can be 12 hex digits, hyphen-separated, or colon-separated. Duplicate MAC entries (including alternate format representations of the same MAC) are automatically deduplicated during normalization.
           minItems: 1
           maxItems: 100
-          uniqueItems: true
           items:
             type: string
             pattern: '^(?:[0-9A-Fa-f]{12}|(?:[0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2})$'
