@@ -168,6 +168,7 @@ add_executable(owsub
         src/RESTAPI/RESTAPI_groups_handler.cpp src/RESTAPI/RESTAPI_groups_handler.h
         src/RESTAPI/RESTAPI_schedules_handler.cpp src/RESTAPI/RESTAPI_schedules_handler.h
         src/RESTAPI/RESTAPI_group_devices_list_handler.cpp src/RESTAPI/RESTAPI_group_devices_list_handler.h
+        src/RESTAPI/RESTAPI_group_devices_list_v2_handler.cpp src/RESTAPI/RESTAPI_group_devices_list_v2_handler.h
         src/RESTAPI/RESTAPI_group_devices_handler.cpp src/RESTAPI/RESTAPI_group_devices_handler.h
         src/RESTAPI/RESTAPI_group_schedules_list_handler.cpp src/RESTAPI/RESTAPI_group_schedules_list_handler.h
         src/RESTAPI/RESTAPI_group_schedules_handler.cpp src/RESTAPI/RESTAPI_group_schedules_handler.h

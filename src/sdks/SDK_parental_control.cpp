@@ -186,6 +186,14 @@ namespace OpenWifi::SDK::ParentalControl {
 		return ExecutePostObject(client, endpoint, Body, 120000, CallStatus, CallResponse);
 	}
 
+	bool CreateGroupDevicesV2(RESTAPIHandler *client, const std::string &SubscriberId,
+							 const std::string &GroupId, const Poco::JSON::Object &Body,
+							 Poco::Net::HTTPResponse::HTTPStatus &CallStatus,
+							 Poco::JSON::Object::Ptr &CallResponse) {
+		std::string endpoint = "/api/v2/subscribers/" + SubscriberId + "/groups/" + GroupId + "/devices";
+		return ExecutePostObject(client, endpoint, Body, 120000, CallStatus, CallResponse);
+	}
+
 	bool GetGroupDevice(RESTAPIHandler *client, const std::string &SubscriberId,
 						const std::string &GroupId, const std::string &ClientMac,
 						Poco::Net::HTTPResponse::HTTPStatus &CallStatus,

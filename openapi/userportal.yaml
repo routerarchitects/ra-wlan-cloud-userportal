@@ -966,6 +966,36 @@ components:
           description: Accepted public input formats are 12 hex digits without separators, hyphen-separated MAC, or colon-separated MAC. UserPortal normalizes accepted input to canonical lowercase colon-separated MAC before downstream forwarding.
       additionalProperties: false
 
+    GroupDeviceBulkCreateRequest:
+      type: object
+      description: V2 create request for bulk assigning client MACs to one subscriber-scoped parental-control group. Accepts an array of 1 to 100 client MAC addresses.
+      required:
+        - client_macs
+      properties:
+        client_macs:
+          type: array
+          description: List of client MAC addresses to assign. Accepts 1 to 100 valid MAC addresses. Each MAC can be 12 hex digits, hyphen-separated, or colon-separated. Duplicate MAC entries (including alternate format representations of the same MAC) are automatically deduplicated during normalization.
+          minItems: 1
+          maxItems: 100
+          items:
+            type: string
+            pattern: '^(?:[0-9A-Fa-f]{12}|(?:[0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2})$'
+            description: Client MAC address.
+      additionalProperties: false
+
+    GroupDeviceBulkResponse:
+      type: object
+      description: V2 bulk response for client-MAC assignments in a parental-control group.
+      required:
+        - devices
+      properties:
+        devices:
+          type: array
+          description: List of group-device assignments.
+          items:
+            $ref: '#/components/schemas/GroupDevice'
+      additionalProperties: false
+
     ScheduleInternet:
       type: object
       description: Subscriber-scoped INTERNET schedule returned by UserPortal. target_value is always null.
@@ -2040,6 +2070,59 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/GroupDevice'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v2/groups/{group_id}/devices:
+    servers:
+      - url: 'https://localhost:16006'
+    post:
+      tags:
+        - Group Devices
+      summary: Bulk assign client MACs to a group (V2)
+      description: "Assigns one or more client MAC addresses to the group in a single bulk operation. Accepts an array of 1 to 100 client MAC addresses."
+      operationId: createGroupDevicesV2
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: group_id
+          required: true
+          description: Parental-control group identifier.
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GroupDeviceBulkCreateRequest'
+            examples:
+              bulk_add:
+                value:
+                  client_macs:
+                    - aa:bb:cc:dd:ee:01
+                    - aa:bb:cc:dd:ee:02
+              single_add:
+                value:
+                  client_macs:
+                    - aa:bb:cc:dd:ee:ff
+      responses:
+        '200':
+          description: Client MACs assigned to group successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupDeviceBulkResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
