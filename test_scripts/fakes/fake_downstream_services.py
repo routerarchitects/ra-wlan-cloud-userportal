@@ -467,6 +467,68 @@ class FakeHandler(http.server.BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps(res).encode())
                 return
 
+        if "/api/v1/subscribers/" in self.path and "/schedules/" in self.path and self.path.endswith("/groups"):
+            if current_scenario == "pc-404":
+                self.send_response(404)
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": {"code": "schedule_not_found", "message": "schedule not found"}}).encode())
+                return
+            if current_scenario == "schedule-groups-counts":
+                self.send_response(200)
+                self.end_headers()
+                groups = [
+                    {
+                        "id": "11111111-1111-4111-8111-111111111111",
+                        "subscriber_id": "11111111-1111-4111-8111-111111111111",
+                        "group_config_index": 1,
+                        "name": "group-1",
+                        "description": "First test group",
+                        "created_at": "2026-06-15T12:00:00Z",
+                        "updated_at": "2026-06-15T12:00:00Z",
+                        "device_count": 3
+                    },
+                    {
+                        "id": "22222222-2222-4222-8222-222222222222",
+                        "subscriber_id": "11111111-1111-4111-8111-111111111111",
+                        "group_config_index": 2,
+                        "name": "empty",
+                        "description": None,
+                        "created_at": "2026-06-15T12:00:00Z",
+                        "updated_at": "2026-06-15T12:00:00Z",
+                        "device_count": 0
+                    }
+                ]
+                self.wfile.write(json.dumps(groups).encode())
+                return
+
+            parts = urlparse(self.path).path.split("/")
+            subscriber_id = parts[4]
+            schedule_id = parts[6]
+            cursor = db_conn.cursor()
+            cursor.execute("SELECT id FROM mock_schedules WHERE id = %s AND subscriber_id = %s", (schedule_id, subscriber_id))
+            if not cursor.fetchone():
+                self.send_response(404)
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": {"code": "schedule_not_found", "message": "schedule not found"}}).encode())
+                return
+
+            cursor.execute("""
+                SELECT g.id, g.subscriber_id, g.name, g.description, g.group_config_index, g.created_at, g.updated_at,
+                       COUNT(d.client_mac) AS device_count
+                FROM mock_groups g
+                JOIN mock_group_schedules gs ON gs.group_id = g.id
+                LEFT JOIN mock_group_devices d ON d.group_id = g.id
+                WHERE gs.schedule_id = %s AND g.subscriber_id = %s
+                GROUP BY g.id, g.subscriber_id, g.name, g.description, g.group_config_index, g.created_at, g.updated_at
+                ORDER BY g.group_config_index ASC
+            """, (schedule_id, subscriber_id))
+            rows = cursor.fetchall()
+            groups = [serialize_group(r[:7], device_count=r[7]) for r in rows]
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(json.dumps(groups).encode())
+            return
+
         if "/api/v1/subscribers/" in self.path and "/groups" in self.path:
             if current_scenario == "pc-404":
                 self.send_response(404)
@@ -535,68 +597,6 @@ class FakeHandler(http.server.BaseHTTPRequestHandler):
                 self.send_response(200)
                 self.end_headers()
                 self.wfile.write(json.dumps(groups).encode())
-            return
-
-        if "/api/v1/subscribers/" in self.path and "/schedules/" in self.path and self.path.endswith("/groups"):
-            if current_scenario == "pc-404":
-                self.send_response(404)
-                self.end_headers()
-                self.wfile.write(json.dumps({"error": {"code": "schedule_not_found", "message": "schedule not found"}}).encode())
-                return
-            if current_scenario == "schedule-groups-counts":
-                self.send_response(200)
-                self.end_headers()
-                groups = [
-                    {
-                        "id": "11111111-1111-4111-8111-111111111111",
-                        "subscriber_id": "11111111-1111-4111-8111-111111111111",
-                        "group_config_index": 1,
-                        "name": "group-1",
-                        "description": "First test group",
-                        "created_at": "2026-06-15T12:00:00Z",
-                        "updated_at": "2026-06-15T12:00:00Z",
-                        "device_count": 3
-                    },
-                    {
-                        "id": "22222222-2222-4222-8222-222222222222",
-                        "subscriber_id": "11111111-1111-4111-8111-111111111111",
-                        "group_config_index": 2,
-                        "name": "empty",
-                        "description": None,
-                        "created_at": "2026-06-15T12:00:00Z",
-                        "updated_at": "2026-06-15T12:00:00Z",
-                        "device_count": 0
-                    }
-                ]
-                self.wfile.write(json.dumps(groups).encode())
-                return
-
-            parts = urlparse(self.path).path.split("/")
-            subscriber_id = parts[4]
-            schedule_id = parts[6]
-            cursor = db_conn.cursor()
-            cursor.execute("SELECT id FROM mock_schedules WHERE id = %s AND subscriber_id = %s", (schedule_id, subscriber_id))
-            if not cursor.fetchone():
-                self.send_response(404)
-                self.end_headers()
-                self.wfile.write(json.dumps({"error": {"code": "schedule_not_found", "message": "schedule not found"}}).encode())
-                return
-
-            cursor.execute("""
-                SELECT g.id, g.subscriber_id, g.name, g.description, g.group_config_index, g.created_at, g.updated_at,
-                       COUNT(d.client_mac) AS device_count
-                FROM mock_groups g
-                JOIN mock_group_schedules gs ON gs.group_id = g.id
-                LEFT JOIN mock_group_devices d ON d.group_id = g.id
-                WHERE gs.schedule_id = %s AND g.subscriber_id = %s
-                GROUP BY g.id, g.subscriber_id, g.name, g.description, g.group_config_index, g.created_at, g.updated_at
-                ORDER BY g.group_config_index ASC
-            """, (schedule_id, subscriber_id))
-            rows = cursor.fetchall()
-            groups = [serialize_group(r[:7], device_count=r[7]) for r in rows]
-            self.send_response(200)
-            self.end_headers()
-            self.wfile.write(json.dumps(groups).encode())
             return
 
         if "/api/v1/subscribers/" in self.path and "/schedules" in self.path:

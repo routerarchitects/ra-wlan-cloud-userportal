@@ -534,14 +534,20 @@ def test_schedule_groups_lifecycle():
     group2_id = g2["id"]
 
     # 4. Assign a device to group1 so device_count becomes 1
-    status, _ = request("POST", f"/api/v1/groups/{group1_id}/devices", body={"client_mac": "00:11:22:33:44:55"})
+    status, _ = request("POST", f"/api/v1/groups/{group1_id}/devices",
+                        body={"client_mac": "00:11:22:33:44:55"},
+                        scenario="config-raw")
     assert status == 200, f"Expected 200 for device assign, got {status}"
 
     # 5. Link both groups to the schedule
-    status, _ = request("POST", f"/api/v1/groups/{group1_id}/schedules", body={"schedule_id": sched_id})
+    status, _ = request("POST", f"/api/v1/groups/{group1_id}/schedules",
+                        body={"schedule_id": sched_id},
+                        scenario="config-raw")
     assert status == 200, f"Expected 200 for group-schedule link, got {status}"
 
-    status, _ = request("POST", f"/api/v1/groups/{group2_id}/schedules", body={"schedule_id": sched_id})
+    status, _ = request("POST", f"/api/v1/groups/{group2_id}/schedules",
+                        body={"schedule_id": sched_id},
+                        scenario="config-raw")
     assert status == 200, f"Expected 200 for group-schedule link, got {status}"
 
     # 6. GET /api/v1/schedules/{sched_id}/groups
@@ -566,7 +572,8 @@ def test_schedule_groups_lifecycle():
         assert "devices" not in item
 
     # 7. Unlink group1 from schedule
-    status, _ = request("DELETE", f"/api/v1/groups/{group1_id}/schedules/{sched_id}")
+    status, _ = request("DELETE", f"/api/v1/groups/{group1_id}/schedules/{sched_id}",
+                        scenario="config-raw")
     assert status == 200, f"Expected 200 for unlink, got {status}"
 
     # 8. GET /api/v1/schedules/{sched_id}/groups should now only have group2
