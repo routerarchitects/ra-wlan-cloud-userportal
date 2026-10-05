@@ -188,6 +188,26 @@ void TestCreateGroupDeviceSuccess() {
     Expect(g_state.lastBodyJson.find("client_mac") != std::string::npos, "POST body should include client_mac");
 }
 
+void TestCreateGroupDevicesV2Success() {
+    Poco::JSON::Object body;
+    auto macs = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
+    macs->add("AA:BB:CC:DD:EE:01");
+    macs->add("AA:BB:CC:DD:EE:02");
+    body.set("client_macs", macs);
+
+    auto response = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+    response->set("devices", Poco::JSON::Array::Ptr(new Poco::JSON::Array()));
+    g_state.nextObject = response;
+
+    Poco::Net::HTTPResponse::HTTPStatus callStatus = Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR;
+    Poco::JSON::Object::Ptr actualResponse;
+    Expect(OpenWifi::SDK::ParentalControl::CreateGroupDevicesV2(nullptr, "sub-1", "group-1", body, callStatus, actualResponse),
+           "CreateGroupDevicesV2 should succeed on HTTP 200 with object");
+    ExpectEq(g_state.lastEndpoint, std::string("/api/v2/subscribers/sub-1/groups/group-1/devices"), "create group devices V2 endpoint");
+    ExpectEq(g_state.lastMethod, std::string("POST"), "POST method should be used");
+    Expect(g_state.lastBodyJson.find("client_macs") != std::string::npos, "POST body should include client_macs");
+}
+
 void TestGetGroupDeviceSuccess() {
     auto response = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
     response->set("client_mac", "AA:BB:CC:DD:EE:FF");
@@ -697,6 +717,7 @@ void TestSetConfigTwoPassValidation() {
 const std::vector<std::pair<std::string, std::function<void()>>> kTests = {
     {"GetGroupDevicesSuccess", TestGetGroupDevicesSuccess},
     {"CreateGroupDeviceSuccess", TestCreateGroupDeviceSuccess},
+    {"CreateGroupDevicesV2Success", TestCreateGroupDevicesV2Success},
     {"GetGroupDeviceSuccess", TestGetGroupDeviceSuccess},
     {"DeleteGroupDeviceSuccessRequiresRawBodyAndConfigRaw", TestDeleteGroupDeviceSuccessRequiresRawBodyAndConfigRaw},
     {"DeleteGroupDeviceFailsWhenRawBodyIsEmpty", TestDeleteGroupDeviceFailsWhenRawBodyIsEmpty},
