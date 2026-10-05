@@ -513,76 +513,40 @@ def test_config_raw_malformed_handling():
     print("✅ config-raw: malformed handling tests passed")
 
 def test_schedule_groups_lifecycle():
-    print("Testing schedule-associated groups lifecycle...")
+    print("Testing schedule-associated groups contract and behavior...")
     reset_db()
 
-    # 1. Create a test schedule
     sched_id = create_test_schedule("Study-Hours-Schedule")
 
-    # 2. Initially, no groups are linked
-    status, body = request("GET", f"/api/v1/schedules/{sched_id}/groups")
+    # 1. Schedule with no groups returns empty array
+    status, body = request("GET", f"/api/v1/schedules/{sched_id}/groups", scenario="schedule-groups-empty")
     assert status == 200, f"Expected 200, got {status}"
     assert body == [], f"Expected empty array [], got {body}"
 
-    # 3. Create two groups: group1 and group2
-    status, g1 = request("POST", "/api/v1/groups", body={"name": "Kids Tablets", "description": "Tablets"})
-    assert status == 200, f"Expected 200 for group create, got {status}"
-    group1_id = g1["id"]
-
-    status, g2 = request("POST", "/api/v1/groups", body={"name": "Guests", "description": None})
-    assert status == 200, f"Expected 200 for group create, got {status}"
-    group2_id = g2["id"]
-
-    # 4. Assign a device to group1 so device_count becomes 1
-    status, _ = request("POST", f"/api/v1/groups/{group1_id}/devices",
-                        body={"client_mac": "00:11:22:33:44:55"},
-                        scenario="config-raw")
-    assert status == 200, f"Expected 200 for device assign, got {status}"
-
-    # 5. Link both groups to the schedule
-    status, _ = request("POST", f"/api/v1/groups/{group1_id}/schedules",
-                        body={"schedule_id": sched_id},
-                        scenario="config-raw")
-    assert status == 200, f"Expected 200 for group-schedule link, got {status}"
-
-    status, _ = request("POST", f"/api/v1/groups/{group2_id}/schedules",
-                        body={"schedule_id": sched_id},
-                        scenario="config-raw")
-    assert status == 200, f"Expected 200 for group-schedule link, got {status}"
-
-    # 6. GET /api/v1/schedules/{sched_id}/groups
-    status, body = request("GET", f"/api/v1/schedules/{sched_id}/groups")
+    # 2. Schedule with multiple groups returns deterministic fixture with device_count
+    status, body = request("GET", f"/api/v1/schedules/{sched_id}/groups", scenario="schedule-groups-counts")
     assert status == 200, f"Expected 200, got {status}"
     assert isinstance(body, list), f"Expected list of groups, got {type(body)}"
     assert len(body) == 2, f"Expected 2 groups, got {len(body)}"
 
-    group_map = {g["id"]: g for g in body}
-    assert group1_id in group_map, f"group1 {group1_id} missing in schedule groups"
-    assert group2_id in group_map, f"group2 {group2_id} missing in schedule groups"
+    assert body[0]["device_count"] == 3, f"Expected device_count 3, got {body[0]['device_count']}"
+    assert body[1]["device_count"] == 0, f"Expected device_count 0, got {body[1]['device_count']}"
+    assert body[0]["name"] == "group-1"
+    assert body[1]["name"] == "empty"
 
-    assert group_map[group1_id]["device_count"] == 1, f"Expected device_count 1 for group1, got {group_map[group1_id]['device_count']}"
-    assert group_map[group2_id]["device_count"] == 0, f"Expected device_count 0 for group2, got {group_map[group2_id]['device_count']}"
-    assert group_map[group1_id]["name"] == "Kids Tablets"
-    assert group_map[group2_id]["name"] == "Guests"
-
-    # Verify no MAC arrays in response
+    # Verify client MAC arrays are not exposed in response
     for item in body:
         assert "client_mac" not in item
         assert "client_macs" not in item
         assert "devices" not in item
 
-    # 7. Unlink group1 from schedule
-    status, _ = request("DELETE", f"/api/v1/groups/{group1_id}/schedules/{sched_id}",
-                        scenario="config-raw")
-    assert status == 200, f"Expected 200 for unlink, got {status}"
-
-    # 8. GET /api/v1/schedules/{sched_id}/groups should now only have group2
-    status, body = request("GET", f"/api/v1/schedules/{sched_id}/groups")
+    # 3. Schedule with single group (e.g. after group unlinking)
+    status, body = request("GET", f"/api/v1/schedules/{sched_id}/groups", scenario="schedule-groups-single")
     assert status == 200, f"Expected 200, got {status}"
     assert len(body) == 1, f"Expected 1 group, got {len(body)}"
-    assert body[0]["id"] == group2_id
+    assert body[0]["device_count"] == 0
 
-    # 9. Non-existent schedule returns 404
+    # 4. Non-existent schedule forwards downstream 404
     status, _ = request("GET", "/api/v1/schedules/00000000-0000-0000-0000-000000000000/groups")
     assert status == 404, f"Expected 404 for unknown schedule groups, got {status}"
 

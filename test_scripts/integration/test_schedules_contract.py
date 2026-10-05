@@ -534,13 +534,14 @@ def test_forwarded_payloads():
 
     print("✅ Schedule forwarded payload tests passed")
 
+# Runtime expected fields for GroupListItem response contract
 ALLOWED_GROUP_LIST_FIELDS = {
     "id", "subscriber_id", "group_config_index", "name",
     "description", "created_at", "updated_at", "config-raw", "device_count"
 }
 
-def test_schedule_groups_response_schema():
-    print("Testing Schedule Groups Response Schema Contracts (GroupListItem focused validation)...")
+def test_schedule_groups_response_contract():
+    print("Testing Schedule Groups Response Contract (GroupListItem runtime validation)...")
     req = urllib.request.Request(
         f"{FAKE_URL}/set-scenario",
         data=json.dumps({"scenario": "schedule-groups-counts"}).encode(),
@@ -598,7 +599,7 @@ def test_schedule_groups_response_schema():
     assert body[1]["device_count"] == 0
 
     reset_observations()
-    print("✅ Schedule groups response schema contract tests passed")
+    print("✅ Schedule groups response contract tests passed")
 
 if __name__ == "__main__":
     print("Starting schedules contract tests...")
@@ -606,7 +607,7 @@ if __name__ == "__main__":
         test_auth_checks()
         test_local_validation()
         test_forwarded_payloads()
-        test_schedule_groups_response_schema()
+        test_schedule_groups_response_contract()
         print("🎉 All contract tests passed!")
     except AssertionError as e:
         print(f"❌ TEST FAILED: {e}")
