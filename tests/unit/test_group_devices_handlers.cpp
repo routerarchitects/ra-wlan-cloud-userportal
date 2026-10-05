@@ -13,8 +13,8 @@ namespace {
 
 const std::string kValidGroupId = "11111111-1111-4111-8111-111111111111";
 const std::string kInvalidGroupId = "bad-group-id";
-const std::string kValidMac = "AA:BB:CC:DD:EE:FF";
-const std::string kValidMac2 = "AA:BB:CC:DD:EE:02";
+const std::string kValidMac = "aa:bb:cc:dd:ee:ff";
+const std::string kValidMac2 = "aa:bb:cc:dd:ee:02";
 const std::string kInvalidMac = "invalid-mac";
 
 std::string StripMac(const std::string &value) {
@@ -23,7 +23,7 @@ std::string StripMac(const std::string &value) {
         if (c == ':' || c == '-' || c == '.') {
             continue;
         }
-        result.push_back(static_cast<char>(std::toupper(static_cast<unsigned char>(c))));
+        result.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
     }
     return result;
 }
@@ -77,6 +77,7 @@ struct DeviceHandlerState {
     int createCalls = 0;
     int createV2Calls = 0;
     int deleteCalls = 0;
+    int applyCalls = 0;
     std::string lastSubscriberId;
     std::string lastOperatorId;
     std::string lastGroupId;
@@ -145,6 +146,7 @@ bool ExtractConfigRawSnapshot(const Poco::JSON::Object::Ptr &, Poco::JSON::Array
 ApplyConfigRawResult ApplyConfigRaw(RESTAPIHandler &, Poco::Logger &, const std::string &, const std::string &,
                                     const std::string &objectId, const Poco::JSON::Array::Ptr &, const std::string &,
                                     const std::string &, const std::string &gatewaySerial) {
+    ++g_state.applyCalls;
     g_state.lastGroupId = objectId;
     g_state.lastGatewaySerial = gatewaySerial;
     return g_state.applyResult;
@@ -201,6 +203,9 @@ void HandleParentalControlMutationResult(RESTAPIHandler &handler,
     if (!mutation.success) {
         ForwardParentalControlErrorResponse(&handler, mutation.status, mutation.response);
         return;
+    }
+    if (mutation.response && mutation.response->has("config-raw") && !mutation.response->isNull("config-raw")) {
+        ApplyConfigRaw(handler, logger, subscriberId, operatorId, applyTargetId, g_state.extractedConfigRaw, operationName, objectType, g_state.lastGatewaySerial);
     }
     Poco::JSON::Object::Ptr response = mutation.response;
     if (successResponse == MutationSuccessResponse::Ok) {
@@ -461,11 +466,50 @@ void TestV2PostSuccessSingleDevice() {
         [](const FakeResponse &response) {
             ExpectEq(g_state.createV2Calls, 1, "Exactly one V2 downstream call should be made");
             ExpectEq(g_state.createCalls, 0, "V1 downstream call must not be made for V2");
+            ExpectEq(g_state.applyCalls, 1, "Gateway config apply should be attempted when config-raw is present");
             ExpectEq(g_state.lastClientMacs.size(), static_cast<std::size_t>(1), "Should pass one MAC to V2 downstream");
             ExpectEq(g_state.lastClientMacs[0], std::string(kValidMac), "MAC should match normalized colon format");
             auto parsed = ParseObject(response.body());
             Expect(parsed->has("devices"), "Response must have devices array");
             Expect(!parsed->has("config-raw"), "Response must strip config-raw");
+        }
+    );
+}
+
+void TestV2PostSuccessConfigRawNull() {
+    auto responseObject = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+    auto devicesArr = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
+    auto dev = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+    dev->set("client_mac", kValidMac);
+    devicesArr->add(dev);
+    responseObject->set("devices", devicesArr);
+    responseObject->set("config-raw", Poco::Dynamic::Var());
+    g_state.createV2Response = responseObject;
+
+    RunHandlerRequest<TestGroupDevicesListV2Handler>(
+        Poco::Net::HTTPRequest::HTTP_POST,
+        "/api/v2/groups/x/devices",
+        "{\"client_macs\":[\"AA:BB:CC:DD:EE:FF\"]}",
+        {{"group_id", kValidGroupId}},
+        "subscriber-1",
+        "operator-1",
+        Poco::Net::HTTPResponse::HTTP_OK,
+        [](TestGroupDevicesListV2Handler &handler) {
+            auto body = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+            auto arr = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
+            arr->add(kValidMac);
+            body->set("client_macs", arr);
+            handler.setParsedBody(body);
+        },
+        [](const FakeResponse &response) {
+            ExpectEq(g_state.createV2Calls, 1, "Exactly one V2 downstream call should be made");
+            ExpectEq(g_state.createCalls, 0, "V1 downstream call must not be made for V2");
+            ExpectEq(g_state.applyCalls, 0, "No gateway config apply should be attempted when config-raw is null");
+            ExpectEq(g_state.lastClientMacs.size(), static_cast<std::size_t>(1), "Should pass one MAC to V2 downstream");
+            ExpectEq(g_state.lastClientMacs[0], std::string(kValidMac), "MAC should match normalized colon format");
+            auto parsed = ParseObject(response.body());
+            Expect(parsed->has("devices"), "Response must have devices array");
+            Expect(!parsed->has("config-raw"), "Response must strip config-raw even when null");
         }
     );
 }
@@ -741,6 +785,7 @@ const std::vector<std::pair<std::string, std::function<void()>>> kTests = {
     {"DeleteReturnsOkOnSuccess", TestDeleteReturnsOkOnSuccess},
     {"V2PostSuccessSingleDevice", TestV2PostSuccessSingleDevice},
     {"V2PostSuccessMultipleDevices", TestV2PostSuccessMultipleDevices},
+    {"V2PostSuccessConfigRawNull", TestV2PostSuccessConfigRawNull},
     {"V2PostRejectsStringClientMacs", TestV2PostRejectsStringClientMacs},
     {"V2PostRejectsLegacyClientMac", TestV2PostRejectsLegacyClientMac},
     {"V2PostRejectsEmptyArray", TestV2PostRejectsEmptyArray},
