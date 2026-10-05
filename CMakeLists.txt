@@ -172,6 +172,7 @@ add_executable(owsub
         src/RESTAPI/RESTAPI_group_devices_handler.cpp src/RESTAPI/RESTAPI_group_devices_handler.h
         src/RESTAPI/RESTAPI_group_schedules_list_handler.cpp src/RESTAPI/RESTAPI_group_schedules_list_handler.h
         src/RESTAPI/RESTAPI_group_schedules_handler.cpp src/RESTAPI/RESTAPI_group_schedules_handler.h
+        src/RESTAPI/RESTAPI_schedule_groups_list_handler.cpp src/RESTAPI/RESTAPI_schedule_groups_list_handler.h
         src/RESTAPI/RESTAPI_subscriber_location_handler.cpp src/RESTAPI/RESTAPI_subscriber_location_handler.h
         )
 
@@ -274,4 +275,18 @@ if(BUILD_TESTING)
     )
     target_link_options(test_subscriber_location_handler PRIVATE "-Wl,-rpath,/usr/local/lib")
     add_test(NAME test_subscriber_location_handler COMMAND test_subscriber_location_handler)
+
+    # test_schedule_groups_handlers
+    add_executable(test_schedule_groups_handlers tests/unit/test_schedule_groups_handlers.cpp)
+    target_include_directories(test_schedule_groups_handlers PRIVATE src)
+    target_link_libraries(test_schedule_groups_handlers PRIVATE
+        ${Poco_LIBRARIES}
+        ${MySQL_LIBRARIES}
+        ${ZLIB_LIBRARIES}
+        CppKafka::cppkafka
+        resolv
+        fmt::fmt
+    )
+    target_link_options(test_schedule_groups_handlers PRIVATE "-Wl,-rpath,/usr/local/lib")
+    add_test(NAME test_schedule_groups_handlers COMMAND test_schedule_groups_handlers)
 endif()

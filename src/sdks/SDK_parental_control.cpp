@@ -165,6 +165,15 @@ namespace OpenWifi::SDK::ParentalControl {
 		return CallResponse != nullptr;
 	}
 
+	bool GetScheduleGroups(RESTAPIHandler *client, const std::string &SubscriberId,
+						   const std::string &ScheduleId,
+						   Poco::Net::HTTPResponse::HTTPStatus &CallStatus,
+						   Poco::JSON::Array::Ptr &ArrayResponse,
+						   Poco::JSON::Object::Ptr &ObjectResponse) {
+		std::string endpoint = "/api/v1/subscribers/" + SubscriberId + "/schedules/" + ScheduleId + "/groups";
+		return ExecuteGetArray(client, endpoint, CallStatus, ArrayResponse, ObjectResponse);
+	}
+
 	// =========================================================================
 	// Group Devices
 	// =========================================================================

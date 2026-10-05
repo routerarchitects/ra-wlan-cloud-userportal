@@ -26,6 +26,7 @@
 #include "RESTAPI/RESTAPI_group_devices_handler.h"
 #include "RESTAPI/RESTAPI_group_schedules_list_handler.h"
 #include "RESTAPI/RESTAPI_group_schedules_handler.h"
+#include "RESTAPI/RESTAPI_schedule_groups_list_handler.h"
 #include "RESTAPI/RESTAPI_subscriber_location_handler.h"
 
 #include "framework/RESTAPI_SystemCommand.h"
@@ -46,6 +47,7 @@ namespace OpenWifi {
 							  RESTAPI_schedules_list_handler, RESTAPI_schedules_handler,
 							  RESTAPI_group_devices_list_handler, RESTAPI_group_devices_list_v2_handler, RESTAPI_group_devices_handler,
 							  RESTAPI_group_schedules_list_handler, RESTAPI_group_schedules_handler,
+							  RESTAPI_schedule_groups_list_handler,
 							  RESTAPI_subscriber_location_handler>(Path, Bindings, L, S, TransactionId);
 	}
 
@@ -61,6 +63,7 @@ namespace OpenWifi {
 								RESTAPI_schedules_list_handler, RESTAPI_schedules_handler,
 								RESTAPI_group_devices_list_handler, RESTAPI_group_devices_list_v2_handler, RESTAPI_group_devices_handler,
 								RESTAPI_group_schedules_list_handler, RESTAPI_group_schedules_handler,
+								RESTAPI_schedule_groups_list_handler,
 								RESTAPI_subscriber_location_handler>(Path, Bindings, L, S, TransactionId);
 	}
 
