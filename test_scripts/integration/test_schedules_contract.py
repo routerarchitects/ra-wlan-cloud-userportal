@@ -534,17 +534,21 @@ def test_forwarded_payloads():
 
     print("✅ Schedule forwarded payload tests passed")
 
-# Runtime expected fields for GroupListItem response contract
+# Runtime expected fields for GroupListItem response contract.
+# Note: Verifies runtime response contract and payload constraints (types, UUIDs,
+# dates, and excluding client MACs) directly rather than parsing openapi/userportal.yaml,
+# maintaining a dependency-free CI test suite.
 ALLOWED_GROUP_LIST_FIELDS = {
     "id", "subscriber_id", "group_config_index", "name",
     "description", "created_at", "updated_at", "config-raw", "device_count"
 }
 
 def test_schedule_groups_response_contract():
+    """Verify runtime response contract for schedule-associated groups (GroupListItem format)."""
     print("Testing Schedule Groups Response Contract (GroupListItem runtime validation)...")
     req = urllib.request.Request(
         f"{FAKE_URL}/set-scenario",
-        data=json.dumps({"scenario": "schedule-groups-counts"}).encode(),
+        data=json.dumps({"scenario": "normal"}).encode(),
         method="POST"
     )
     open_url(req)

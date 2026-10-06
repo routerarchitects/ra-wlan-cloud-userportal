@@ -242,9 +242,30 @@ void TestScheduleGroupsForwardsDownstreamFailure() {
     );
 }
 
+void TestScheduleGroupsReturnsInternalErrorOnNullArrayResponse() {
+    g_state.getScheduleGroupsOk = true;
+    g_state.getScheduleGroupsStatus = Poco::Net::HTTPResponse::HTTP_OK;
+    g_state.getScheduleGroupsArray = nullptr;
+
+    RunHandlerRequest<TestScheduleGroupsListHandler>(
+        Poco::Net::HTTPRequest::HTTP_GET,
+        "/api/v1/schedules/x/groups",
+        "",
+        {{"schedule_id", kValidScheduleId}},
+        kValidSubscriberId,
+        "",
+        Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR,
+        nullptr,
+        [](const FakeResponse &) {
+            ExpectEq(g_state.getScheduleGroupsCallCount, 1, "SDK called");
+        }
+    );
+}
+
 const std::vector<std::pair<std::string, std::function<void()>>> kTests = {
     {"ScheduleGroupsSuccessMixedDeviceCounts", TestScheduleGroupsSuccessMixedDeviceCounts},
     {"ScheduleGroupsSuccessEmptyList", TestScheduleGroupsSuccessEmptyList},
+    {"ScheduleGroupsReturnsInternalErrorOnNullArrayResponse", TestScheduleGroupsReturnsInternalErrorOnNullArrayResponse},
     {"ScheduleGroupsRejectsMissingSubscriberId", TestScheduleGroupsRejectsMissingSubscriberId},
     {"ScheduleGroupsRejectsEmptyScheduleId", TestScheduleGroupsRejectsEmptyScheduleId},
     {"ScheduleGroupsRejectsMalformedScheduleId", TestScheduleGroupsRejectsMalformedScheduleId},

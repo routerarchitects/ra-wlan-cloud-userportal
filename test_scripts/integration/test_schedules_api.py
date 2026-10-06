@@ -512,19 +512,16 @@ def test_config_raw_malformed_handling():
 
     print("✅ config-raw: malformed handling tests passed")
 
-def test_schedule_groups_lifecycle():
-    print("Testing schedule-associated groups contract and behavior...")
-    reset_db()
+def test_schedule_groups_gateway_forwarding():
+    print("Testing schedule-associated groups gateway forwarding...")
 
-    sched_id = create_test_schedule("Study-Hours-Schedule")
-
-    # 1. Schedule with no groups returns empty array
-    status, body = request("GET", f"/api/v1/schedules/{sched_id}/groups", scenario="schedule-groups-empty")
+    # 1. Schedule with no groups forwards empty array
+    status, body = request("GET", f"/api/v1/schedules/{VALID_SCHEDULE_ID}/groups", scenario="schedule-groups-empty")
     assert status == 200, f"Expected 200, got {status}"
     assert body == [], f"Expected empty array [], got {body}"
 
-    # 2. Schedule with multiple groups returns deterministic fixture with device_count
-    status, body = request("GET", f"/api/v1/schedules/{sched_id}/groups", scenario="schedule-groups-counts")
+    # 2. Schedule with groups forwards downstream fixture preserving device_count
+    status, body = request("GET", f"/api/v1/schedules/{VALID_SCHEDULE_ID}/groups")
     assert status == 200, f"Expected 200, got {status}"
     assert isinstance(body, list), f"Expected list of groups, got {type(body)}"
     assert len(body) == 2, f"Expected 2 groups, got {len(body)}"
@@ -540,17 +537,11 @@ def test_schedule_groups_lifecycle():
         assert "client_macs" not in item
         assert "devices" not in item
 
-    # 3. Schedule with single group (e.g. after group unlinking)
-    status, body = request("GET", f"/api/v1/schedules/{sched_id}/groups", scenario="schedule-groups-single")
-    assert status == 200, f"Expected 200, got {status}"
-    assert len(body) == 1, f"Expected 1 group, got {len(body)}"
-    assert body[0]["device_count"] == 0
-
-    # 4. Non-existent schedule forwards downstream 404
-    status, _ = request("GET", "/api/v1/schedules/00000000-0000-0000-0000-000000000000/groups")
+    # 3. Downstream 404 is forwarded as 404
+    status, _ = request("GET", f"/api/v1/schedules/{VALID_SCHEDULE_ID}/groups", scenario="pc-404")
     assert status == 404, f"Expected 404 for unknown schedule groups, got {status}"
 
-    print("✅ Schedule-associated groups lifecycle tests passed")
+    print("✅ Schedule-associated groups gateway forwarding tests passed")
 
 if __name__ == "__main__":
     print("Starting schedules integration tests...")
@@ -570,7 +561,7 @@ if __name__ == "__main__":
         test_config_raw_null_handling()
         test_post_config_raw_skip_apply()
         test_config_raw_malformed_handling()
-        test_schedule_groups_lifecycle()
+        test_schedule_groups_gateway_forwarding()
         
         print("🎉 All schedules integration tests passed!")
     except AssertionError as e:

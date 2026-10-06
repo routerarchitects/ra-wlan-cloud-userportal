@@ -29,13 +29,18 @@ namespace OpenWifi {
 		Poco::JSON::Array::Ptr arrayResponse;
 		Poco::JSON::Object::Ptr errorResponse;
 
-		if (SDK::ParentalControl::GetScheduleGroups(this, UserInfo_.userinfo.id, scheduleId,
-		                                            callStatus, arrayResponse, errorResponse)) {
-			std::ostringstream ss;
-			Poco::JSON::Stringifier::condense(*arrayResponse, ss);
-			return ReturnRawJSON(ss.str());
+		if (!SDK::ParentalControl::GetScheduleGroups(this, UserInfo_.userinfo.id, scheduleId,
+		                                             callStatus, arrayResponse, errorResponse)) {
+			return RESTAPI::ParentalControl::ForwardParentalControlErrorResponse(this, callStatus, errorResponse);
 		}
-		return RESTAPI::ParentalControl::ForwardParentalControlErrorResponse(this, callStatus, errorResponse);
+
+		if (!arrayResponse) {
+			return InternalError(RESTAPI::Errors::InternalError);
+		}
+
+		std::ostringstream ss;
+		Poco::JSON::Stringifier::condense(*arrayResponse, ss);
+		return ReturnRawJSON(ss.str());
 	}
 
 } // namespace OpenWifi

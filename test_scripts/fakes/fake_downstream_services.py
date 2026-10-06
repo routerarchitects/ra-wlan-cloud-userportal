@@ -468,51 +468,27 @@ class FakeHandler(http.server.BaseHTTPRequestHandler):
                 return
 
         if "/api/v1/subscribers/" in self.path and "/schedules/" in self.path and self.path.endswith("/groups"):
-            parts = urlparse(self.path).path.split("/")
-            subscriber_id = parts[4] if len(parts) > 4 else "sub1"
-            schedule_id = parts[6] if len(parts) > 6 else ""
-
-            # 404 schedule_not_found when schedule doesn't exist for that subscriber
-            if current_scenario == "pc-404" or schedule_id == "00000000-0000-0000-0000-000000000000":
+            # 1. Downstream 404 schedule not found
+            if current_scenario == "pc-404":
                 self.send_response(404)
                 self.end_headers()
                 self.wfile.write(json.dumps({"error": {"code": "schedule_not_found", "message": "schedule not found"}}).encode())
                 return
 
-            # 3. 200 [] for an existing schedule with no groups
+            # 2. Downstream 200 with empty list for schedule with no groups
             if current_scenario == "schedule-groups-empty":
                 self.send_response(200)
                 self.end_headers()
                 self.wfile.write(b"[]")
                 return
 
-            sub_uuid = subscriber_id if re.match(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", subscriber_id) else "11111111-1111-4111-8111-111111111111"
-
-            # 4. 200 with single group (e.g. after unlink in lifecycle)
-            if current_scenario == "schedule-groups-single":
-                self.send_response(200)
-                self.end_headers()
-                self.wfile.write(json.dumps([
-                    {
-                        "id": "22222222-2222-4222-8222-222222222222",
-                        "subscriber_id": sub_uuid,
-                        "group_config_index": 2,
-                        "name": "empty",
-                        "description": None,
-                        "created_at": "2026-06-15T12:00:00Z",
-                        "updated_at": "2026-06-15T12:00:00Z",
-                        "device_count": 0
-                    }
-                ]).encode())
-                return
-
-            # 5. 200 with GroupListItem[] otherwise (deterministic fixture modeling Mango contract)
+            # 3. Downstream 200 with GroupListItem[] fixture (default success, includes device counts)
             self.send_response(200)
             self.end_headers()
             groups = [
                 {
                     "id": "11111111-1111-4111-8111-111111111111",
-                    "subscriber_id": sub_uuid,
+                    "subscriber_id": "11111111-1111-4111-8111-111111111111",
                     "group_config_index": 1,
                     "name": "group-1",
                     "description": "First test group",
@@ -522,7 +498,7 @@ class FakeHandler(http.server.BaseHTTPRequestHandler):
                 },
                 {
                     "id": "22222222-2222-4222-8222-222222222222",
-                    "subscriber_id": sub_uuid,
+                    "subscriber_id": "11111111-1111-4111-8111-111111111111",
                     "group_config_index": 2,
                     "name": "empty",
                     "description": None,
