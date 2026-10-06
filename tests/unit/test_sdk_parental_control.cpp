@@ -263,6 +263,49 @@ void TestGetGroupSchedulesSuccess() {
     ExpectEq(g_state.lastEndpoint, std::string("/api/v1/subscribers/sub-1/groups/group-1/schedules"), "group schedules endpoint");
 }
 
+void TestGetScheduleGroupsSuccess() {
+    auto arrayResponse = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
+    auto group = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+    group->set("id", "11111111-1111-4111-8111-111111111111");
+    group->set("name", "Family");
+    group->set("device_count", 2);
+    arrayResponse->add(group);
+    g_state.nextArray = arrayResponse;
+
+    Poco::Net::HTTPResponse::HTTPStatus callStatus = Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR;
+    Poco::JSON::Array::Ptr actualArray;
+    Poco::JSON::Object::Ptr actualObject;
+
+    Expect(OpenWifi::SDK::ParentalControl::GetScheduleGroups(
+               nullptr, "sub-123", "sch-456", callStatus, actualArray, actualObject),
+           "GetScheduleGroups should succeed on HTTP 200");
+    ExpectEq(g_state.lastMethod, std::string("GET_ARRAY"), "GET_ARRAY method required for array Do call");
+    ExpectEq(g_state.lastEndpoint,
+             std::string("/api/v1/subscribers/sub-123/schedules/sch-456/groups"),
+             "Target endpoint must match Mango ListScheduleGroups route");
+    ExpectEq(actualArray->size(), static_cast<std::size_t>(1), "Returned array matches mock");
+}
+
+void TestGetScheduleGroupsNotFound() {
+    auto errorObject = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+    auto err = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+    err->set("code", "schedule_not_found");
+    err->set("message", "Schedule not found");
+    errorObject->set("error", err);
+    g_state.nextObject = errorObject;
+    g_state.nextStatus = Poco::Net::HTTPResponse::HTTP_NOT_FOUND;
+
+    Poco::Net::HTTPResponse::HTTPStatus callStatus;
+    Poco::JSON::Array::Ptr actualArray;
+    Poco::JSON::Object::Ptr actualObject;
+
+    Expect(!OpenWifi::SDK::ParentalControl::GetScheduleGroups(
+               nullptr, "sub-123", "sch-456", callStatus, actualArray, actualObject),
+           "GetScheduleGroups should return false on HTTP 404");
+    ExpectEq(static_cast<int>(callStatus), 404, "Status should be 404");
+    Expect(actualObject != nullptr, "Error object populated on failure");
+}
+
 void TestCreateGroupScheduleSuccess() {
     Poco::JSON::Object body;
     body.set("schedule_id", "schedule-1");
@@ -722,6 +765,8 @@ const std::vector<std::pair<std::string, std::function<void()>>> kTests = {
     {"DeleteGroupDeviceSuccessRequiresRawBodyAndConfigRaw", TestDeleteGroupDeviceSuccessRequiresRawBodyAndConfigRaw},
     {"DeleteGroupDeviceFailsWhenRawBodyIsEmpty", TestDeleteGroupDeviceFailsWhenRawBodyIsEmpty},
     {"GetGroupSchedulesSuccess", TestGetGroupSchedulesSuccess},
+    {"GetScheduleGroupsSuccess", TestGetScheduleGroupsSuccess},
+    {"GetScheduleGroupsNotFound", TestGetScheduleGroupsNotFound},
     {"CreateGroupScheduleSuccess", TestCreateGroupScheduleSuccess},
     {"GetGroupScheduleSuccess", TestGetGroupScheduleSuccess},
     {"DeleteGroupScheduleSuccessRequiresConfigRaw", TestDeleteGroupScheduleSuccessRequiresConfigRaw},
