@@ -56,11 +56,9 @@ namespace OpenWifi {
 				poco_debug(Poco::Logger::get("REST-CALLER-GET"),
 						   fmt::format(" {}", LoggingStr_.empty() ? URI.toString() : LoggingStr_));
 
-				if (BearerToken.empty()) {
-					Request.add("X-API-KEY", Svc.AccessKey);
-					Request.add("X-INTERNAL-NAME", MicroServicePublicEndPoint());
-				} else {
-					// Authorization: Bearer ${token}
+				Request.add("X-API-KEY", Svc.AccessKey);
+				Request.add("X-INTERNAL-NAME", MicroServicePublicEndPoint());
+				if (!BearerToken.empty()) {
 					Request.add("Authorization", "Bearer " + BearerToken);
 				}
 
@@ -126,11 +124,9 @@ namespace OpenWifi {
 				Request.setContentType("application/json");
 				Request.setContentLength(obody.str().size());
 
-				if (BearerToken.empty()) {
-					Request.add("X-API-KEY", Svc.AccessKey);
-					Request.add("X-INTERNAL-NAME", MicroServicePublicEndPoint());
-				} else {
-					// Authorization: Bearer ${token}
+				Request.add("X-API-KEY", Svc.AccessKey);
+				Request.add("X-INTERNAL-NAME", MicroServicePublicEndPoint());
+				if (!BearerToken.empty()) {
 					Request.add("Authorization", "Bearer " + BearerToken);
 				}
 
@@ -204,11 +200,9 @@ namespace OpenWifi {
 				Request.setContentType("application/json");
 				Request.setContentLength(obody.str().size());
 
-				if (BearerToken.empty()) {
-					Request.add("X-API-KEY", Svc.AccessKey);
-					Request.add("X-INTERNAL-NAME", MicroServicePublicEndPoint());
-				} else {
-					// Authorization: Bearer ${token}
+				Request.add("X-API-KEY", Svc.AccessKey);
+				Request.add("X-INTERNAL-NAME", MicroServicePublicEndPoint());
+				if (!BearerToken.empty()) {
 					Request.add("Authorization", "Bearer " + BearerToken);
 				}
 
@@ -280,11 +274,9 @@ namespace OpenWifi {
 
 				Poco::Net::HTTPRequest Request(Poco::Net::HTTPRequest::HTTP_DELETE, Path,
 											   Poco::Net::HTTPMessage::HTTP_1_1);
-				if (BearerToken.empty()) {
-					Request.add("X-API-KEY", Svc.AccessKey);
-					Request.add("X-INTERNAL-NAME", MicroServicePublicEndPoint());
-				} else {
-					// Authorization: Bearer ${token}
+				Request.add("X-API-KEY", Svc.AccessKey);
+				Request.add("X-INTERNAL-NAME", MicroServicePublicEndPoint());
+				if (!BearerToken.empty()) {
 					Request.add("Authorization", "Bearer " + BearerToken);
 				}
 
@@ -345,10 +337,9 @@ namespace OpenWifi {
 				poco_debug(Poco::Logger::get("REST-CALLER-GET"),
 						   fmt::format(" {}", LoggingStr_.empty() ? URI.toString() : LoggingStr_));
 
-				if (BearerToken.empty()) {
-					Request.add("X-API-KEY", Svc.AccessKey);
-					Request.add("X-INTERNAL-NAME", MicroServicePublicEndPoint());
-				} else {
+				Request.add("X-API-KEY", Svc.AccessKey);
+				Request.add("X-INTERNAL-NAME", MicroServicePublicEndPoint());
+				if (!BearerToken.empty()) {
 					Request.add("Authorization", "Bearer " + BearerToken);
 				}
 
