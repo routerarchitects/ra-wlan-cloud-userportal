@@ -6,12 +6,14 @@
 
 #include "Poco/JSON/Parser.h"
 #include "Poco/Logger.h"
+#include "Poco/Net/HTTPClientSession.h"
 #include "Poco/Net/HTTPSClientSession.h"
 #include "Poco/Net/HTTPServerRequest.h"
 #include "Poco/Net/HTTPServerResponse.h"
 #include "Poco/URI.h"
 
 #include "framework/MicroServiceFuncs.h"
+#include <memory>
 
 namespace OpenWifi {
 	inline void API_Proxy(Poco::Logger &Logger, Poco::Net::HTTPServerRequest *Request,
@@ -25,13 +27,16 @@ namespace OpenWifi {
 				DestinationURI.setPath(PathRewrite);
 				DestinationURI.setQuery(SourceURI.getQuery());
 
-				// std::cout << "     Source: " << SourceURI.toString() << std::endl;
-				// std::cout << "Destination: " << DestinationURI.toString() << std::endl;
-
-				Poco::Net::HTTPSClientSession Session(DestinationURI.getHost(),
-													  DestinationURI.getPort());
-				Session.setKeepAlive(true);
-				Session.setTimeout(Poco::Timespan(msTimeout_ / 1000, msTimeout_ % 1000));
+				std::unique_ptr<Poco::Net::HTTPClientSession> Session;
+				if (DestinationURI.getScheme() == "https") {
+					Session = std::make_unique<Poco::Net::HTTPSClientSession>(
+						DestinationURI.getHost(), DestinationURI.getPort());
+				} else {
+					Session = std::make_unique<Poco::Net::HTTPClientSession>(
+						DestinationURI.getHost(), DestinationURI.getPort());
+				}
+				Session->setKeepAlive(true);
+				Session->setTimeout(Poco::Timespan(msTimeout_ / 1000, msTimeout_ % 1000));
 				Poco::Net::HTTPRequest ProxyRequest(Request->getMethod(),
 													DestinationURI.getPathAndQuery(),
 													Poco::Net::HTTPMessage::HTTP_1_1);
@@ -42,9 +47,9 @@ namespace OpenWifi {
 				}
 
 				if (Request->getMethod() == Poco::Net::HTTPRequest::HTTP_DELETE) {
-					Session.sendRequest(ProxyRequest);
+					Session->sendRequest(ProxyRequest);
 					Poco::Net::HTTPResponse ProxyResponse;
-					Session.receiveResponse(ProxyResponse);
+					Session->receiveResponse(ProxyResponse);
 					Response->setStatus(ProxyResponse.getStatus());
 					Response->send();
 					return;
@@ -60,18 +65,18 @@ namespace OpenWifi {
 					}
 
 					if (SS.str().empty()) {
-						Session.sendRequest(ProxyRequest);
+						Session->sendRequest(ProxyRequest);
 					} else {
 						ProxyRequest.setContentType("application/json");
 						ProxyRequest.setContentLength(SS.str().size());
-						std::ostream &os = Session.sendRequest(ProxyRequest);
+						std::ostream &os = Session->sendRequest(ProxyRequest);
 						os << SS.str();
 					}
 
 					Poco::Net::HTTPResponse ProxyResponse;
 					std::stringstream SSR;
 					try {
-						std::istream &ProxyResponseStream = Session.receiveResponse(ProxyResponse);
+						std::istream &ProxyResponseStream = Session->receiveResponse(ProxyResponse);
 						Poco::JSON::Parser P2;
 						auto ProxyResponseBody =
 							P2.parse(ProxyResponseStream).extract<Poco::JSON::Object::Ptr>();
