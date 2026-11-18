@@ -165,6 +165,15 @@ namespace OpenWifi::SDK::ParentalControl {
 		return CallResponse != nullptr;
 	}
 
+	bool GetScheduleGroups(RESTAPIHandler *client, const std::string &SubscriberId,
+						   const std::string &ScheduleId,
+						   Poco::Net::HTTPResponse::HTTPStatus &CallStatus,
+						   Poco::JSON::Array::Ptr &ArrayResponse,
+						   Poco::JSON::Object::Ptr &ObjectResponse) {
+		std::string endpoint = "/api/v1/subscribers/" + SubscriberId + "/schedules/" + ScheduleId + "/groups";
+		return ExecuteGetArray(client, endpoint, CallStatus, ArrayResponse, ObjectResponse);
+	}
+
 	// =========================================================================
 	// Group Devices
 	// =========================================================================
@@ -183,6 +192,14 @@ namespace OpenWifi::SDK::ParentalControl {
 						   Poco::Net::HTTPResponse::HTTPStatus &CallStatus,
 						   Poco::JSON::Object::Ptr &CallResponse) {
 		std::string endpoint = "/api/v1/subscribers/" + SubscriberId + "/groups/" + GroupId + "/devices";
+		return ExecutePostObject(client, endpoint, Body, 120000, CallStatus, CallResponse);
+	}
+
+	bool CreateGroupDevicesV2(RESTAPIHandler *client, const std::string &SubscriberId,
+							 const std::string &GroupId, const Poco::JSON::Object &Body,
+							 Poco::Net::HTTPResponse::HTTPStatus &CallStatus,
+							 Poco::JSON::Object::Ptr &CallResponse) {
+		std::string endpoint = "/api/v2/subscribers/" + SubscriberId + "/groups/" + GroupId + "/devices";
 		return ExecutePostObject(client, endpoint, Body, 120000, CallStatus, CallResponse);
 	}
 

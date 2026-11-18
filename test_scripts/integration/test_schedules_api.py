@@ -512,6 +512,37 @@ def test_config_raw_malformed_handling():
 
     print("✅ config-raw: malformed handling tests passed")
 
+def test_schedule_groups_gateway_forwarding():
+    print("Testing schedule-associated groups gateway forwarding...")
+
+    # 1. Schedule with no groups forwards empty array
+    status, body = request("GET", f"/api/v1/schedules/{VALID_SCHEDULE_ID}/groups", scenario="schedule-groups-empty")
+    assert status == 200, f"Expected 200, got {status}"
+    assert body == [], f"Expected empty array [], got {body}"
+
+    # 2. Schedule with groups forwards downstream fixture preserving device_count
+    status, body = request("GET", f"/api/v1/schedules/{VALID_SCHEDULE_ID}/groups")
+    assert status == 200, f"Expected 200, got {status}"
+    assert isinstance(body, list), f"Expected list of groups, got {type(body)}"
+    assert len(body) == 2, f"Expected 2 groups, got {len(body)}"
+
+    assert body[0]["device_count"] == 3, f"Expected device_count 3, got {body[0]['device_count']}"
+    assert body[1]["device_count"] == 0, f"Expected device_count 0, got {body[1]['device_count']}"
+    assert body[0]["name"] == "group-1"
+    assert body[1]["name"] == "empty"
+
+    # Verify client MAC arrays are not exposed in response
+    for item in body:
+        assert "client_mac" not in item
+        assert "client_macs" not in item
+        assert "devices" not in item
+
+    # 3. Downstream 404 is forwarded as 404
+    status, _ = request("GET", f"/api/v1/schedules/{VALID_SCHEDULE_ID}/groups", scenario="pc-404")
+    assert status == 404, f"Expected 404 for unknown schedule groups, got {status}"
+
+    print("✅ Schedule-associated groups gateway forwarding tests passed")
+
 if __name__ == "__main__":
     print("Starting schedules integration tests...")
     try:
@@ -530,6 +561,7 @@ if __name__ == "__main__":
         test_config_raw_null_handling()
         test_post_config_raw_skip_apply()
         test_config_raw_malformed_handling()
+        test_schedule_groups_gateway_forwarding()
         
         print("🎉 All schedules integration tests passed!")
     except AssertionError as e:

@@ -59,13 +59,33 @@ def request(method, path, body=None, headers=None, scenario="normal"):
 
 CREATED_GROUP_ID = None
 
+REQUIRED_GROUP_FIELDS = [
+    "id",
+    "subscriber_id",
+    "group_config_index",
+    "name",
+    "created_at",
+    "updated_at",
+]
+
+REQUIRED_GROUP_LIST_FIELDS = [
+    "id",
+    "subscriber_id",
+    "group_config_index",
+    "name",
+    "created_at",
+    "updated_at",
+    "device_count",
+]
+
 def test_post_groups():
     global CREATED_GROUP_ID
     print("Testing POST /groups stateful create...")
     status, body = request("POST", "/api/v1/groups", body={"name": "test-group", "description": "desc"})
     assert status == 200, f"Expected 200, got {status}. Body: {body}"
     assert isinstance(body, dict), f"Expected JSON object, got {type(body)}. Body: {body}"
-    assert "id" in body and "name" in body, f"Expected created group fields. Body: {body}"
+    for field in REQUIRED_GROUP_FIELDS:
+        assert field in body, f"Expected {field} in created group: {body}"
     assert body["name"] == "test-group"
     CREATED_GROUP_ID = body["id"]
     print(f"✅ POST /groups passed, created ID: {CREATED_GROUP_ID}")
@@ -76,13 +96,34 @@ def test_get_groups():
     assert status == 200, f"Expected 200, got {status}. Body: {body}"
     assert isinstance(body, list), f"Expected JSON array, got {type(body)}. Body: {body}"
     assert any(g.get("id") == CREATED_GROUP_ID for g in body), f"Expected newly created group in list. Body: {body}"
-    print("✅ GET /groups passed")
+    for g in body:
+        for field in REQUIRED_GROUP_LIST_FIELDS:
+            assert field in g, f"Expected {field} in group: {g}"
+        assert isinstance(g["device_count"], int) and not isinstance(g["device_count"], bool), f"device_count must be int: {g}"
+        assert g["device_count"] >= 0, f"device_count must be >= 0: {g}"
+    created_group = next(g for g in body if g.get("id") == CREATED_GROUP_ID)
+    assert created_group["device_count"] == 0, f"Expected device_count == 0 for new group: {created_group}"
+
+    # Verify downstream device_count pass-through with known positive and zero counts
+    status, scenario_body = request("GET", "/api/v1/groups", scenario="groups-device-counts")
+    assert status == 200, f"Expected 200, got {status}. Body: {scenario_body}"
+    assert isinstance(scenario_body, list) and len(scenario_body) == 2, f"Expected 2 groups, got: {scenario_body}"
+    for g in scenario_body:
+        for field in REQUIRED_GROUP_LIST_FIELDS:
+            assert field in g, f"Expected {field} in scenario group: {g}"
+    assert scenario_body[0]["device_count"] == 3, f"Expected device_count 3, got {scenario_body[0].get('device_count')}"
+    assert scenario_body[0]["name"] == "group-1"
+    assert scenario_body[1]["device_count"] == 0, f"Expected device_count 0, got {scenario_body[1].get('device_count')}"
+    assert scenario_body[1]["name"] == "empty"
+    print("✅ GET /groups passed (verified default 0, downstream pass-through 3 and 0, and GroupListItem fields)")
 
 def test_get_group_by_id():
     print("Testing GET /groups/{id} stateful read...")
     status, body = request("GET", f"/api/v1/groups/{CREATED_GROUP_ID}")
     assert status == 200, f"Expected 200, got {status}. Body: {body}"
     assert isinstance(body, dict), f"Expected JSON object. Body: {body}"
+    for field in REQUIRED_GROUP_FIELDS:
+        assert field in body, f"Expected {field} in group: {body}"
     assert body.get("id") == CREATED_GROUP_ID, f"Expected matching ID. Body: {body}"
     assert body.get("name") == "test-group"
     print("✅ GET /groups/{id} passed")
@@ -91,15 +132,21 @@ def test_put_groups():
     print("Testing PUT /groups/{id} stateful update...")
     status, body = request("PUT", f"/api/v1/groups/{CREATED_GROUP_ID}", body={"name": "updated-group", "description": "new-desc"})
     assert status == 200, f"Expected 200, got {status}. Body: {body}"
+    for field in REQUIRED_GROUP_FIELDS:
+        assert field in body, f"Expected {field} in updated group: {body}"
     assert body.get("name") == "updated-group", f"Expected updated name. Body: {body}"
     
     # Verify update persisted
     status, read_body = request("GET", f"/api/v1/groups/{CREATED_GROUP_ID}")
+    for field in REQUIRED_GROUP_FIELDS:
+        assert field in read_body, f"Expected {field} in read group: {read_body}"
     assert read_body.get("name") == "updated-group", "GET after PUT did not return updated name"
 
     # PUT with description omitted (description is optional) — must also succeed
     status, body = request("PUT", f"/api/v1/groups/{CREATED_GROUP_ID}", body={"name": "name-only-update"})
     assert status == 200, f"Expected 200 for PUT with name only (no description), got {status}. Body: {body}"
+    for field in REQUIRED_GROUP_FIELDS:
+        assert field in body, f"Expected {field} in name-only updated group: {body}"
     assert body.get("name") == "name-only-update", f"Expected updated name. Body: {body}"
     print("✅ PUT /groups passed")
 

@@ -188,6 +188,26 @@ void TestCreateGroupDeviceSuccess() {
     Expect(g_state.lastBodyJson.find("client_mac") != std::string::npos, "POST body should include client_mac");
 }
 
+void TestCreateGroupDevicesV2Success() {
+    Poco::JSON::Object body;
+    auto macs = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
+    macs->add("AA:BB:CC:DD:EE:01");
+    macs->add("AA:BB:CC:DD:EE:02");
+    body.set("client_macs", macs);
+
+    auto response = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+    response->set("devices", Poco::JSON::Array::Ptr(new Poco::JSON::Array()));
+    g_state.nextObject = response;
+
+    Poco::Net::HTTPResponse::HTTPStatus callStatus = Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR;
+    Poco::JSON::Object::Ptr actualResponse;
+    Expect(OpenWifi::SDK::ParentalControl::CreateGroupDevicesV2(nullptr, "sub-1", "group-1", body, callStatus, actualResponse),
+           "CreateGroupDevicesV2 should succeed on HTTP 200 with object");
+    ExpectEq(g_state.lastEndpoint, std::string("/api/v2/subscribers/sub-1/groups/group-1/devices"), "create group devices V2 endpoint");
+    ExpectEq(g_state.lastMethod, std::string("POST"), "POST method should be used");
+    Expect(g_state.lastBodyJson.find("client_macs") != std::string::npos, "POST body should include client_macs");
+}
+
 void TestGetGroupDeviceSuccess() {
     auto response = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
     response->set("client_mac", "AA:BB:CC:DD:EE:FF");
@@ -241,6 +261,49 @@ void TestGetGroupSchedulesSuccess() {
     Expect(OpenWifi::SDK::ParentalControl::GetGroupSchedules(nullptr, "sub-1", "group-1", callStatus, actualArray, actualObject),
            "GetGroupSchedules should succeed");
     ExpectEq(g_state.lastEndpoint, std::string("/api/v1/subscribers/sub-1/groups/group-1/schedules"), "group schedules endpoint");
+}
+
+void TestGetScheduleGroupsSuccess() {
+    auto arrayResponse = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
+    auto group = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+    group->set("id", "11111111-1111-4111-8111-111111111111");
+    group->set("name", "Family");
+    group->set("device_count", 2);
+    arrayResponse->add(group);
+    g_state.nextArray = arrayResponse;
+
+    Poco::Net::HTTPResponse::HTTPStatus callStatus = Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR;
+    Poco::JSON::Array::Ptr actualArray;
+    Poco::JSON::Object::Ptr actualObject;
+
+    Expect(OpenWifi::SDK::ParentalControl::GetScheduleGroups(
+               nullptr, "sub-123", "sch-456", callStatus, actualArray, actualObject),
+           "GetScheduleGroups should succeed on HTTP 200");
+    ExpectEq(g_state.lastMethod, std::string("GET_ARRAY"), "GET_ARRAY method required for array Do call");
+    ExpectEq(g_state.lastEndpoint,
+             std::string("/api/v1/subscribers/sub-123/schedules/sch-456/groups"),
+             "Target endpoint must match Mango ListScheduleGroups route");
+    ExpectEq(actualArray->size(), static_cast<std::size_t>(1), "Returned array matches mock");
+}
+
+void TestGetScheduleGroupsNotFound() {
+    auto errorObject = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+    auto err = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+    err->set("code", "schedule_not_found");
+    err->set("message", "Schedule not found");
+    errorObject->set("error", err);
+    g_state.nextObject = errorObject;
+    g_state.nextStatus = Poco::Net::HTTPResponse::HTTP_NOT_FOUND;
+
+    Poco::Net::HTTPResponse::HTTPStatus callStatus;
+    Poco::JSON::Array::Ptr actualArray;
+    Poco::JSON::Object::Ptr actualObject;
+
+    Expect(!OpenWifi::SDK::ParentalControl::GetScheduleGroups(
+               nullptr, "sub-123", "sch-456", callStatus, actualArray, actualObject),
+           "GetScheduleGroups should return false on HTTP 404");
+    ExpectEq(static_cast<int>(callStatus), 404, "Status should be 404");
+    Expect(actualObject != nullptr, "Error object populated on failure");
 }
 
 void TestCreateGroupScheduleSuccess() {
@@ -697,10 +760,13 @@ void TestSetConfigTwoPassValidation() {
 const std::vector<std::pair<std::string, std::function<void()>>> kTests = {
     {"GetGroupDevicesSuccess", TestGetGroupDevicesSuccess},
     {"CreateGroupDeviceSuccess", TestCreateGroupDeviceSuccess},
+    {"CreateGroupDevicesV2Success", TestCreateGroupDevicesV2Success},
     {"GetGroupDeviceSuccess", TestGetGroupDeviceSuccess},
     {"DeleteGroupDeviceSuccessRequiresRawBodyAndConfigRaw", TestDeleteGroupDeviceSuccessRequiresRawBodyAndConfigRaw},
     {"DeleteGroupDeviceFailsWhenRawBodyIsEmpty", TestDeleteGroupDeviceFailsWhenRawBodyIsEmpty},
     {"GetGroupSchedulesSuccess", TestGetGroupSchedulesSuccess},
+    {"GetScheduleGroupsSuccess", TestGetScheduleGroupsSuccess},
+    {"GetScheduleGroupsNotFound", TestGetScheduleGroupsNotFound},
     {"CreateGroupScheduleSuccess", TestCreateGroupScheduleSuccess},
     {"GetGroupScheduleSuccess", TestGetGroupScheduleSuccess},
     {"DeleteGroupScheduleSuccessRequiresConfigRaw", TestDeleteGroupScheduleSuccessRequiresConfigRaw},
