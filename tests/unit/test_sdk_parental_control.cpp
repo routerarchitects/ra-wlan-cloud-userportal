@@ -438,10 +438,13 @@ void TestSetConfigDurationValidation() {
             bool success = OpenWifi::SDK::GW::Device::SetConfig(nullptr, body, subDevices, "112233445566", "sub-123", status, response);
             Expect(success, "SetConfig with same-day duration should succeed");
             ExpectEq(status, Poco::Net::HTTPResponse::HTTP_OK, "status should be 200");
+            Expect(g_state.lastBodyJson.find("T") != std::string::npos, "ISO format timestamp with 'T' must be sent downstream");
+            Expect(g_state.lastBodyJson.find("start_time") == std::string::npos, "start_time should not be sent for ISO format");
+            Expect(g_state.lastBodyJson.find("stop_time") == std::string::npos, "stop_time should not be sent for ISO format");
         }
     }
 
-    // 2. Overnight / >24h duration (1500 mins) must be rejected with HTTP 400 Bad Request (Error 1201)
+    // 2. Overnight / cross-midnight duration (1500 mins) is now supported with ISO-8601 timestamps
     {
         ResetState();
         auto deviceObj = Poco::makeShared<Poco::JSON::Object>();
@@ -462,19 +465,18 @@ void TestSetConfigDurationValidation() {
         auto entry = Poco::makeShared<Poco::JSON::Object>();
         entry->set("mac", "aa:bb:cc:dd:ee:ff");
         entry->set("access", "deny");
-        entry->set("duration", 1500); // 1500 minutes (25 hours) - always crosses midnight
+        entry->set("duration", 1500); // 1500 minutes (25 hours) - crosses midnight
         clientArr->add(entry);
         body->set("client", clientArr);
 
         Poco::Net::HTTPResponse::HTTPStatus status = Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR;
         Poco::JSON::Object::Ptr response;
         bool success = OpenWifi::SDK::GW::Device::SetConfig(nullptr, body, subDevices, "112233445566", "sub-123", status, response);
-        Expect(!success, "SetConfig with overnight/24h+ duration should fail");
-        ExpectEq(status, Poco::Net::HTTPResponse::HTTP_BAD_REQUEST, "status should be 400");
-        Expect(response && response->has("ErrorDescription"), "response must contain ErrorDescription");
-        ExpectEq(response->getValue<std::string>("ErrorDescription"),
-                 std::string("1201: Duration crosses midnight. Duration-based client blocking is limited to the current block day."),
-                 "error text must match DurationCrossesMidnight");
+        Expect(success, "SetConfig with overnight/24h+ duration should succeed");
+        ExpectEq(status, Poco::Net::HTTPResponse::HTTP_OK, "status should be 200");
+        Expect(g_state.lastBodyJson.find("T") != std::string::npos, "ISO format timestamp with 'T' must be sent downstream");
+        Expect(g_state.lastBodyJson.find("start_time") == std::string::npos, "start_time should not be sent for ISO format");
+        Expect(g_state.lastBodyJson.find("stop_time") == std::string::npos, "stop_time should not be sent for ISO format");
     }
 
     // 3. Invalid MAC address must be rejected with HTTP 400 Bad Request (Error 1019)

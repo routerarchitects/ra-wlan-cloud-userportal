@@ -908,10 +908,16 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 		};
 
 		bool IsValidDate(const std::string &date) {
-			if (date.size() != 10) return false;
 			Poco::DateTime dt;
 			int tz = 0;
-			return Poco::DateTimeParser::tryParse("%Y-%m-%d", date, dt, tz);
+			if (date.size() == 10) {
+				return Poco::DateTimeParser::tryParse("%Y-%m-%d", date, dt, tz);
+			}
+			if (date.size() == 19) {
+				return Poco::DateTimeParser::tryParse("%Y-%m-%dT%H:%M:%S", date, dt, tz) ||
+				       Poco::DateTimeParser::tryParse("%Y-%m-%d %H:%M:%S", date, dt, tz);
+			}
+			return false;
 		}
 
 		bool IsValidTime(const std::string &time) {
@@ -983,6 +989,30 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 
 			if (!rule.hasClientAccessBoundary) {
 				outStopEpochSec = -1; // Permanent block
+				return true;
+			}
+
+			const bool isIsoRule = rule.hasStartDate && rule.hasStopDate &&
+								   (rule.startDate.find('T') != std::string::npos || rule.stopDate.find('T') != std::string::npos);
+			if (isIsoRule) {
+				Poco::DateTime startDt, stopDt;
+				int tz = 0;
+				if (!Poco::DateTimeParser::tryParse("%Y-%m-%dT%H:%M:%S", rule.startDate, startDt, tz) &&
+				    !Poco::DateTimeParser::tryParse("%Y-%m-%d %H:%M:%S", rule.startDate, startDt, tz)) {
+					return false;
+				}
+				if (!Poco::DateTimeParser::tryParse("%Y-%m-%dT%H:%M:%S", rule.stopDate, stopDt, tz) &&
+				    !Poco::DateTimeParser::tryParse("%Y-%m-%d %H:%M:%S", rule.stopDate, stopDt, tz)) {
+					return false;
+				}
+
+				if (nowUtc < startDt) {
+					return false;
+				}
+				if (nowUtc >= stopDt) {
+					return false;
+				}
+				outStopEpochSec = stopDt.timestamp().epochTime();
 				return true;
 			}
 

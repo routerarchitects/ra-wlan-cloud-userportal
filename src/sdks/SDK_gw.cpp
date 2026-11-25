@@ -576,17 +576,6 @@ namespace OpenWifi::SDK::GW {
 											response);
 				}
 
-				if (hasDuration && access == "deny") {
-					Poco::DateTime now;
-					Poco::DateTime endDt = now + Poco::Timespan(durationMinutes * 60, 0);
-					if (endDt.year() != now.year() || endDt.month() != now.month() || endDt.day() != now.day()) {
-						Poco::Logger::get("SDK_gw").error(fmt::format("Duration [{}] minutes crosses midnight for client MAC [{}].", durationMinutes, mac));
-						return SetErrorResponse(Poco::Net::HTTPResponse::HTTP_BAD_REQUEST,
-												RESTAPI::Errors::DurationCrossesMidnight, responseStatus,
-												response);
-					}
-				}
-
 				std::string formattedMac = Utils::SerialToMAC(mac);
 				Poco::toLowerInPlace(formattedMac);
 
@@ -610,22 +599,16 @@ namespace OpenWifi::SDK::GW {
 
 					if (entry.hasDuration) {
 						Poco::DateTime now;
-						std::string startDate = Poco::DateTimeFormatter::format(now, "%Y-%m-%d");
-						std::string startTime = Poco::DateTimeFormatter::format(now, "%H:%M:%S");
+						std::string startDate = Poco::DateTimeFormatter::format(now, "%Y-%m-%dT%H:%M:%S");
 
 						Poco::DateTime endDt = now + Poco::Timespan(entry.durationMinutes * 60, 0);
-						std::string stopTime = Poco::DateTimeFormatter::format(endDt, "%H:%M:%S");
-
-						Poco::DateTime nextDay = endDt + Poco::Timespan(86400, 0);
-						std::string stopDate = Poco::DateTimeFormatter::format(nextDay, "%Y-%m-%d");
+						std::string stopDate = Poco::DateTimeFormatter::format(endDt, "%Y-%m-%dT%H:%M:%S");
 
 						reqBody.set("start_date", startDate);
 						reqBody.set("stop_date", stopDate);
-						reqBody.set("start_time", startTime);
-						reqBody.set("stop_time", stopTime);
 
-						Poco::Logger::get("SDK_gw").information(fmt::format("Sending BLOCK request for client: [{}] subscriber: [{}] (start_date={}, stop_date={}, start_time={}, stop_time={}) to parental-control",
-							entry.formattedMac, SubscriberId, startDate, stopDate, startTime, stopTime));
+						Poco::Logger::get("SDK_gw").information(fmt::format("Sending BLOCK request for client: [{}] subscriber: [{}] (start_date={}, stop_date={}) to parental-control",
+							entry.formattedMac, SubscriberId, startDate, stopDate));
 					} else {
 						Poco::Logger::get("SDK_gw").information(fmt::format("Sending PERMANENT BLOCK request for client: [{}] subscriber: [{}] to parental-control", entry.formattedMac, SubscriberId));
 					}
