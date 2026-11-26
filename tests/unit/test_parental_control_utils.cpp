@@ -100,6 +100,10 @@ std::string FormatDate(const Poco::DateTime &value) {
     return Poco::DateTimeFormatter::format(value, "%Y-%m-%d");
 }
 
+std::string FormatIsoDateTime(const Poco::DateTime &value) {
+    return Poco::DateTimeFormatter::format(value, "%Y-%m-%dT%H:%M:%S");
+}
+
 Poco::DateTime ShiftDateTime(const Poco::DateTime &value, int days, int hours = 0, int minutes = 0, int seconds = 0) {
     Poco::Timestamp ts = value.timestamp();
     ts += Poco::Timespan(days, hours, minutes, seconds, 0);
@@ -966,6 +970,242 @@ void TestGetBlockedClientsClientAccessOvernightExpiredWindowInactive() {
     Expect(blockedMacs.empty(), "Expired overnight client-access window should not block client");
 }
 
+void TestGetBlockedClientsClientAccessIsoActiveRuleCrossMidnight() {
+    auto config = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+    auto configRaw = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_AA_BB_CC_DD_EE_FF", "rule"}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_AA_BB_CC_DD_EE_FF.enabled", "1"}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_AA_BB_CC_DD_EE_FF.start_date", "2026-11-25T23:00:00"}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_AA_BB_CC_DD_EE_FF.stop_date", "2026-11-26T01:00:00"}));
+    configRaw->add(MakeStringArray({"add_list", "firewall.pc_client_access_AA_BB_CC_DD_EE_FF.src_mac", "aa:bb:cc:dd:ee:ff"}));
+    config->set("config-raw", configRaw);
+
+    const std::string expectedMac = StripMac("aa:bb:cc:dd:ee:ff");
+
+    // 1. Exact start second (23:00:00 UTC) with non-UTC venue (Asia/Kolkata = +05:30)
+    {
+        std::map<std::string, std::string> blocked;
+        Poco::DateTime now(2026, 11, 25, 23, 0, 0);
+        Expect(OpenWifi::RESTAPI::ParentalControl::GetBlockedClients(config, blocked, "Asia/Kolkata", now),
+               "GetBlockedClients should succeed at exact start");
+        ExpectEq(blocked.size(), static_cast<std::size_t>(1), "Rule must be active at exact start second");
+        ExpectEq(blocked[expectedMac], std::string("2026-11-26 06:30:00"),
+                 "Asia/Kolkata blocked_until must convert 01:00 UTC to 06:30 IST");
+    }
+
+    // 2. Post-midnight active window (00:30:00 UTC next calendar day)
+    {
+        std::map<std::string, std::string> blocked;
+        Poco::DateTime now(2026, 11, 26, 0, 30, 0);
+        Expect(OpenWifi::RESTAPI::ParentalControl::GetBlockedClients(config, blocked, "Asia/Kolkata", now),
+               "GetBlockedClients should succeed after midnight");
+        ExpectEq(blocked.size(), static_cast<std::size_t>(1), "Rule must stay active across midnight");
+        ExpectEq(blocked[expectedMac], std::string("2026-11-26 06:30:00"),
+                 "Asia/Kolkata blocked_until must match 06:30 IST after midnight");
+    }
+
+    // 3. UTC fallback formatting when timezoneStr is empty
+    {
+        std::map<std::string, std::string> blocked;
+        Poco::DateTime now(2026, 11, 26, 0, 30, 0);
+        Expect(OpenWifi::RESTAPI::ParentalControl::GetBlockedClients(config, blocked, "", now),
+               "GetBlockedClients should succeed with empty timezone");
+        ExpectEq(blocked[expectedMac], std::string("2026-11-26 01:00:00"),
+                 "UTC fallback blocked_until must match 01:00 UTC");
+    }
+}
+
+void TestGetBlockedClientsClientAccessIsoExpiredRule() {
+    auto config = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+    auto configRaw = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_AA_BB_CC_DD_EE_FF", "rule"}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_AA_BB_CC_DD_EE_FF.enabled", "1"}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_AA_BB_CC_DD_EE_FF.start_date", "2026-11-25T23:00:00"}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_AA_BB_CC_DD_EE_FF.stop_date", "2026-11-26T01:00:00"}));
+    configRaw->add(MakeStringArray({"add_list", "firewall.pc_client_access_AA_BB_CC_DD_EE_FF.src_mac", "aa:bb:cc:dd:ee:ff"}));
+    config->set("config-raw", configRaw);
+
+    // Exact stop second (nowUtc == stopDt -> exclusive, expired)
+    {
+        std::map<std::string, std::string> blocked;
+        Poco::DateTime exactStop(2026, 11, 26, 1, 0, 0);
+        Expect(OpenWifi::RESTAPI::ParentalControl::GetBlockedClients(config, blocked, "Asia/Kolkata", exactStop),
+               "GetBlockedClients should succeed at exact stop");
+        Expect(blocked.empty(), "ISO rule must be inactive at exact stop second (01:00:00)");
+    }
+
+    // Well past stop second
+    {
+        std::map<std::string, std::string> blocked;
+        Poco::DateTime pastStop(2026, 11, 26, 2, 0, 0);
+        Expect(OpenWifi::RESTAPI::ParentalControl::GetBlockedClients(config, blocked, "Asia/Kolkata", pastStop),
+               "GetBlockedClients should succeed past stop");
+        Expect(blocked.empty(), "Expired ISO rule should not block client");
+    }
+}
+
+void TestGetBlockedClientsClientAccessIsoFutureRule() {
+    auto config = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+    auto configRaw = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_AA_BB_CC_DD_EE_FF", "rule"}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_AA_BB_CC_DD_EE_FF.enabled", "1"}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_AA_BB_CC_DD_EE_FF.start_date", "2026-11-25T23:00:00"}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_AA_BB_CC_DD_EE_FF.stop_date", "2026-11-26T01:00:00"}));
+    configRaw->add(MakeStringArray({"add_list", "firewall.pc_client_access_AA_BB_CC_DD_EE_FF.src_mac", "aa:bb:cc:dd:ee:ff"}));
+    config->set("config-raw", configRaw);
+
+    std::map<std::string, std::string> blocked;
+    Poco::DateTime beforeStart(2026, 11, 25, 22, 59, 59);
+    Expect(OpenWifi::RESTAPI::ParentalControl::GetBlockedClients(config, blocked, "Asia/Kolkata", beforeStart),
+           "GetBlockedClients should succeed before start");
+    Expect(blocked.empty(), "Future ISO rule should not block client 1s before start");
+}
+
+void TestGetBlockedClientsClientAccessIsoYearRollover() {
+    auto config = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+    auto configRaw = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_AA_BB_CC_DD_EE_FF", "rule"}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_AA_BB_CC_DD_EE_FF.enabled", "1"}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_AA_BB_CC_DD_EE_FF.start_date", "2026-12-31T23:00:00"}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_AA_BB_CC_DD_EE_FF.stop_date", "2027-01-01T01:00:00"}));
+    configRaw->add(MakeStringArray({"add_list", "firewall.pc_client_access_AA_BB_CC_DD_EE_FF.src_mac", "aa:bb:cc:dd:ee:ff"}));
+    config->set("config-raw", configRaw);
+
+    const std::string expectedMac = StripMac("aa:bb:cc:dd:ee:ff");
+
+    {
+        std::map<std::string, std::string> blocked;
+        Poco::DateTime dec31(2026, 12, 31, 23, 30, 0);
+        Expect(OpenWifi::RESTAPI::ParentalControl::GetBlockedClients(config, blocked, "Asia/Kolkata", dec31),
+               "GetBlockedClients should succeed on Dec 31");
+        ExpectEq(blocked.size(), static_cast<std::size_t>(1), "Year-rollover rule must be active on Dec 31");
+        ExpectEq(blocked[expectedMac], std::string("2027-01-01 06:30:00"),
+                 "Year-rollover blocked_until must format local IST in 2027");
+    }
+
+    {
+        std::map<std::string, std::string> blocked;
+        Poco::DateTime jan1(2027, 1, 1, 0, 30, 0);
+        Expect(OpenWifi::RESTAPI::ParentalControl::GetBlockedClients(config, blocked, "Asia/Kolkata", jan1),
+               "GetBlockedClients should succeed on Jan 1");
+        ExpectEq(blocked.size(), static_cast<std::size_t>(1), "Year-rollover rule must stay active on Jan 1");
+        ExpectEq(blocked[expectedMac], std::string("2027-01-01 06:30:00"),
+                 "Year-rollover blocked_until must stay 2027-01-01 06:30:00");
+    }
+
+    {
+        std::map<std::string, std::string> blocked;
+        Poco::DateTime exactStop(2027, 1, 1, 1, 0, 0);
+        Expect(OpenWifi::RESTAPI::ParentalControl::GetBlockedClients(config, blocked, "Asia/Kolkata", exactStop),
+               "GetBlockedClients should succeed at Jan 1 exact stop");
+        Expect(blocked.empty(), "Year-rollover rule must expire at exact stop second");
+    }
+}
+
+void TestGetBlockedClientsPermanentAndLegacyBlockedUntil() {
+    const std::string expectedMac = StripMac("aa:bb:cc:dd:ee:ff");
+
+    // 1. Permanent rule -> "indefinite"
+    {
+        auto config = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+        auto configRaw = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
+        configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_AA_BB_CC_DD_EE_FF", "rule"}));
+        configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_AA_BB_CC_DD_EE_FF.enabled", "1"}));
+        configRaw->add(MakeStringArray({"add_list", "firewall.pc_client_access_AA_BB_CC_DD_EE_FF.src_mac", "aa:bb:cc:dd:ee:ff"}));
+        config->set("config-raw", configRaw);
+
+        std::map<std::string, std::string> blocked;
+        Poco::DateTime now(2026, 11, 26, 0, 30, 0);
+        Expect(OpenWifi::RESTAPI::ParentalControl::GetBlockedClients(config, blocked, "Asia/Kolkata", now),
+               "GetBlockedClients should succeed for permanent block");
+        ExpectEq(blocked.size(), static_cast<std::size_t>(1), "Permanent rule must produce 1 blocked MAC");
+        ExpectEq(blocked[expectedMac], std::string("indefinite"), "Permanent rule blocked_until must be indefinite");
+    }
+
+    // 2. Legacy 4-field rule (2026-11-25 08:00:00 -> 10:00:00 UTC) -> local Asia/Kolkata 15:30:00
+    {
+        auto config = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+        auto configRaw = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
+        configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_AA_BB_CC_DD_EE_FF", "rule"}));
+        configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_AA_BB_CC_DD_EE_FF.enabled", "1"}));
+        configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_AA_BB_CC_DD_EE_FF.start_date", "2026-11-25"}));
+        configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_AA_BB_CC_DD_EE_FF.stop_date", "2026-11-26"}));
+        configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_AA_BB_CC_DD_EE_FF.start_time", "08:00:00"}));
+        configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_AA_BB_CC_DD_EE_FF.stop_time", "10:00:00"}));
+        configRaw->add(MakeStringArray({"add_list", "firewall.pc_client_access_AA_BB_CC_DD_EE_FF.src_mac", "aa:bb:cc:dd:ee:ff"}));
+        config->set("config-raw", configRaw);
+
+        std::map<std::string, std::string> blocked;
+        Poco::DateTime activeTime(2026, 11, 25, 9, 0, 0);
+        Expect(OpenWifi::RESTAPI::ParentalControl::GetBlockedClients(config, blocked, "Asia/Kolkata", activeTime),
+               "GetBlockedClients should succeed for active legacy rule");
+        ExpectEq(blocked.size(), static_cast<std::size_t>(1), "Active legacy rule must produce 1 blocked MAC");
+        ExpectEq(blocked[expectedMac], std::string("2026-11-25 15:30:00"),
+                 "Legacy rule blocked_until must convert 10:00 UTC to 15:30 IST");
+
+        std::map<std::string, std::string> expired;
+        Poco::DateTime stopTime(2026, 11, 25, 10, 0, 0);
+        Expect(OpenWifi::RESTAPI::ParentalControl::GetBlockedClients(config, expired, "Asia/Kolkata", stopTime),
+               "GetBlockedClients should succeed at legacy exact stop");
+        Expect(expired.empty(), "Legacy rule must be inactive at exact stop second");
+    }
+}
+
+void TestGetBlockedClientsClientAccessIsoRejectsInvalidVariants() {
+    Poco::DateTime now;
+    std::string validStartIso = FormatIsoDateTime(ShiftDateTime(now, 0, -1));
+    std::string validStopIso = FormatIsoDateTime(ShiftDateTime(now, 0, 1));
+    std::string validStopDateOnly = FormatDate(ShiftDateTime(now, 1));
+
+    std::string spaceStart = validStartIso;
+    spaceStart[10] = ' ';
+    std::string spaceStop = validStopIso;
+    spaceStop[10] = ' ';
+
+    std::string badSepStart = validStartIso;
+    badSepStart[10] = 'X';
+    std::string slashStart = validStartIso;
+    slashStart[4] = '/';
+    slashStart[7] = '/';
+
+    struct InvalidCase {
+        std::string label;
+        std::string startDate;
+        std::string stopDate;
+        bool includeStartTime = false;
+    };
+
+    const std::vector<InvalidCase> cases = {
+        {"space-separated timestamps", spaceStart, spaceStop, false},
+        {"bad 'X' delimiter", badSepStart, validStopIso, false},
+        {"slash date delimiters", slashStart, validStopIso, false},
+        {"fractional seconds", validStartIso + ".123", validStopIso + ".123", false},
+        {"UTC 'Z' suffix offset", validStartIso + "Z", validStopIso + "Z", false},
+        {"numeric timezone offset", validStartIso + "+05:30", validStopIso + "+05:30", false},
+        {"mixed ISO start and date-only stop", validStartIso, validStopDateOnly, false},
+        {"mixed ISO dates with start_time", validStartIso, validStopIso, true},
+    };
+
+    for (const auto &tc : cases) {
+        auto config = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+        auto configRaw = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
+        configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_AA_BB_CC_DD_EE_FF", "rule"}));
+        configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_AA_BB_CC_DD_EE_FF.enabled", "1"}));
+        configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_AA_BB_CC_DD_EE_FF.start_date", tc.startDate}));
+        configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_AA_BB_CC_DD_EE_FF.stop_date", tc.stopDate}));
+        if (tc.includeStartTime) {
+            configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_AA_BB_CC_DD_EE_FF.start_time", "00:00:00"}));
+        }
+        configRaw->add(MakeStringArray({"add_list", "firewall.pc_client_access_AA_BB_CC_DD_EE_FF.src_mac", "aa:bb:cc:dd:ee:ff"}));
+        config->set("config-raw", configRaw);
+
+        std::list<std::string> blockedMacs;
+        Expect(OpenWifi::RESTAPI::ParentalControl::GetBlockedClients(config, blockedMacs),
+               "GetBlockedClients should succeed cleanly on " + tc.label);
+        Expect(blockedMacs.empty(), "Invalid/mixed ISO variant (" + tc.label + ") must not be treated as active");
+    }
+}
+
 void TestGetBlockedClientsIncompleteRuleMissingEnabled() {
     auto config = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
     auto configRaw = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
@@ -1620,6 +1860,12 @@ const std::vector<std::pair<std::string, std::function<void()>>> kTests = {
     {"GetBlockedClientsClientAccessOvernightWindowActive", TestGetBlockedClientsClientAccessOvernightWindowActive},
     {"GetBlockedClientsClientAccessOvernightFutureWindowInactive", TestGetBlockedClientsClientAccessOvernightFutureWindowInactive},
     {"GetBlockedClientsClientAccessOvernightExpiredWindowInactive", TestGetBlockedClientsClientAccessOvernightExpiredWindowInactive},
+    {"GetBlockedClientsClientAccessIsoActiveRuleCrossMidnight", TestGetBlockedClientsClientAccessIsoActiveRuleCrossMidnight},
+    {"GetBlockedClientsClientAccessIsoExpiredRule", TestGetBlockedClientsClientAccessIsoExpiredRule},
+    {"GetBlockedClientsClientAccessIsoFutureRule", TestGetBlockedClientsClientAccessIsoFutureRule},
+    {"GetBlockedClientsClientAccessIsoYearRollover", TestGetBlockedClientsClientAccessIsoYearRollover},
+    {"GetBlockedClientsPermanentAndLegacyBlockedUntil", TestGetBlockedClientsPermanentAndLegacyBlockedUntil},
+    {"GetBlockedClientsClientAccessIsoRejectsInvalidVariants", TestGetBlockedClientsClientAccessIsoRejectsInvalidVariants},
 };
 
 } // namespace

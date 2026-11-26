@@ -10,6 +10,7 @@
 
 #pragma once
 
+#include "Poco/DateTime.h"
 #include "RESTObjects/RESTAPI_SubObjects.h"
 #include "RESTObjects/RESTAPI_ProvObjects.h"
 #include "RESTObjects/RESTAPI_GWobjects.h"
@@ -45,6 +46,13 @@ namespace OpenWifi::SDK::GW {
 					   const std::string &SubscriberId,
 					   Poco::Net::HTTPResponse::HTTPStatus &ResponseStatus,
 					   Poco::JSON::Object::Ptr &Response);
+		bool SetConfig(RESTAPIHandler *client, const Poco::JSON::Object::Ptr &Body,
+					   const ProvObjects::SubscriberDeviceList &SubscriberDevices,
+					   const std::string &GatewaySerial,
+					   const std::string &SubscriberId,
+					   Poco::Net::HTTPResponse::HTTPStatus &ResponseStatus,
+					   Poco::JSON::Object::Ptr &Response,
+					   const Poco::DateTime &nowUtc);
 		bool GetLastStats(RESTAPIHandler *client, const std::string &Mac,
 						  Poco::JSON::Object::Ptr &Response);
 		bool GetOUIs(RESTAPIHandler *client, Types::StringPairVec &MacList);

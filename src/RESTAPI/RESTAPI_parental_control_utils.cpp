@@ -907,15 +907,56 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 			std::vector<std::string> macs;
 		};
 
-		bool IsValidDate(const std::string &date) {
+		bool HasExactDigits(const std::string &value, std::size_t start, std::size_t count) {
+			if (start + count > value.size()) {
+				return false;
+			}
+			for (std::size_t i = 0; i < count; ++i) {
+				if (!std::isdigit(static_cast<unsigned char>(value[start + i]))) {
+					return false;
+				}
+			}
+			return true;
+		}
+
+		bool IsCanonicalDateOnly(const std::string &date) {
 			if (date.size() != 10) return false;
+			if (!HasExactDigits(date, 0, 4) || date[4] != '-' ||
+			    !HasExactDigits(date, 5, 2) || date[7] != '-' ||
+			    !HasExactDigits(date, 8, 2)) {
+				return false;
+			}
 			Poco::DateTime dt;
 			int tz = 0;
 			return Poco::DateTimeParser::tryParse("%Y-%m-%d", date, dt, tz);
 		}
 
+		bool IsCanonicalIsoDateTime(const std::string &date) {
+			if (date.size() != 19) return false;
+			if (!HasExactDigits(date, 0, 4) || date[4] != '-' ||
+			    !HasExactDigits(date, 5, 2) || date[7] != '-' ||
+			    !HasExactDigits(date, 8, 2) || date[10] != 'T' ||
+			    !HasExactDigits(date, 11, 2) || date[13] != ':' ||
+			    !HasExactDigits(date, 14, 2) || date[16] != ':' ||
+			    !HasExactDigits(date, 17, 2)) {
+				return false;
+			}
+			Poco::DateTime dt;
+			int tz = 0;
+			return Poco::DateTimeParser::tryParse("%Y-%m-%dT%H:%M:%S", date, dt, tz);
+		}
+
+		bool IsValidDate(const std::string &date) {
+			return IsCanonicalDateOnly(date) || IsCanonicalIsoDateTime(date);
+		}
+
 		bool IsValidTime(const std::string &time) {
 			if (time.size() != 8) return false;
+			if (!HasExactDigits(time, 0, 2) || time[2] != ':' ||
+			    !HasExactDigits(time, 3, 2) || time[5] != ':' ||
+			    !HasExactDigits(time, 6, 2)) {
+				return false;
+			}
 			Poco::DateTime dt;
 			int tz = 0;
 			return Poco::DateTimeParser::tryParse("%H:%M:%S", time, dt, tz);
@@ -986,6 +1027,29 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 				return true;
 			}
 
+			const bool startIsIso = rule.hasStartDate && IsCanonicalIsoDateTime(rule.startDate);
+			const bool stopIsIso = rule.hasStopDate && IsCanonicalIsoDateTime(rule.stopDate);
+			if (startIsIso != stopIsIso) {
+				return false;
+			}
+			if (startIsIso && stopIsIso) {
+				if (!rule.startTime.empty() || !rule.stopTime.empty()) {
+					return false;
+				}
+				Poco::DateTime startDt, stopDt;
+				int tz = 0;
+				if (!Poco::DateTimeParser::tryParse("%Y-%m-%dT%H:%M:%S", rule.startDate, startDt, tz) ||
+				    !Poco::DateTimeParser::tryParse("%Y-%m-%dT%H:%M:%S", rule.stopDate, stopDt, tz)) {
+					return false;
+				}
+
+				if (nowUtc < startDt || nowUtc >= stopDt) {
+					return false;
+				}
+				outStopEpochSec = stopDt.timestamp().epochTime();
+				return true;
+			}
+
 			if (!rule.hasStartDate || !rule.hasStopDate || !rule.hasStartTime || !rule.hasStopTime) {
 				return false;
 			}
@@ -1025,7 +1089,8 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 
 	bool GetBlockedClients(const Poco::JSON::Object::Ptr &config,
 						   std::map<std::string, std::string> &blockedMacsWithUntil,
-						   const std::string &timezoneStr) {
+						   const std::string &timezoneStr,
+						   const Poco::DateTime &nowUtc) {
 		blockedMacsWithUntil.clear();
 		if (!config || !config->has("config-raw") || !config->isArray("config-raw")) {
 			return config != nullptr;
@@ -1036,7 +1101,6 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 			return true;
 		}
 
-		Poco::DateTime nowUtc;
 		const std::string nowDateStr = Poco::DateTimeFormatter::format(nowUtc, "%Y-%m-%d");
 		const std::string nowTimeStr = Poco::DateTimeFormatter::format(nowUtc, "%H:%M:%S");
 		const int nowUtcWeekday = nowUtc.dayOfWeek();
@@ -1200,6 +1264,13 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 		}
 
 		return true;
+	}
+
+	bool GetBlockedClients(const Poco::JSON::Object::Ptr &config,
+						   std::map<std::string, std::string> &blockedMacsWithUntil,
+						   const std::string &timezoneStr) {
+		Poco::DateTime nowUtc;
+		return GetBlockedClients(config, blockedMacsWithUntil, timezoneStr, nowUtc);
 	}
 
 	bool GetBlockedClients(const Poco::JSON::Object::Ptr &config,
