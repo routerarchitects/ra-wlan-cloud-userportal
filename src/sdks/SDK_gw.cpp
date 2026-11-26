@@ -483,7 +483,8 @@ namespace OpenWifi::SDK::GW {
 											 const Poco::JSON::Object::Ptr &Body,
 											 const std::string &SubscriberId,
 											 Poco::Net::HTTPResponse::HTTPStatus &responseStatus,
-											 Poco::JSON::Object::Ptr &response) {
+											 Poco::JSON::Object::Ptr &response,
+											 const Poco::DateTime &nowUtc) {
 			if (!Config || !Body || !Body->has("client") || !Body->isArray("client")) {
 				Poco::Logger::get("SDK_gw").error("Missing or invalid 'client' array in request body.");
 				return SetErrorResponse(Poco::Net::HTTPResponse::HTTP_BAD_REQUEST,
@@ -500,8 +501,6 @@ namespace OpenWifi::SDK::GW {
 			}
 
 			Poco::Logger::get("SDK_gw").information(fmt::format("Processing {} client access entry(ies) for subscriber: [{}]", clientList->size(), SubscriberId));
-
-			Poco::JSON::Object::Ptr lastCallResponse;
 
 			struct ValidatedClientEntry {
 				std::string mac;
@@ -569,10 +568,19 @@ namespace OpenWifi::SDK::GW {
 											response);
 				}
 
+				constexpr int64_t MAX_CLIENT_ACCESS_DURATION_MINUTES = 43200; // 30 days
 				if (hasDuration && (durationIsNull || durationMinutes < 1)) {
 					Poco::Logger::get("SDK_gw").error(fmt::format("Invalid duration minutes [{}] for client MAC [{}].", durationMinutes, mac));
 					return SetErrorResponse(Poco::Net::HTTPResponse::HTTP_BAD_REQUEST,
 											RESTAPI::Errors::InvalidDuration, responseStatus,
+											response);
+				}
+
+				if (hasDuration && durationMinutes > MAX_CLIENT_ACCESS_DURATION_MINUTES) {
+					Poco::Logger::get("SDK_gw").error(fmt::format("Duration minutes [{}] exceeds maximum [{}] for client MAC [{}].",
+						durationMinutes, MAX_CLIENT_ACCESS_DURATION_MINUTES, mac));
+					return SetErrorResponse(Poco::Net::HTTPResponse::HTTP_BAD_REQUEST,
+											RESTAPI::Errors::DurationExceedsMaximum, responseStatus,
 											response);
 				}
 
@@ -589,6 +597,8 @@ namespace OpenWifi::SDK::GW {
 			}
 
 			// Pass 2: Execute REST calls downstream (guaranteed that all entries are locally valid)
+			bool hasChangedConfigRaw = false;
+			Poco::JSON::Array::Ptr latestChangedConfigRaw;
 			for (const auto &entry : validatedEntries) {
 				Poco::Net::HTTPResponse::HTTPStatus callStatus = Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR;
 				Poco::JSON::Object::Ptr callResponse;
@@ -598,10 +608,9 @@ namespace OpenWifi::SDK::GW {
 					reqBody.set("client_mac", entry.formattedMac);
 
 					if (entry.hasDuration) {
-						Poco::DateTime now;
-						std::string startDate = Poco::DateTimeFormatter::format(now, "%Y-%m-%dT%H:%M:%S");
+						std::string startDate = Poco::DateTimeFormatter::format(nowUtc, "%Y-%m-%dT%H:%M:%S");
 
-						Poco::DateTime endDt = now + Poco::Timespan(entry.durationMinutes * 60, 0);
+						Poco::DateTime endDt = nowUtc + Poco::Timespan(entry.durationMinutes * 60, 0);
 						std::string stopDate = Poco::DateTimeFormatter::format(endDt, "%Y-%m-%dT%H:%M:%S");
 
 						reqBody.set("start_date", startDate);
@@ -620,7 +629,6 @@ namespace OpenWifi::SDK::GW {
 						response = callResponse ? callResponse : Poco::makeShared<Poco::JSON::Object>();
 						return false;
 					}
-					lastCallResponse = callResponse;
 				} else {
 					std::string rawResponseBody;
 					Poco::Logger::get("SDK_gw").information(fmt::format("Sending UNBLOCK request for client: [{}] subscriber: [{}] to parental-control",
@@ -633,20 +641,33 @@ namespace OpenWifi::SDK::GW {
 						response = callResponse ? callResponse : Poco::makeShared<Poco::JSON::Object>();
 						return false;
 					}
-					lastCallResponse = callResponse;
+				}
+
+				Poco::JSON::Array::Ptr entryConfigRaw;
+				if (!RESTAPI::ParentalControl::ExtractConfigRawSnapshot(callResponse, entryConfigRaw, true)) {
+					Poco::Logger::get("SDK_gw").error(fmt::format(
+						"Invalid config-raw payload from parental-control for client: [{}] subscriber: [{}]",
+						entry.formattedMac, SubscriberId));
+					return SetErrorResponse(Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR,
+											RESTAPI::Errors::InternalError, responseStatus, response);
+				}
+				if (entryConfigRaw) {
+					latestChangedConfigRaw = entryConfigRaw;
+					hasChangedConfigRaw = true;
 				}
 			}
 
-			Poco::JSON::Array::Ptr configRaw;
-			if (lastCallResponse && RESTAPI::ParentalControl::ExtractConfigRawSnapshot(lastCallResponse, configRaw, false) && configRaw && configRaw->size() > 0) {
-				Poco::Logger::get("SDK_gw").information(fmt::format("Updated config-raw snapshot with {} rule(s) from parental-control", configRaw->size()));
-				Config->set("config-raw", configRaw);
-			} else {
-				Poco::Logger::get("SDK_gw").information("No active parental control rules remaining, clearing config-raw section");
-				if (Config->has("config-raw")) {
-					Config->remove("config-raw");
-				}
+			if (!hasChangedConfigRaw) {
+				Poco::Logger::get("SDK_gw").information("Parental-control returned no-op (config-raw: null); preserving existing config-raw");
+				return true;
 			}
+
+			if (latestChangedConfigRaw->size() > 0) {
+				Poco::Logger::get("SDK_gw").information(fmt::format("Updated config-raw snapshot with {} rule(s) from parental-control", latestChangedConfigRaw->size()));
+			} else {
+				Poco::Logger::get("SDK_gw").information("No active parental control rules remaining, forwarding empty config-raw snapshot []");
+			}
+			Config->set("config-raw", latestChangedConfigRaw);
 			return true;
 		}
 
@@ -673,6 +694,17 @@ namespace OpenWifi::SDK::GW {
 					   const std::string &GatewaySerial, const std::string &SubscriberId,
 					   Poco::Net::HTTPResponse::HTTPStatus &ResponseStatus,
 					   Poco::JSON::Object::Ptr &Response) {
+			Poco::DateTime nowUtc;
+			return SetConfig(client, Body, SubscriberDevices, GatewaySerial, SubscriberId,
+							 ResponseStatus, Response, nowUtc);
+		}
+
+		bool SetConfig(RESTAPIHandler *client, const Poco::JSON::Object::Ptr &Body,
+					   const ProvObjects::SubscriberDeviceList &SubscriberDevices,
+					   const std::string &GatewaySerial, const std::string &SubscriberId,
+					   Poco::Net::HTTPResponse::HTTPStatus &ResponseStatus,
+					   Poco::JSON::Object::Ptr &Response,
+					   const Poco::DateTime &nowUtc) {
 			if (!Body) {
 				return SetErrorResponse(Poco::Net::HTTPResponse::HTTP_BAD_REQUEST,
 										RESTAPI::Errors::MissingOrInvalidParameters, ResponseStatus,
@@ -716,7 +748,7 @@ namespace OpenWifi::SDK::GW {
 			}
 
 			if (Body->has("client") &&
-				!ApplyClientAccessChanges(client, config, Body, SubscriberId, ResponseStatus, Response)) {
+				!ApplyClientAccessChanges(client, config, Body, SubscriberId, ResponseStatus, Response, nowUtc)) {
 				return false;
 			}
 			const auto updatedConfigSnapshot = SerializeJson(config);

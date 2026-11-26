@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "Poco/DateTime.h"
 #include "Poco/JSON/Array.h"
 #include "Poco/JSON/Object.h"
 #include "framework/RESTAPI_Handler.h"
@@ -22,6 +23,7 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 
 	bool GetBlockedClients(const Poco::JSON::Object::Ptr &config, std::list<std::string> &blockedMacs);
 	bool GetBlockedClients(const Poco::JSON::Object::Ptr &config, std::map<std::string, std::string> &blockedMacsWithUntil, const std::string &timezoneStr = "");
+	bool GetBlockedClients(const Poco::JSON::Object::Ptr &config, std::map<std::string, std::string> &blockedMacsWithUntil, const std::string &timezoneStr, const Poco::DateTime &nowUtc);
 
 	// =========================================================================
 	// Schedule Helpers

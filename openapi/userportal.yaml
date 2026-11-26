@@ -200,7 +200,8 @@ components:
           type: integer
           format: int64
           minimum: 1
-          description: 'Optional block duration in minutes. Valid only when access is "deny". Duration-based client blocking is limited to the current block day (the computed block end time must not cross midnight). When omitted, the client is blocked permanently until an "allow" request explicitly removes the block. The property must be omitted for a permanent block; null and values below 1 are invalid.'
+          maximum: 43200
+          description: 'Optional block duration in minutes (1 to 43,200 minutes / 30 days). Valid only when access is "deny". Timed blocks may cross midnight and span multiple calendar days up to 30 days. When omitted, the client is blocked permanently until an "allow" request explicitly removes the block. The property must be omitted for a permanent block; null, values below 1, and values above 43,200 are invalid.'
       additionalProperties: false
 
     ActionSuccessResponse:
@@ -1658,7 +1659,7 @@ paths:
       tags:
         - Device Commands
       summary: Sending different commands to a device
-      description: "Executes device control commands (configure, reboot, blink, upgrade, factory). For action=configure, applies network configuration changes including SSID overrides and client-access parental control rules to the gateway. For client-access rules: access='deny' with a duration creates a timed block limited to the current block day (end time cannot cross midnight); access='deny' without duration creates a permanent block (duration property must be omitted; null and values below 1 are invalid); access='allow' removes an existing block (duration property is not allowed with allow). One client-access rule may exist per subscriber and MAC; sending a new deny request for an already blocked client replaces the existing block state without requiring an intermediate allow request. A timed block may be replaced with a new duration, a permanent block may be replaced by a timed block, and a timed block may be replaced by a permanent block."
+      description: "Executes device control commands (configure, reboot, blink, upgrade, factory). For action=configure, applies network configuration changes including SSID overrides and client-access parental control rules to the gateway. For client-access rules: access='deny' with a duration creates a timed block of 1 to 43,200 minutes (30 days) which may cross midnight and span multiple calendar days; access='deny' without duration creates a permanent block (duration property must be omitted; null, values below 1, and values above 43,200 are invalid); access='allow' removes an existing block (duration property is not allowed with allow). One client-access rule may exist per subscriber and MAC; sending a new deny request for an already blocked client replaces the existing block state without requiring an intermediate allow request. A timed block may be replaced with a new duration, a permanent block may be replaced by a timed block, and a timed block may be replaced by a permanent block."
       operationId: performAnAction
       security:
         - bearerAuth: []

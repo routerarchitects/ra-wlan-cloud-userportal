@@ -465,6 +465,7 @@ namespace OpenWifi::RESTAPI::Errors {
 	static const struct msg InvalidAccess { 1204, "Access must be 'allow' or 'deny'." };
 	static const struct msg TimezoneRequired { 1205, "Subscriber timezone is required. Set the venue timezone before continuing." };
 	static const struct msg SubscriberLocationAlreadyConfigured { 1206, "A location is already configured for this subscriber venue." };
+	static const struct msg DurationExceedsMaximum { 1207, "Duration must not exceed 43200 minutes (30 days)." };
 
 } // namespace OpenWifi::RESTAPI::Errors
 
