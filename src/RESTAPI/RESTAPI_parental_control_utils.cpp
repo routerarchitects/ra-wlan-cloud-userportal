@@ -1085,6 +1085,29 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 			outStopEpochSec = stopDt.timestamp().epochTime();
 			return true;
 		}
+
+		// Format stopEpoch as ISO-8601 with explicit venue UTC offset (e.g. +05:30),
+		// falling back to UTC 'Z' if timezoneStr is empty or unresolvable.
+		std::string FormatBlockedUntil(int64_t stopEpoch, const std::string &timezoneStr, Poco::Logger &logger) {
+			if (stopEpoch == -1) {
+				return "indefinite";
+			}
+			if (!timezoneStr.empty()) {
+				try {
+					const auto *zone = date::locate_zone(timezoneStr);
+					auto sysSec = date::floor<std::chrono::seconds>(
+						std::chrono::system_clock::from_time_t(static_cast<std::time_t>(stopEpoch)));
+					auto zonedTp = date::make_zoned(zone, sysSec);
+					return date::format("%Y-%m-%dT%H:%M:%S%Ez", zonedTp);
+				} catch (const std::exception &e) {
+					logger.warning(fmt::format("Failed to format blocked_until for timezone [{}]: {}", timezoneStr, e.what()));
+				} catch (...) {
+					logger.warning(fmt::format("Failed to format blocked_until for timezone [{}]: unknown error", timezoneStr));
+				}
+			}
+			Poco::DateTime stopDt(Poco::Timestamp::fromEpochTime(stopEpoch));
+			return Poco::DateTimeFormatter::format(stopDt, "%Y-%m-%dT%H:%M:%SZ");
+		}
 	} // namespace
 
 	bool GetBlockedClients(const Poco::JSON::Object::Ptr &config,
@@ -1235,30 +1258,7 @@ namespace OpenWifi::RESTAPI::ParentalControl {
 
 		auto &logger = Poco::Logger::get("ParentalControl");
 		for (const auto &[mac, stopEpoch] : macStopEpochMap) {
-			std::string untilStr;
-			if (stopEpoch == -1) {
-				untilStr = "indefinite";
-			} else {
-				bool converted = false;
-				if (!timezoneStr.empty()) {
-					try {
-						const auto *zone = date::locate_zone(timezoneStr);
-						auto sysTp = std::chrono::system_clock::from_time_t(static_cast<std::time_t>(stopEpoch));
-						auto localTp = date::make_zoned(zone, sysTp).get_local_time();
-						auto localSec = date::floor<std::chrono::seconds>(localTp);
-						untilStr = date::format("%Y-%m-%d %H:%M:%S", localSec);
-						converted = true;
-					} catch (const std::exception &e) {
-						logger.warning(fmt::format("Failed to format blocked_until for timezone [{}]: {}", timezoneStr, e.what()));
-					} catch (...) {
-						logger.warning(fmt::format("Failed to format blocked_until for timezone [{}]: unknown error", timezoneStr));
-					}
-				}
-				if (!converted) {
-					Poco::DateTime stopDt(Poco::Timestamp::fromEpochTime(stopEpoch));
-					untilStr = Poco::DateTimeFormatter::format(stopDt, "%Y-%m-%d %H:%M:%S");
-				}
-			}
+			const std::string untilStr = FormatBlockedUntil(stopEpoch, timezoneStr, logger);
 			blockedMacsWithUntil[mac] = untilStr;
 			logger.debug(fmt::format("Active blocked client MAC found: {} (blocked_until={})", Utils::SerialToMAC(mac), untilStr));
 		}

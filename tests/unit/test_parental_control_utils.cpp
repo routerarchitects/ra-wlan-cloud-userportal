@@ -989,8 +989,8 @@ void TestGetBlockedClientsClientAccessIsoActiveRuleCrossMidnight() {
         Expect(OpenWifi::RESTAPI::ParentalControl::GetBlockedClients(config, blocked, "Asia/Kolkata", now),
                "GetBlockedClients should succeed at exact start");
         ExpectEq(blocked.size(), static_cast<std::size_t>(1), "Rule must be active at exact start second");
-        ExpectEq(blocked[expectedMac], std::string("2026-11-26 06:30:00"),
-                 "Asia/Kolkata blocked_until must convert 01:00 UTC to 06:30 IST");
+        ExpectEq(blocked[expectedMac], std::string("2026-11-26T06:30:00+05:30"),
+                 "Asia/Kolkata blocked_until must convert 01:00 UTC to 06:30 IST with +05:30 offset");
     }
 
     // 2. Post-midnight active window (00:30:00 UTC next calendar day)
@@ -1000,8 +1000,8 @@ void TestGetBlockedClientsClientAccessIsoActiveRuleCrossMidnight() {
         Expect(OpenWifi::RESTAPI::ParentalControl::GetBlockedClients(config, blocked, "Asia/Kolkata", now),
                "GetBlockedClients should succeed after midnight");
         ExpectEq(blocked.size(), static_cast<std::size_t>(1), "Rule must stay active across midnight");
-        ExpectEq(blocked[expectedMac], std::string("2026-11-26 06:30:00"),
-                 "Asia/Kolkata blocked_until must match 06:30 IST after midnight");
+        ExpectEq(blocked[expectedMac], std::string("2026-11-26T06:30:00+05:30"),
+                 "Asia/Kolkata blocked_until must match 06:30 IST with +05:30 offset after midnight");
     }
 
     // 3. UTC fallback formatting when timezoneStr is empty
@@ -1010,8 +1010,8 @@ void TestGetBlockedClientsClientAccessIsoActiveRuleCrossMidnight() {
         Poco::DateTime now(2026, 11, 26, 0, 30, 0);
         Expect(OpenWifi::RESTAPI::ParentalControl::GetBlockedClients(config, blocked, "", now),
                "GetBlockedClients should succeed with empty timezone");
-        ExpectEq(blocked[expectedMac], std::string("2026-11-26 01:00:00"),
-                 "UTC fallback blocked_until must match 01:00 UTC");
+        ExpectEq(blocked[expectedMac], std::string("2026-11-26T01:00:00Z"),
+                 "UTC fallback blocked_until must include Z suffix");
     }
 }
 
@@ -1079,8 +1079,8 @@ void TestGetBlockedClientsClientAccessIsoYearRollover() {
         Expect(OpenWifi::RESTAPI::ParentalControl::GetBlockedClients(config, blocked, "Asia/Kolkata", dec31),
                "GetBlockedClients should succeed on Dec 31");
         ExpectEq(blocked.size(), static_cast<std::size_t>(1), "Year-rollover rule must be active on Dec 31");
-        ExpectEq(blocked[expectedMac], std::string("2027-01-01 06:30:00"),
-                 "Year-rollover blocked_until must format local IST in 2027");
+        ExpectEq(blocked[expectedMac], std::string("2027-01-01T06:30:00+05:30"),
+                 "Year-rollover blocked_until must format local IST with +05:30 offset in 2027");
     }
 
     {
@@ -1089,8 +1089,8 @@ void TestGetBlockedClientsClientAccessIsoYearRollover() {
         Expect(OpenWifi::RESTAPI::ParentalControl::GetBlockedClients(config, blocked, "Asia/Kolkata", jan1),
                "GetBlockedClients should succeed on Jan 1");
         ExpectEq(blocked.size(), static_cast<std::size_t>(1), "Year-rollover rule must stay active on Jan 1");
-        ExpectEq(blocked[expectedMac], std::string("2027-01-01 06:30:00"),
-                 "Year-rollover blocked_until must stay 2027-01-01 06:30:00");
+        ExpectEq(blocked[expectedMac], std::string("2027-01-01T06:30:00+05:30"),
+                 "Year-rollover blocked_until must stay 2027-01-01T06:30:00+05:30");
     }
 
     {
@@ -1140,8 +1140,8 @@ void TestGetBlockedClientsPermanentAndLegacyBlockedUntil() {
         Expect(OpenWifi::RESTAPI::ParentalControl::GetBlockedClients(config, blocked, "Asia/Kolkata", activeTime),
                "GetBlockedClients should succeed for active legacy rule");
         ExpectEq(blocked.size(), static_cast<std::size_t>(1), "Active legacy rule must produce 1 blocked MAC");
-        ExpectEq(blocked[expectedMac], std::string("2026-11-25 15:30:00"),
-                 "Legacy rule blocked_until must convert 10:00 UTC to 15:30 IST");
+        ExpectEq(blocked[expectedMac], std::string("2026-11-25T15:30:00+05:30"),
+                 "Legacy rule blocked_until must convert 10:00 UTC to 15:30 IST with +05:30 offset");
 
         std::map<std::string, std::string> expired;
         Poco::DateTime stopTime(2026, 11, 25, 10, 0, 0);
@@ -1204,6 +1204,95 @@ void TestGetBlockedClientsClientAccessIsoRejectsInvalidVariants() {
                "GetBlockedClients should succeed cleanly on " + tc.label);
         Expect(blockedMacs.empty(), "Invalid/mixed ISO variant (" + tc.label + ") must not be treated as active");
     }
+}
+
+void TestGetBlockedClientsNegativeOffsetDstAndInvalidFallback() {
+    const std::string expectedMac = StripMac("aa:bb:cc:dd:ee:ff");
+
+    // 1. Negative UTC offset (America/New_York = -05:00 in mid-November) and invalid timezone Z fallback
+    {
+        auto config = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+        auto configRaw = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
+        configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_AA_BB_CC_DD_EE_FF", "rule"}));
+        configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_AA_BB_CC_DD_EE_FF.enabled", "1"}));
+        configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_AA_BB_CC_DD_EE_FF.start_date", "2026-11-17T02:30:00"}));
+        configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_AA_BB_CC_DD_EE_FF.stop_date", "2026-11-17T04:30:00"}));
+        configRaw->add(MakeStringArray({"add_list", "firewall.pc_client_access_AA_BB_CC_DD_EE_FF.src_mac", "aa:bb:cc:dd:ee:ff"}));
+        config->set("config-raw", configRaw);
+
+        std::map<std::string, std::string> blocked;
+        Poco::DateTime now(2026, 11, 17, 2, 30, 0);
+        Expect(OpenWifi::RESTAPI::ParentalControl::GetBlockedClients(config, blocked, "America/New_York", now),
+               "GetBlockedClients should succeed for America/New_York");
+        ExpectEq(blocked[expectedMac], std::string("2026-11-16T23:30:00-05:00"),
+                 "America/New_York blocked_until must include -05:00 offset across UTC midnight");
+
+        std::map<std::string, std::string> fallbackBlocked;
+        Expect(OpenWifi::RESTAPI::ParentalControl::GetBlockedClients(config, fallbackBlocked, "Invalid/Timezone", now),
+               "GetBlockedClients should fall back cleanly on invalid timezone");
+        ExpectEq(fallbackBlocked[expectedMac], std::string("2026-11-17T04:30:00Z"),
+                 "Invalid timezone fallback blocked_until must format UTC with Z suffix");
+    }
+
+    // 2. DST fall-back repeated hour on 2026-11-01 in America/New_York:
+    //    05:30:00 UTC -> 01:30:00-04:00 (EDT) vs 06:30:00 UTC -> 01:30:00-05:00 (EST)
+    {
+        auto makeIsoConfig = [](const std::string &startIso, const std::string &stopIso) {
+            auto config = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+            auto configRaw = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
+            configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_AA_BB_CC_DD_EE_FF", "rule"}));
+            configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_AA_BB_CC_DD_EE_FF.enabled", "1"}));
+            configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_AA_BB_CC_DD_EE_FF.start_date", startIso}));
+            configRaw->add(MakeStringArray({"set", "firewall.pc_client_access_AA_BB_CC_DD_EE_FF.stop_date", stopIso}));
+            configRaw->add(MakeStringArray({"add_list", "firewall.pc_client_access_AA_BB_CC_DD_EE_FF.src_mac", "aa:bb:cc:dd:ee:ff"}));
+            config->set("config-raw", configRaw);
+            return config;
+        };
+
+        std::map<std::string, std::string> edtBlocked;
+        auto edtConfig = makeIsoConfig("2026-11-01T04:30:00", "2026-11-01T05:30:00");
+        Expect(OpenWifi::RESTAPI::ParentalControl::GetBlockedClients(
+                   edtConfig, edtBlocked, "America/New_York", Poco::DateTime(2026, 11, 1, 4, 45, 0)),
+               "GetBlockedClients should succeed before DST fall-back");
+        ExpectEq(edtBlocked[expectedMac], std::string("2026-11-01T01:30:00-04:00"),
+                 "First 01:30 AM on DST fall-back must carry -04:00 offset");
+
+        std::map<std::string, std::string> estBlocked;
+        auto estConfig = makeIsoConfig("2026-11-01T04:30:00", "2026-11-01T06:30:00");
+        Expect(OpenWifi::RESTAPI::ParentalControl::GetBlockedClients(
+                   estConfig, estBlocked, "America/New_York", Poco::DateTime(2026, 11, 1, 5, 45, 0)),
+               "GetBlockedClients should succeed after DST fall-back");
+        ExpectEq(estBlocked[expectedMac], std::string("2026-11-01T01:30:00-05:00"),
+                 "Second 01:30 AM on DST fall-back must carry -05:00 offset");
+    }
+}
+
+void TestGetBlockedClientsGroupScheduleBlockedUntilWithOffset() {
+    auto config = Poco::JSON::Object::Ptr(new Poco::JSON::Object());
+    auto configRaw = Poco::JSON::Array::Ptr(new Poco::JSON::Array());
+    configRaw->add(MakeStringArray({"set", "firewall.pc_rule_g1_s1_5a_f8_57_ca_a5_3e", "rule"}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_rule_g1_s1_5a_f8_57_ca_a5_3e.enabled", "1"}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_rule_g1_s1_5a_f8_57_ca_a5_3e.weekdays", "Mon"}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_rule_g1_s1_5a_f8_57_ca_a5_3e.start_time", "22:00:00"}));
+    configRaw->add(MakeStringArray({"set", "firewall.pc_rule_g1_s1_5a_f8_57_ca_a5_3e.stop_time", "02:00:00"}));
+    configRaw->add(MakeStringArray({"add_list", "firewall.pc_rule_g1_s1_5a_f8_57_ca_a5_3e.src_mac", "5a:f8:57:ca:a5:3e"}));
+    config->set("config-raw", configRaw);
+
+    const std::string expectedMac = StripMac("5a:f8:57:ca:a5:3e");
+    // 2026-11-16 is a Monday; overnight stop is 2026-11-17T02:00:00Z
+    Poco::DateTime nowMonUtc(2026, 11, 16, 23, 0, 0);
+
+    std::map<std::string, std::string> istBlocked;
+    Expect(OpenWifi::RESTAPI::ParentalControl::GetBlockedClients(config, istBlocked, "Asia/Kolkata", nowMonUtc),
+           "GetBlockedClients should succeed for active overnight schedule in Asia/Kolkata");
+    ExpectEq(istBlocked[expectedMac], std::string("2026-11-17T07:30:00+05:30"),
+             "Schedule blocked_until in Asia/Kolkata must include +05:30 offset");
+
+    std::map<std::string, std::string> nyBlocked;
+    Expect(OpenWifi::RESTAPI::ParentalControl::GetBlockedClients(config, nyBlocked, "America/New_York", nowMonUtc),
+           "GetBlockedClients should succeed for active overnight schedule in America/New_York");
+    ExpectEq(nyBlocked[expectedMac], std::string("2026-11-16T21:00:00-05:00"),
+             "Schedule blocked_until in America/New_York must include -05:00 offset");
 }
 
 void TestGetBlockedClientsIncompleteRuleMissingEnabled() {
@@ -1866,6 +1955,8 @@ const std::vector<std::pair<std::string, std::function<void()>>> kTests = {
     {"GetBlockedClientsClientAccessIsoYearRollover", TestGetBlockedClientsClientAccessIsoYearRollover},
     {"GetBlockedClientsPermanentAndLegacyBlockedUntil", TestGetBlockedClientsPermanentAndLegacyBlockedUntil},
     {"GetBlockedClientsClientAccessIsoRejectsInvalidVariants", TestGetBlockedClientsClientAccessIsoRejectsInvalidVariants},
+    {"GetBlockedClientsNegativeOffsetDstAndInvalidFallback", TestGetBlockedClientsNegativeOffsetDstAndInvalidFallback},
+    {"GetBlockedClientsGroupScheduleBlockedUntilWithOffset", TestGetBlockedClientsGroupScheduleBlockedUntilWithOffset},
 };
 
 } // namespace
